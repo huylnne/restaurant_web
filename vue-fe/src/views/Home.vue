@@ -11,7 +11,7 @@
           <a href="#">Khuyến mãi</a>
           <a href="#">Tin tức</a>
           <a href="#">Liên hệ</a>
-          <a href="#">Tài khoản</a>
+          <router-link to="/login">Tài khoản</router-link>
         </div>
       </div>
       <!-- Đặt ngay dưới <body> hoặc ngoài .container -->
@@ -57,30 +57,62 @@
 
       <!-- Nav Menu -->
       <nav class="nav-menu">
-        <a href="#">TRANG CHỦ</a>
-        <a href="#">GIỚI THIỆU</a>
+        <router-link to="/" class="nav-link" active-class="active">TRANG CHỦ</router-link>
+        <router-link to="/about" class="nav-link" active-class="active"
+          >GIỚI THIỆU</router-link
+        >
+
         <div class="dropdown">
           <span>SẢN PHẨM ▾</span>
           <div class="dropdown-content">
-            <a href="#">Món 1</a>
-            <a href="#">Món 2</a>
+            <router-link to="/product/mon1" class="nav-link">Món 1</router-link>
+            <router-link to="/product/mon2" class="nav-link">Món 2</router-link>
           </div>
         </div>
-        <a href="#">KHUYẾN MÃI</a>
-        <a href="#">TIN TỨC</a>
-        <a href="#">LIÊN HỆ</a>
+
+        <router-link to="/sale" class="nav-link" active-class="active"
+          >KHUYẾN MÃI</router-link
+        >
+        <router-link to="/news" class="nav-link" active-class="active"
+          >TIN TỨC</router-link
+        >
+        <router-link to="/contact" class="nav-link" active-class="active"
+          >LIÊN HỆ</router-link
+        >
+        <router-link to="/login" class="nav-link" active-class="active"
+          >TÀI KHOẢN</router-link
+        >
+
         <div class="nav-menu_icon">
-          <el-icon>
-            <Search />
-          </el-icon>
-          <el-icon>
-            <ShoppingCart />
-          </el-icon>
+          <el-icon><Search /></el-icon>
+          <el-icon><ShoppingCart /></el-icon>
         </div>
       </nav>
+
       <div class="zigzag-border"></div>
     </div>
-    <div class="home-page_body"></div>
+    <div class="home-page_body">
+      <div class="slider-carousel">
+        <div
+          class="slider-carousel-track"
+          :class="{ 'no-transition': !isTransitionEnabled }"
+          :style="{ transform: `translateX(-${currentIndex * 60}vw)` }"
+        >
+          <img
+            v-for="(img, index) in images"
+            :key="index"
+            :src="img"
+            class="slider-carousel-image"
+          />
+        </div>
+
+        <!-- Nút trái -->
+        <button class="arrow left" @click="prevSlide">‹</button>
+
+        <!-- Nút phải -->
+        <button class="arrow right" @click="nextSlide">›</button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -89,6 +121,58 @@ import { useRouter } from "vue-router";
 const router = useRouter();
 import { Search } from "@element-plus/icons-vue";
 import { ShoppingCart } from "@element-plus/icons-vue";
+import { ref, onMounted, onBeforeUnmount } from "vue";
+
+const realImages = [
+  "/images/homeimg1.png",
+  "/images/homeimg2.png",
+  "/images/homeimg3.png",
+];
+
+const images = [realImages[realImages.length - 1], ...realImages, realImages[0]]; // clone cuối - thật - clone đầu
+const currentIndex = ref(1);
+const isTransitionEnabled = ref(true); // 🔥 thêm dòng này
+
+let intervalId = null;
+
+onMounted(() => {
+  intervalId = setInterval(() => {
+    currentIndex.value += 1;
+    isTransitionEnabled.value = true;
+
+    if (currentIndex.value >= images.length - 1) {
+      setTimeout(() => {
+        isTransitionEnabled.value = false;
+        currentIndex.value = 1;
+      }, 600); // trùng với CSS transition
+    }
+  }, 3000);
+});
+
+onBeforeUnmount(() => {
+  clearInterval(intervalId);
+});
+
+const prevSlide = () => {
+  currentIndex.value -= 1;
+  isTransitionEnabled.value = true;
+
+  if (currentIndex.value <= 0) {
+    setTimeout(() => {
+      isTransitionEnabled.value = false;
+      currentIndex.value = images.length - 2;
+    }, 600);
+  }
+};
+
+const nextSlide = () => {
+  currentIndex.value += 1;
+  if (currentIndex.value >= images.length - 1) {
+    setTimeout(() => {
+      currentIndex.value = 1;
+    }, 600);
+  }
+};
 </script>
 
 <style scoped>
@@ -272,5 +356,73 @@ import { ShoppingCart } from "@element-plus/icons-vue";
 .home-page_body {
   background-color: #f0e9dc;
   min-height: 100vh;
+}
+
+.slider-carousel {
+  width: 60vw;
+  overflow: hidden;
+  margin: 0 auto;
+  position: relative;
+  height: 600px; /* chỉnh theo ảnh bạn */
+}
+
+.slider-carousel-track {
+  display: flex;
+  transition: transform 0.6s ease-in-out;
+}
+
+.slider-carousel-image {
+  width: 60vw;
+  height: 100%;
+  flex-shrink: 0;
+  object-fit: cover;
+  border-radius: 10px;
+}
+
+.arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 40px;
+  background: rgba(255, 255, 255, 0.7);
+  border: none;
+  cursor: pointer;
+  padding: 0 12px;
+  z-index: 10;
+  border-radius: 50%;
+  transition: background 0.3s;
+}
+
+.arrow:hover {
+  background: #f2b94c;
+  color: white;
+}
+
+.arrow.left {
+  left: 10px;
+}
+
+.arrow.right {
+  right: 10px;
+}
+
+.no-transition {
+  transition: none !important;
+}
+
+.nav-link {
+  text-decoration: none;
+  color: #333;
+  font-weight: bold;
+}
+
+.nav-link:hover {
+  color: #f2b94c;
+}
+
+.router-link-exact-active,
+.nav-link.active {
+  color: #f2b94c;
+  border-bottom: 2px solid #f2b94c;
 }
 </style>

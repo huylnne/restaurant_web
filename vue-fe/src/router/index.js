@@ -17,7 +17,12 @@ const routes = [
     path: '/',
     name: 'Home',
     component:Home // hoặc import trực tiếp nếu bạn không dùng lazy-loading
-  }
+  },
+  {
+    path: '/register',
+    name: 'Register',
+    component: () => import('../views/RegisterView.vue')
+  }  
   
   
 ];

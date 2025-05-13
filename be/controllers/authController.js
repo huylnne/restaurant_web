@@ -1,34 +1,58 @@
-const pool = require('../models/db');
-// const bcrypt = require('bcrypt');  // Tạm không cần nếu bỏ mã hóa
-const jwt = require('jsonwebtoken');
-
+const { Op } = require("sequelize");
+const jwt = require("jsonwebtoken");
+const User = require("../models/User"); // Đảm bảo đã export đúng Sequelize model
 
 const login = async (req, res) => {
-  const { username, password } = req.body;
   try {
-    const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    if (result.rows.length === 0) return res.status(401).json({ message: 'Tài khoản không tồn tại' });
+    // 1. Chuẩn hóa input
+    const rawUsername = req.body.username || "";
+    const username = rawUsername.trim().toLowerCase();
+    const password = req.body.password;
 
-    const user = result.rows[0];
+    // 2. Tìm user theo username không phân biệt hoa thường
+    const user = await User.findOne({
+      where: {
+        username: {
+          [Op.iLike]: username, // PostgreSQL hỗ trợ ILIKE
+        },
+      },
+    });
 
-    // So sánh mật khẩu thường
-    if (password !== user.password_hash) {
-      return res.status(401).json({ message: 'Sai mật khẩu' });
+    if (!user) {
+      console.log("❌ Không tìm thấy user:", username);
+      return res.status(401).json({ message: "Tài khoản không tồn tại" });
     }
 
+    // 3. So sánh mật khẩu thường
+    if (user.password_hash !== password) {
+      console.log("❌ Sai mật khẩu:", password, "!=", user.password_hash);
+      return res.status(401).json({ message: "Sai mật khẩu" });
+    }
+
+    // 4. Tạo JWT
     const token = jwt.sign(
-      { user_id: user.user_id, username: user.username, role: user.role },
-      process.env.JWT_SECRET,
-      { expiresIn: '2h' }
+      {
+        user_id: user.user_id,
+        username: user.username,
+        role: user.role,
+      },
+      process.env.JWT_SECRET || "default_secret",
+      { expiresIn: "2h" }
     );
 
-    res.json({ token, user: { username: user.username, role: user.role, full_name: user.full_name } });
+    // 5. Trả về token và user info
+    return res.json({
+      token,
+      user: {
+        username: user.username,
+        role: user.role,
+        full_name: user.full_name,
+      },
+    });
   } catch (error) {
-    console.error(error);
-    res.status(500).json({ message: 'Lỗi server' });
+    console.error("🔥 Lỗi khi login:", error);
+    res.status(500).json({ message: "Lỗi server" });
   }
 };
-
-// bcrypt.hash("123456", 10).then(console.log); // Không cần nữa
 
 module.exports = { login };
