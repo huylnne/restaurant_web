@@ -12,6 +12,21 @@ app.get('/', (req, res) => {
   res.send('Hello from Backend');
 });
 
+const db = require('./models/db');
+
+db.sequelize.authenticate()
+  .then(() => {
+    console.log('✅ Kết nối DB thành công');
+    return db.sequelize.sync({ alter: true }); // ⬅ Thêm dòng này
+  })
+  .then(() => {
+    console.log('✅ Sequelize đã sync models');
+  })
+  .catch((err) => {
+    console.error('❌ Lỗi kết nối DB:', err);
+  });
+
+
 const menuRoutes = require('./routes/menuRoutes');
 app.use('/api/menu', menuRoutes);
 
@@ -28,3 +43,6 @@ app.use('/api/home', homeRoutes);
 
 const userRoutes = require('./routes/userRoutes');
 app.use('/api/users', userRoutes);
+
+const menuItemRoutes = require("./routes/menuItem.routes");
+app.use("/api/menu-items", menuItemRoutes);

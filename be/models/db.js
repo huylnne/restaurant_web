@@ -1,8 +1,17 @@
-const { Pool } = require('pg');
-require('dotenv').config();
+const { Sequelize, DataTypes } = require("sequelize");
+require("dotenv").config();
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
+const sequelize = new Sequelize(process.env.DATABASE_URL, {
+  dialect: "postgres",
+  logging: false,
 });
 
-module.exports = pool;
+const db = {};
+db.Sequelize = Sequelize;
+db.sequelize = sequelize;
+
+// Import models
+db.User = require("./User")(sequelize, DataTypes);
+db.MenuItem = require("./MenuItem")(sequelize, DataTypes);
+
+module.exports = db;

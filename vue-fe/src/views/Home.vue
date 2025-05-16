@@ -112,6 +112,19 @@
         <!-- Nút phải -->
         <button class="arrow right" @click="nextSlide">›</button>
       </div>
+      <section class="featured-dishes">
+        <h2 class="section-title">Món ăn nổi bật</h2>
+        <div class="dish-grid">
+          <div class="dish-card" v-for="(dish, index) in featuredDishes" :key="index">
+            <img :src="dish.image" :alt="dish.name" />
+            <div class="dish-info">
+              <h3>{{ dish.name }}</h3>
+              <p>{{ dish.description }}</p>
+              <button>Đặt món</button>
+            </div>
+          </div>
+        </div>
+      </section>
     </div>
   </div>
 </template>
@@ -173,6 +186,33 @@ const nextSlide = () => {
     }, 600);
   }
 };
+const featuredDishes = ref([
+  {
+    name: "Phở Bò",
+    description: "Đậm đà hương vị truyền thống",
+    image: "/images/pho.jpg",
+  },
+  {
+    name: "Bánh Mì Thịt",
+    description: "Giòn rụm, đậm vị Việt",
+    image: "/images/banhmi.jpg",
+  },
+  {
+    name: "Cơm Tấm",
+    description: "Chuẩn vị Sài Gòn",
+    image: "/images/comtam.jpg",
+  },
+  {
+    name: "Bún Chả",
+    description: "Hương vị Hà Nội xưa",
+    image: "/images/buncha.jpg",
+  },
+  {
+    name: "Gỏi Cuốn",
+    description: "Tươi ngon, thanh mát",
+    image: "/images/goicuon.jpg",
+  },
+]);
 </script>
 
 <style scoped>
@@ -424,5 +464,75 @@ const nextSlide = () => {
 .nav-link.active {
   color: #f2b94c;
   border-bottom: 2px solid #f2b94c;
+}
+
+.featured-dishes {
+  padding: 50px 20px;
+  background: #fff;
+  text-align: center;
+}
+
+.section-title {
+  font-size: 28px;
+  margin-bottom: 40px;
+  color: #a16500;
+}
+
+.dish-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 24px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.dish-card {
+  background: #fffaf3;
+  border-radius: 12px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.dish-card:hover {
+  transform: translateY(-4px);
+}
+
+.dish-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+}
+
+.dish-info {
+  padding: 16px;
+}
+
+.dish-info h3 {
+  font-size: 20px;
+  margin-bottom: 8px;
+  color: #333;
+}
+
+.dish-info p {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 16px;
+}
+
+.dish-info button {
+  background-color: #a16500;
+  color: white;
+  border: none;
+  padding: 10px 16px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.dish-info button:hover {
+  background-color: #804d00;
 }
 </style>

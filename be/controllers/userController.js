@@ -1,4 +1,6 @@
-const User = require('../models/User')
+const db = require("../models/db"); // hoặc ../models nếu bạn dùng index.js trong models/
+const User = db.User;
+
 
 exports.registerUser = async (req, res) => {
   try {

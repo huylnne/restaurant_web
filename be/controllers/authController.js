@@ -1,6 +1,8 @@
 const { Op } = require("sequelize");
 const jwt = require("jsonwebtoken");
-const User = require("../models/User"); // Đảm bảo đã export đúng Sequelize model
+const db = require("../models/db");      // ✅ Import toàn bộ models đã inject
+const User = db.User;                // ✅ Lấy model User
+
 
 const login = async (req, res) => {
   try {

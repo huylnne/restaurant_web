@@ -83,7 +83,7 @@ const handleRegister = async () => {
 }
 
 .register-left {
-  flex: 1;
+  width: 40%;
 }
 
 .register-image {

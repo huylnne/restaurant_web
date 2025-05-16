@@ -18,8 +18,9 @@
             <input v-model="username" placeholder="Tên đăng nhập" required />
             <input v-model="password" type="password" placeholder="Mật khẩu" required />
           </div>
-          <button type="submit" :disabled="isLoading">
+          <button type="submit" :disabled="isLoading || isSuccess">
             <span v-if="isLoading" class="spinner"></span>
+            <span v-else-if="isSuccess" class="success-check">✓</span>
             <span v-else>Đăng nhập</span>
           </button>
           <p v-if="errorMessage">{{ errorMessage }}</p>
@@ -38,22 +39,35 @@ const username = ref("");
 const password = ref("");
 const errorMessage = ref("");
 const isLoading = ref(false);
+const isSuccess = ref(false);
 const router = useRouter();
 
 const handleLogin = async () => {
   isLoading.value = true;
   errorMessage.value = "";
+  isSuccess.value = false;
+
   try {
     const res = await axios.post("http://localhost:3000/api/auth/login", {
       username: username.value,
       password: password.value,
     });
+
     localStorage.setItem("token", res.data.token);
-    router.push("/"); // chuyển trang, không alert
+
+    setTimeout(() => {
+      isLoading.value = false;
+      isSuccess.value = true;
+
+      setTimeout(() => {
+        router.push("/");
+      }, 800);
+    }, 1000); // giữ loading 1s rồi mới hiển thị ✓
   } catch (err) {
-    errorMessage.value = err.response?.data?.message || "Lỗi đăng nhập";
-  } finally {
-    isLoading.value = false;
+    setTimeout(() => {
+      isLoading.value = false;
+      errorMessage.value = err.response?.data?.message || "Lỗi đăng nhập";
+    }, 1000); // giữ loading 1s rồi mới báo lỗi
   }
 };
 </script>
@@ -140,6 +154,24 @@ button:hover {
 @keyframes spin {
   to {
     transform: rotate(360deg);
+  }
+}
+
+.success-check {
+  font-size: 20px;
+  color: #4ade80;
+  font-weight: bold;
+  animation: scaleUp 0.2s ease-out;
+}
+
+@keyframes scaleUp {
+  0% {
+    transform: scale(0.6);
+    opacity: 0;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
   }
 }
 
