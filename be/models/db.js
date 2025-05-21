@@ -13,5 +13,7 @@ db.sequelize = sequelize;
 // Import models
 db.User = require("./User")(sequelize, DataTypes);
 db.MenuItem = require("./MenuItem")(sequelize, DataTypes);
+db.Table = require("./Table")(sequelize, DataTypes);
+db.Reservation = require("./Reservation")(sequelize, DataTypes);
 
 module.exports = db;

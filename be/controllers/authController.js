@@ -1,7 +1,7 @@
 const { Op } = require("sequelize");
 const jwt = require("jsonwebtoken");
-const db = require("../models/db");      // ✅ Import toàn bộ models đã inject
-const User = db.User;                // ✅ Lấy model User
+const db = require("../models/db");      
+const User = db.User;                
 
 
 const login = async (req, res) => {
@@ -13,12 +13,16 @@ const login = async (req, res) => {
 
     // 2. Tìm user theo username không phân biệt hoa thường
     const user = await User.findOne({
-      where: {
-        username: {
-          [Op.iLike]: username, // PostgreSQL hỗ trợ ILIKE
-        },
-      },
+      where: { username: { [Op.iLike]: username } },
+      // ⚠️ Bỏ attributes để trả toàn bộ
     });
+    console.log('👀 user.user_id là:', user.user_id); // phải có giá trị
+    console.log("🧪 user raw:", user);
+console.log("🧪 user.user_id:", user.user_id);
+
+    
+    
+    
 
     if (!user) {
       console.log("❌ Không tìm thấy user:", username);

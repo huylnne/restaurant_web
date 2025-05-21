@@ -33,7 +33,11 @@ module.exports = (sequelize, DataTypes) => {
         created_at: {
           type: DataTypes.DATE,
           defaultValue: DataTypes.NOW,
-        }
+        },
+        image_url: {
+          type: DataTypes.TEXT,
+        },
+        
       }, {
         tableName: 'menu_items',     // ✅ phải nằm ở object thứ 2
         timestamps: false

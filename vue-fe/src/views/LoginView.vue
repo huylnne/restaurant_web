@@ -60,7 +60,7 @@ const handleLogin = async () => {
       isSuccess.value = true;
 
       setTimeout(() => {
-        router.push("/");
+        router.push("/dashboard");
       }, 800);
     }, 1000); // giữ loading 1s rồi mới hiển thị ✓
   } catch (err) {

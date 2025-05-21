@@ -1,6 +1,8 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const uploadRoute = require("./routes/upload");
+const path = require("path");
 require('dotenv').config();
 
 
@@ -46,3 +48,13 @@ app.use('/api/users', userRoutes);
 
 const menuItemRoutes = require("./routes/menuItem.routes");
 app.use("/api/menu-items", menuItemRoutes);
+
+
+
+app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+
+// Dùng route upload
+app.use("/api/upload", uploadRoute);
+
+const reservationRoutes = require('./routes/reservationRoutes');
+app.use('/api/reservations', reservationRoutes);

@@ -79,9 +79,6 @@
         <router-link to="/contact" class="nav-link" active-class="active"
           >LIÊN HỆ</router-link
         >
-        <router-link to="/login" class="nav-link" active-class="active"
-          >TÀI KHOẢN</router-link
-        >
 
         <div class="nav-menu_icon">
           <el-icon><Search /></el-icon>
@@ -116,7 +113,8 @@
         <h2 class="section-title">Món ăn nổi bật</h2>
         <div class="dish-grid">
           <div class="dish-card" v-for="(dish, index) in featuredDishes" :key="index">
-            <img :src="dish.image" :alt="dish.name" />
+            <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
+
             <div class="dish-info">
               <h3>{{ dish.name }}</h3>
               <p>{{ dish.description }}</p>
@@ -135,6 +133,7 @@ const router = useRouter();
 import { Search } from "@element-plus/icons-vue";
 import { ShoppingCart } from "@element-plus/icons-vue";
 import { ref, onMounted, onBeforeUnmount } from "vue";
+import axios from "axios";
 
 const realImages = [
   "/images/homeimg1.png",
@@ -186,33 +185,16 @@ const nextSlide = () => {
     }, 600);
   }
 };
-const featuredDishes = ref([
-  {
-    name: "Phở Bò",
-    description: "Đậm đà hương vị truyền thống",
-    image: "/images/pho.jpg",
-  },
-  {
-    name: "Bánh Mì Thịt",
-    description: "Giòn rụm, đậm vị Việt",
-    image: "/images/banhmi.jpg",
-  },
-  {
-    name: "Cơm Tấm",
-    description: "Chuẩn vị Sài Gòn",
-    image: "/images/comtam.jpg",
-  },
-  {
-    name: "Bún Chả",
-    description: "Hương vị Hà Nội xưa",
-    image: "/images/buncha.jpg",
-  },
-  {
-    name: "Gỏi Cuốn",
-    description: "Tươi ngon, thanh mát",
-    image: "/images/goicuon.jpg",
-  },
-]);
+const featuredDishes = ref([]);
+onMounted(async () => {
+  try {
+    const response = await axios.get("http://localhost:3000/api/menu-items/featured");
+    featuredDishes.value = response.data;
+    console.log("Dữ liệu món ăn:", featuredDishes.value);
+  } catch (error) {
+    console.error("Không tải được danh sách món ăn nổi bật:", error);
+  }
+});
 </script>
 
 <style scoped>
@@ -224,8 +206,8 @@ const featuredDishes = ref([
 }
 
 .home-page_header {
-  max-width: 1200px; /* hoặc 1280px, tuỳ bạn */
-  margin: 0 auto; /* ✅ căn giữa ngang */
+  max-width: 1200px;
+  margin: 0 auto;
   padding: 0 20px; /* tránh dính mép ở mobile */
   width: 100%;
   position: relative;
@@ -480,7 +462,7 @@ const featuredDishes = ref([
 
 .dish-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 24px;
   max-width: 1200px;
   margin: 0 auto;
@@ -502,8 +484,10 @@ const featuredDishes = ref([
 
 .dish-card img {
   width: 100%;
-  height: 180px;
+  height: 400px; /* hoặc 180px, tùy layout */
   object-fit: cover;
+  border-top-left-radius: 12px;
+  border-top-right-radius: 12px;
 }
 
 .dish-info {
