@@ -18,7 +18,6 @@ const login = async (req, res) => {
     });
     console.log('👀 user.user_id là:', user.user_id); // phải có giá trị
     console.log("🧪 user raw:", user);
-console.log("🧪 user.user_id:", user.user_id);
 
     
     

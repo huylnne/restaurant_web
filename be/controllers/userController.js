@@ -40,8 +40,6 @@ exports.getProfile = async (req, res) => {
       console.log("❌ Không tìm thấy user trong DB với id:", req.userId);
       return res.status(404).json({ message: 'User không tồn tại' });
     }
-
-    // ✅ TRẢ VỀ DỮ LIỆU
     return res.status(200).json({
       name: user.full_name,
       avatar: user.avatar_url,

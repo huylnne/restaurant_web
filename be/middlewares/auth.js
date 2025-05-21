@@ -11,8 +11,6 @@ module.exports = (req, res, next) => {
     console.log('🎯 Token payload:', payload);
     console.log('✅ Gán userId vào req:', payload.user_id);
     req.userId = payload.user_id;
-
-    req.userId = payload.user_id; // ✅ sửa đúng key: userId
     next();
   } catch {
     res.status(403).json({ message: 'Token không hợp lệ' });

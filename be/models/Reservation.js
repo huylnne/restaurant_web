@@ -5,7 +5,11 @@ module.exports = (sequelize, DataTypes) => {
         primaryKey: true,
         autoIncrement: true
       },
-      user_id: DataTypes.INTEGER,
+      user_id: {
+        type: DataTypes.INTEGER,
+        allowNull: false   // ⬅️ ép phải có
+      },
+      
       branch_id: DataTypes.INTEGER,
       table_id: DataTypes.INTEGER,
       reservation_time: DataTypes.DATE,

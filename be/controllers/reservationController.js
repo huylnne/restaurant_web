@@ -5,10 +5,7 @@ const { Op } = db.Sequelize;
 
 const createReservation = async (req, res) => {
   try {
-    const user_id = req.userId; // ✅ lấy từ token, không lấy từ body
-    console.log("💡 user_id từ token:", user_id);
-
-
+    const user_id = req.userId; 
     const { reservation_time, number_of_guests } = req.body;
 
     // 1. Tìm bàn phù hợp còn trống
@@ -25,8 +22,10 @@ const createReservation = async (req, res) => {
     }
 
     // 2. Tạo reservation
+    console.log("🧪 Gán user_id:", req.userId);
+
     const reservation = await Reservation.create({
-      user_id,
+      user_id:req.userId,
       branch_id: 1,
       table_id: table.table_id,
       reservation_time,
