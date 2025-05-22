@@ -8,8 +8,8 @@ module.exports = (req, res, next) => {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
 
     console.log("🎯 payload decoded:", payload);  // 👈 log test
-    console.log('🎯 Token payload:', payload);
-    console.log('✅ Gán userId vào req:', payload.user_id);
+
+
     req.userId = payload.user_id;
     next();
   } catch {

@@ -2,45 +2,38 @@
 
 module.exports = {
   async up(queryInterface, Sequelize) {
-    // 1. Lấy danh sách user_id có sẵn
+    const now = new Date();
+
+    // Lấy danh sách user và table có thực trong DB
     const users = await queryInterface.sequelize.query(
-      'SELECT user_id FROM users LIMIT 3;',
-      { type: Sequelize.QueryTypes.SELECT }
+      `SELECT user_id FROM users WHERE branch_id = 1;`
     );
-
-    // 2. Lấy danh sách table_id có sẵn
     const tables = await queryInterface.sequelize.query(
-      'SELECT table_id FROM tables LIMIT 5;',
-      { type: Sequelize.QueryTypes.SELECT }
+      `SELECT table_id FROM tables WHERE branch_id = 1;`
     );
 
-    if (users.length === 0 || tables.length === 0) {
-      console.log('❌ Không có user hoặc table để seed reservation!');
-      return;
-    }
+    const userIds = users[0].map(u => u.user_id);
+    const tableIds = tables[0].map(t => t.table_id);
 
-    // 3. Tạo danh sách seed reservations
     const reservations = [];
 
     for (let i = 0; i < 10; i++) {
-      const user = users[Math.floor(Math.random() * users.length)];
-      const table = tables[Math.floor(Math.random() * tables.length)];
-
       reservations.push({
-        user_id: user.user_id,
+        user_id: userIds[Math.floor(Math.random() * userIds.length)],
+        table_id: tableIds[Math.floor(Math.random() * tableIds.length)],
         branch_id: 1,
-        table_id: table.table_id,
-        reservation_time: new Date(Date.now() + i * 3600000), // mỗi cái cách nhau 1 giờ
-        number_of_guests: Math.floor(Math.random() * 5) + 1,
-        status: ['confirmed', 'pending', 'cancelled'][i % 3],
-        created_at: new Date()
+        reservation_time: new Date(Date.now() + Math.random() * 7 * 24 * 60 * 60 * 1000),
+        number_of_guests: Math.floor(Math.random() * 6) + 2,
+        status: 'confirmed',
+        created_at: now,
       });
     }
 
-    await queryInterface.bulkInsert('reservations', reservations);
+    await queryInterface.bulkDelete('reservations', { branch_id: 1 });
+    await queryInterface.bulkInsert('reservations', reservations, {});
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.bulkDelete('reservations', null, {});
+    await queryInterface.bulkDelete('reservations', { branch_id: 1 });
   }
 };

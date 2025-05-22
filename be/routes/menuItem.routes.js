@@ -6,3 +6,5 @@ const menuItemController = require("../controllers/menuItem.controller");
 router.get("/featured", menuItemController.getFeaturedMenuItems);
 
 module.exports = router;
+// GET /api/menu-items
+router.get("/", menuItemController.getAllMenuItems);

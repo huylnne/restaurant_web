@@ -14,23 +14,22 @@ const login = async (req, res) => {
     // 2. Tìm user theo username không phân biệt hoa thường
     const user = await User.findOne({
       where: { username: { [Op.iLike]: username } },
-      // ⚠️ Bỏ attributes để trả toàn bộ
+
     });
-    console.log('👀 user.user_id là:', user.user_id); // phải có giá trị
-    console.log("🧪 user raw:", user);
+
 
     
     
     
 
     if (!user) {
-      console.log("❌ Không tìm thấy user:", username);
+
       return res.status(401).json({ message: "Tài khoản không tồn tại" });
     }
 
     // 3. So sánh mật khẩu thường
     if (user.password_hash !== password) {
-      console.log("❌ Sai mật khẩu:", password, "!=", user.password_hash);
+
       return res.status(401).json({ message: "Sai mật khẩu" });
     }
 

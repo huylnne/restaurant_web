@@ -22,7 +22,7 @@ const createReservation = async (req, res) => {
     }
 
     // 2. Tạo reservation
-    console.log("🧪 Gán user_id:", req.userId);
+
 
     const reservation = await Reservation.create({
       user_id:req.userId,

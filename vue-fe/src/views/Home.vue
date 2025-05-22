@@ -5,13 +5,7 @@
       <div class="top-bar">
         <span>Chào mừng bạn đến với HLFood!</span>
         <div class="right-links">
-          <a href="#">Trang chủ</a>
-          <a href="#">Giới thiệu</a>
-          <a href="#">Sản phẩm</a>
-          <a href="#">Khuyến mãi</a>
-          <a href="#">Tin tức</a>
-          <a href="#">Liên hệ</a>
-          <router-link to="/login">Tài khoản</router-link>
+          <router-link to="/login">Đăng ký/Đăng nhập</router-link>
         </div>
       </div>
       <!-- Đặt ngay dưới <body> hoặc ngoài .container -->
@@ -63,7 +57,7 @@
         >
 
         <div class="dropdown">
-          <span>SẢN PHẨM ▾</span>
+          <span>THỰC ĐƠN ▾</span>
           <div class="dropdown-content">
             <router-link to="/product/mon1" class="nav-link">Món 1</router-link>
             <router-link to="/product/mon2" class="nav-link">Món 2</router-link>
@@ -109,20 +103,30 @@
         <!-- Nút phải -->
         <button class="arrow right" @click="nextSlide">›</button>
       </div>
-      <section class="featured-dishes">
+      <div class="featured-dishes">
         <h2 class="section-title">Món ăn nổi bật</h2>
-        <div class="dish-grid">
-          <div class="dish-card" v-for="(dish, index) in featuredDishes" :key="index">
-            <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
+        <div class="dish-grid-wrapper">
+          <button class="scroll-left" @click="scrollLeft">‹</button>
 
-            <div class="dish-info">
-              <h3>{{ dish.name }}</h3>
-              <p>{{ dish.description }}</p>
-              <button>Đặt món</button>
+          <div class="dish-grid" ref="dishGrid">
+            <div
+              class="dish-card"
+              v-for="(dish, index) in featuredDishes"
+              :key="index"
+              ref="dishCards"
+            >
+              <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
+              <div class="dish-info">
+                <h3>{{ dish.name }}</h3>
+                <p>{{ dish.description }}</p>
+                <button>Đặt món</button>
+              </div>
             </div>
           </div>
+
+          <button class="scroll-right" @click="scrollRight">›</button>
         </div>
-      </section>
+      </div>
     </div>
   </div>
 </template>
@@ -195,6 +199,23 @@ onMounted(async () => {
     console.error("Không tải được danh sách món ăn nổi bật:", error);
   }
 });
+
+import { nextTick } from "vue"; // đảm bảo đã import
+
+const dishGrid = ref(null);
+const dishCards = ref([]);
+
+const scrollByCard = (direction) => {
+  if (!dishCards.value.length) return;
+  const itemWidth = dishCards.value[0].offsetWidth + 24; // 24 = gap
+  dishGrid.value.scrollBy({
+    left: direction === "right" ? itemWidth : -itemWidth,
+    behavior: "smooth",
+  });
+};
+
+const scrollLeft = () => scrollByCard("left");
+const scrollRight = () => scrollByCard("right");
 </script>
 
 <style scoped>
@@ -378,6 +399,9 @@ onMounted(async () => {
 .home-page_body {
   background-color: #f0e9dc;
   min-height: 100vh;
+  justify-content: center;
+  align-items: center;
+  text-align: center;
 }
 
 .slider-carousel {
@@ -452,6 +476,13 @@ onMounted(async () => {
   padding: 50px 20px;
   background: #fff;
   text-align: center;
+
+  max-width: 1200px; /* ✅ Giới hạn chiều ngang */
+  width: 100%;
+  margin: 0 auto; /* ✅ Căn giữa */
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .section-title {
@@ -461,14 +492,53 @@ onMounted(async () => {
 }
 
 .dish-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+  display: flex;
+  overflow-x: auto;
   gap: 24px;
+  width: 100%;
+  scroll-behavior: smooth;
+  padding-bottom: 10px;
   max-width: 1200px;
-  margin: 0 auto;
+  scrollbar-width: none; /* Firefox */
+  -ms-overflow-style: none; /* IE/Edge */
+}
+
+.dish-grid::-webkit-scrollbar {
+  display: none; /* Chrome/Safari */
+}
+
+.dish-grid-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  justify-content: center;
+}
+
+.scroll-left,
+.scroll-right {
+  position: absolute;
+  top: 30%;
+  transform: translateY(-50%);
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  font-size: 24px;
+  padding: 8px 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-left {
+  left: 0;
+}
+.scroll-right {
+  right: 0;
 }
 
 .dish-card {
+  flex: 0 0 calc(20% - 18px);
+  flex-shrink: 0;
   background: #fffaf3;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);

@@ -5,12 +5,6 @@
       <div class="top-bar">
         <span>Chào mừng bạn đến với HLFood!</span>
         <div class="right-links">
-          <a href="#">Trang chủ</a>
-          <a href="#">Giới thiệu</a>
-          <a href="#">Thực đơn</a>
-          <a href="#">Khuyến mãi</a>
-          <a href="#">Tin tức</a>
-          <a href="#">Liên hệ</a>
           <template v-if="!isLoggedIn">
             <router-link to="/login" class="nav-link" active-class="active">
               TÀI KHOẢN
@@ -76,7 +70,14 @@
 
       <!-- Nav Menu -->
       <nav class="nav-menu">
-        <router-link to="/" class="nav-link" active-class="active">TRANG CHỦ</router-link>
+        <router-link
+          :to="isLoggedIn ? '/dashboard' : '/'"
+          class="nav-link"
+          active-class="active"
+        >
+          TRANG CHỦ
+        </router-link>
+
         <router-link to="/about" class="nav-link" active-class="active"
           >GIỚI THIỆU</router-link
         >
@@ -108,58 +109,88 @@
       <div class="zigzag-border"></div>
     </div>
     <div class="home-page_body">
-      <div class="slider-carousel">
-        <div
-          class="slider-carousel-track"
-          :class="{ 'no-transition': !isTransitionEnabled }"
-          :style="{ transform: `translateX(-${currentIndex * 60}vw)` }"
-        >
-          <img
-            v-for="(img, index) in images"
-            :key="index"
-            :src="img"
-            class="slider-carousel-image"
-          />
-        </div>
-
-        <!-- Nút trái -->
-        <button class="arrow left" @click="prevSlide">‹</button>
-
-        <!-- Nút phải -->
-        <button class="arrow right" @click="nextSlide">›</button>
-      </div>
-      <QuickBooking />
-
-      <section class="featured-dishes-with-sidebar">
-        <aside class="sidebar">
-          <div class="sidebar-section">
-            <h3>DANH MỤC MÓN ĂN</h3>
-            <ul>
-              <li><a href="#">Món ăn phẩm mới</a></li>
-              <li><a href="#">Món ăn được khuyến mãi</a></li>
-              <li><a href="#">Món ăn nổi bật</a></li>
-              <li><a href="#">Pizza</a></li>
-              <li><a href="#">Bánh ngọt</a></li>
-              <li><a href="#">Bánh kem</a></li>
-              <li><a href="#">Đồ ăn nhẹ</a></li>
-            </ul>
+      <div class="container">
+        <div class="slider-carousel">
+          <div
+            class="slider-carousel-track"
+            :class="{ 'no-transition': !isTransitionEnabled }"
+            :style="{ transform: `translateX(-${currentIndex * 60}vw)` }"
+          >
+            <img
+              v-for="(img, index) in images"
+              :key="index"
+              :src="img"
+              class="slider-carousel-image"
+            />
           </div>
-        </aside>
 
+          <!-- Nút trái -->
+          <button class="arrow left" @click="prevSlide">‹</button>
+
+          <!-- Nút phải -->
+          <button class="arrow right" @click="nextSlide">›</button>
+        </div>
+        <QuickBooking />
         <div class="featured-dishes">
           <h2 class="section-title">Món ăn nổi bật</h2>
-          <div class="dish-grid">
-            <div class="dish-card" v-for="(dish, index) in featuredDishes" :key="index">
-              <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
-              <div class="dish-info">
-                <h3>{{ dish.name }}</h3>
-                <p>{{ dish.description }}</p>
-                <button>Đặt món</button>
+          <div class="dish-grid-wrapper">
+            <button class="scroll-left" @click="scrollLeft">‹</button>
+
+            <div class="dish-grid" ref="dishGrid">
+              <div
+                class="dish-card"
+                v-for="(dish, index) in featuredDishes"
+                :key="index"
+                ref="dishCards"
+              >
+                <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
+                <div class="dish-info">
+                  <h3>{{ dish.name }}</h3>
+                  <p>{{ dish.description }}</p>
+                  <button>Đặt món</button>
+                </div>
+              </div>
+            </div>
+
+            <button class="scroll-right" @click="scrollRight">›</button>
+          </div>
+        </div>
+        <section class="featured-dishes-with-sidebar">
+          <aside class="sidebar">
+            <div class="sidebar-section">
+              <h3>DANH MỤC MÓN ĂN</h3>
+              <ul>
+                <li><a href="#">Món ăn mới</a></li>
+                <li><a href="#">Món ăn được khuyến mãi</a></li>
+                <li><a href="#">Món ăn nổi bật</a></li>
+                <li><a href="#">Pizza</a></li>
+                <li><a href="#">Bánh ngọt</a></li>
+                <li><a href="#">Bánh kem</a></li>
+                <li><a href="#">Đồ ăn nhẹ</a></li>
+              </ul>
+            </div>
+          </aside>
+          <div class="all-dishes">
+            <h2 class="section-title">Tất cả món ăn</h2>
+            <div class="dish-list">
+              <div
+                class="dish-card"
+                v-for="(dish, index) in allMenuItems"
+                :key="'all-' + index"
+              >
+                <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
+                <div class="dish-info">
+                  <h3>{{ dish.name }}</h3>
+                  <p>{{ dish.description }}</p>
+                  <p>
+                    <strong>{{ dish.price.toLocaleString() }} đ</strong>
+                  </p>
+                </div>
               </div>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
+      </div>
     </div>
   </div>
 </template>
@@ -239,7 +270,6 @@ onMounted(async () => {
   try {
     const response = await axios.get("http://localhost:3000/api/menu-items/featured");
     featuredDishes.value = response.data;
-    console.log("Dữ liệu món ăn:", featuredDishes.value);
   } catch (error) {
     console.error("Không tải được danh sách món ăn nổi bật:", error);
   }
@@ -256,7 +286,6 @@ onMounted(async () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       user.value = res.data;
-      console.log("Avatar URL:", user.value.avatar);
 
       isLoggedIn.value = true;
     } catch (err) {
@@ -270,6 +299,36 @@ const getAvatarUrl = (path) => {
   if (path.startsWith("http")) return path;
   return `http://localhost:3000${path}`;
 };
+
+const dishGrid = ref(null);
+const dishCards = ref([]);
+
+const scrollByCard = (direction) => {
+  if (!dishCards.value.length) return;
+  const itemWidth = dishCards.value[0].offsetWidth + 24; // 24 = gap
+  dishGrid.value.scrollBy({
+    left: direction === "right" ? itemWidth : -itemWidth,
+    behavior: "smooth",
+  });
+};
+
+const scrollLeft = () => scrollByCard("left");
+const scrollRight = () => scrollByCard("right");
+
+const allMenuItems = ref([]);
+
+onMounted(async () => {
+  try {
+    const [featuredRes, allRes] = await Promise.all([
+      axios.get("http://localhost:3000/api/menu-items/featured"),
+      axios.get("http://localhost:3000/api/menu-items"),
+    ]);
+    featuredDishes.value = featuredRes.data;
+    allMenuItems.value = allRes.data;
+  } catch (error) {
+    console.error("Không tải được món ăn:", error);
+  }
+});
 </script>
 
 <style scoped>
@@ -278,6 +337,12 @@ const getAvatarUrl = (path) => {
   display: flex;
   flex-direction: column;
   justify-content: center;
+}
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0;
+  width: 100%;
 }
 
 .home-page_header {
@@ -466,6 +531,7 @@ const getAvatarUrl = (path) => {
   margin: 0 auto;
   position: relative;
   height: 600px; /* chỉnh theo ảnh bạn */
+  max-width: 100%;
 }
 
 .slider-carousel-track {
@@ -532,6 +598,8 @@ const getAvatarUrl = (path) => {
   padding: 50px 20px;
   background: #fff;
   text-align: center;
+  max-width: 1200px;
+  width: 100%;
 }
 
 .section-title {
@@ -541,14 +609,18 @@ const getAvatarUrl = (path) => {
 }
 
 .dish-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  display: flex;
+  overflow-x: auto;
   gap: 24px;
-  max-width: 1200px;
-  margin: 0 auto;
+  width: 100%;
+
+  padding-bottom: 10px;
 }
 
 .dish-card {
+  flex: 0 0 calc(20% - 18px);
+  flex-shrink: 0;
+
   background: #fffaf3;
   border-radius: 12px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
@@ -564,7 +636,7 @@ const getAvatarUrl = (path) => {
 
 .dish-card img {
   width: 100%;
-  height: 400px; /* hoặc 180px, tùy layout */
+  height: 200px; /* hoặc 180px, tùy layout */
   object-fit: cover;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;
@@ -675,5 +747,84 @@ const getAvatarUrl = (path) => {
 
 .sidebar-section ul li a:hover {
   color: #f2b94c;
+}
+
+.router-link-exact-active.nav-link {
+  color: #f2b94c;
+  border-bottom: 2px solid #f2b94c;
+}
+
+.dish-grid-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.scroll-left,
+.scroll-right {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 2;
+  background: rgba(255, 255, 255, 0.9);
+  border: none;
+  font-size: 24px;
+  padding: 8px 12px;
+  cursor: pointer;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.scroll-left {
+  left: 0;
+}
+.scroll-right {
+  right: 0;
+}
+
+.all-dishes {
+  flex: 1;
+}
+
+.all-dishes .dish-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+  gap: 20px;
+}
+
+.all-dishes .dish-card {
+  background: #fffaf3;
+  border-radius: 12px;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  overflow: hidden;
+  transition: transform 0.3s ease;
+  display: flex;
+  flex-direction: column;
+}
+
+.all-dishes .dish-card:hover {
+  transform: translateY(-4px);
+}
+
+.all-dishes .dish-card img {
+  width: 100%;
+  height: 160px;
+  object-fit: cover;
+}
+
+.all-dishes .dish-info {
+  padding: 12px;
+}
+
+.all-dishes .dish-info h3 {
+  font-size: 18px;
+  margin-bottom: 6px;
+  color: #333;
+}
+
+.all-dishes .dish-info p {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
 }
 </style>

@@ -3,7 +3,7 @@ const MenuItem = db.MenuItem;
 
 const getFeaturedMenuItems = async (req, res) => {
     try {
-      console.log("🟡 Gọi vào controller getFeaturedMenuItems");
+
   
       const featuredItems = await MenuItem.findAll({
         where: {
@@ -12,7 +12,7 @@ const getFeaturedMenuItems = async (req, res) => {
         },
       });
   
-      console.log("🎯 Dữ liệu trả về:", featuredItems);
+
   
       res.json(featuredItems);
     } catch (error) {
@@ -20,6 +20,20 @@ const getFeaturedMenuItems = async (req, res) => {
       res.status(500).json({ message: "Lỗi server" });
     }
   };
-  
 
-module.exports = { getFeaturedMenuItems };
+
+  const getAllMenuItems = async (req, res) => {
+    try {
+      const items = await MenuItem.findAll();
+      res.json(items);
+    } catch (error) {
+      console.error("❌ Lỗi khi lấy danh sách món ăn:", error);
+      res.status(500).json({ message: "Lỗi server" });
+    }
+  };
+  
+  module.exports = {
+    getFeaturedMenuItems,
+    getAllMenuItems,
+  };
+  

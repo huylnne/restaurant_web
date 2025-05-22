@@ -1,31 +1,31 @@
-const { faker } = require("@faker-js/faker");
+// seeders/20250521-users.js
+'use strict';
 
-const roles = ["admin", "waiter", "kitchen", "manager", "user"];
+const { faker } = require('@faker-js/faker');
 
 module.exports = {
   async up(queryInterface, Sequelize) {
+    const now = new Date();
     const users = [];
 
-    for (let i = 1; i <= 100; i++) {
-      const firstName = faker.person.firstName();
-      const lastName = faker.person.lastName();
-
+    for (let i = 0; i < 100; i++) {
       users.push({
-        username: `user${i}`,
-        password_hash: "123456", // chưa hash
-        role: roles[Math.floor(Math.random() * roles.length)],
-        full_name: `${firstName} ${lastName}`,
-        phone: faker.phone.number("09########"),
-        created_at: new Date(),
+        branch_id: 1,
+        username: faker.internet.userName() + faker.number.int({ min: 1000, max: 9999 }),
+        password_hash: faker.internet.password(),
+        role: 'user', // hoặc 'user' nếu enum đúng tên đó
+        full_name: faker.person.fullName(),
+        phone: faker.phone.number('09########'),
+        created_at: now,
         avatar_url: faker.image.avatar(),
-        branch_id: 1
       });
     }
 
-    await queryInterface.bulkInsert("users", users);
+    await queryInterface.bulkDelete('users', { branch_id: 1 });
+    await queryInterface.bulkInsert('users', users, {});
   },
 
   async down(queryInterface, Sequelize) {
-    await queryInterface.bulkDelete("users", null, {});
+    await queryInterface.bulkDelete('users', { branch_id: 1 });
   }
 };

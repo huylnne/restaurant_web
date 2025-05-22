@@ -28,16 +28,16 @@ exports.registerUser = async (req, res) => {
 // GET /api/users/me
 exports.getProfile = async (req, res) => {
   try {
-    console.log("🔍 req.userId:", req.userId);
+
 
     const user = await User.findByPk(req.userId, {
       attributes: ['full_name', 'avatar_url','phone']
     });
 
-    console.log("🔎 Sequelize trả về user:", user);
+
 
     if (!user) {
-      console.log("❌ Không tìm thấy user trong DB với id:", req.userId);
+
       return res.status(404).json({ message: 'User không tồn tại' });
     }
     return res.status(200).json({
