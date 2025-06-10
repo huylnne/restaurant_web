@@ -72,5 +72,32 @@ exports.updateProfile = async (req, res) => {
   }
 }
 
+exports.changePassword = async (req, res) => {
+  
+
+  try {
+    const userId = req.userId;
+    const { currentPassword, newPassword } = req.body;
+    
+
+    const user = await db.User.findByPk(userId);
+    if (!user) return res.status(404).json({ message: "Người dùng không tồn tại" });
+   
+    if (user.password_hash !== currentPassword) {
+      return res.status(400).json({ message: "Mật khẩu hiện tại không đúng" });
+    }
+    
+    user.password_hash = newPassword;
+    await user.save();
+    
+
+    res.json({ message: "Đổi mật khẩu thành công" });
+  } catch (err) {
+    console.error("🔥 Lỗi đổi mật khẩu:", err);
+    res.status(500).json({ message: "Đổi mật khẩu thất bại" });
+  }
+};
+
+
 
 
