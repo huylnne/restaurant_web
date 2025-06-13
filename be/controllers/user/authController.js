@@ -1,6 +1,6 @@
 const { Op } = require("sequelize");
 const jwt = require("jsonwebtoken");
-const db = require("../models/db");      
+const db = require("../../models/db");      
 const User = db.User;                
 
 

@@ -83,11 +83,7 @@
         >
 
         <div class="dropdown">
-          <span>THỰC ĐƠN ▾</span>
-          <div class="dropdown-content">
-            <router-link to="/product/mon1" class="nav-link">Món 1</router-link>
-            <router-link to="/product/mon2" class="nav-link">Món 2</router-link>
-          </div>
+          <span @click="scrollToAllDishes" style="cursor: pointer">THỰC ĐƠN</span>
         </div>
 
         <router-link to="/sale" class="nav-link" active-class="active"
@@ -155,7 +151,7 @@
             <button class="scroll-right" @click="scrollRight">›</button>
           </div>
         </div>
-        <section class="featured-dishes-with-sidebar">
+        <section class="featured-dishes-with-sidebar" ref="allDishesSection">
           <aside class="sidebar">
             <div class="sidebar-section">
               <h3>DANH MỤC MÓN ĂN</h3>
@@ -187,6 +183,15 @@
                   </p>
                 </div>
               </div>
+            </div>
+            <div class="pagination">
+              <button @click="prevPage" :disabled="currentPage === 1">
+                ← Trang trước
+              </button>
+              <span>Trang {{ currentPage }} / {{ totalPages }}</span>
+              <button @click="nextPage" :disabled="currentPage === totalPages">
+                Trang sau →
+              </button>
             </div>
           </div>
         </section>
@@ -316,19 +321,46 @@ const scrollLeft = () => scrollByCard("left");
 const scrollRight = () => scrollByCard("right");
 
 const allMenuItems = ref([]);
+const currentPage = ref(1);
+const totalPages = ref(1);
+const limit = 10;
 
-onMounted(async () => {
+const fetchPaginatedMenu = async () => {
   try {
-    const [featuredRes, allRes] = await Promise.all([
-      axios.get("http://localhost:3000/api/menu-items/featured"),
-      axios.get("http://localhost:3000/api/menu-items"),
-    ]);
-    featuredDishes.value = featuredRes.data;
-    allMenuItems.value = allRes.data;
-  } catch (error) {
-    console.error("Không tải được món ăn:", error);
+    const res = await axios.get(
+      `http://localhost:3000/api/menu-items?page=${currentPage.value}&limit=${limit}`
+    );
+    allMenuItems.value = res.data.items;
+    totalPages.value = res.data.totalPages;
+  } catch (err) {
+    console.error("Lỗi khi lấy menu phân trang:", err);
   }
+};
+
+onMounted(() => {
+  fetchPaginatedMenu();
 });
+
+const allDishesSection = ref(null);
+const scrollToAllDishes = () => {
+  if (allDishesSection.value) {
+    allDishesSection.value.scrollIntoView({ behavior: "smooth" });
+  }
+};
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++;
+    fetchPaginatedMenu();
+  }
+};
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--;
+    fetchPaginatedMenu();
+  }
+};
 </script>
 
 <style scoped>
@@ -826,5 +858,28 @@ onMounted(async () => {
   font-size: 14px;
   color: #666;
   margin-bottom: 8px;
+}
+
+.pagination {
+  display: flex;
+  justify-content: center;
+  gap: 16px;
+  margin-top: 24px;
+  align-items: center;
+}
+
+.pagination button {
+  background: #a16500;
+  color: white;
+  border: none;
+  padding: 6px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: background 0.3s;
+}
+
+.pagination button:disabled {
+  background: #ccc;
+  cursor: not-allowed;
 }
 </style>

@@ -14,6 +14,21 @@
         <el-input-number v-model="form.guests" :min="1" />
       </el-form-item>
 
+      <el-form-item label="Chọn bàn">
+        <el-select
+          v-model="form.table_id"
+          placeholder="Chọn bàn"
+          :disabled="availableTables.length === 0"
+        >
+          <el-option
+            v-for="table in availableTables"
+            :key="table.table_id"
+            :label="`Bàn số ${table.table_number} (Tối đa ${table.capacity} khách)`"
+            :value="table.table_id"
+          />
+        </el-select>
+      </el-form-item>
+
       <el-form-item label="Ghi chú">
         <el-input type="textarea" v-model="form.note" rows="2" />
       </el-form-item>
@@ -26,7 +41,7 @@
 </template>
 
 <script setup>
-import { ref } from "vue";
+import { ref, watch } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 
@@ -35,27 +50,57 @@ const form = ref({
   time: "",
   guests: 1,
   note: "",
+  table_id: null,
 });
 
+const availableTables = ref([]);
+
+// Tự động fetch bàn mỗi khi thay đổi ngày, giờ, số lượng khách
+watch(
+  [() => form.value.date, () => form.value.time, () => form.value.guests],
+  async () => {
+    if (!form.value.date || !form.value.time || !form.value.guests) return;
+
+    const date = new Date(form.value.date);
+    const time = new Date(form.value.time);
+    date.setHours(time.getHours());
+    date.setMinutes(time.getMinutes());
+
+    try {
+      const res = await axios.get("/api/reservations/available", {
+        params: {
+          reservation_time: date.toISOString(),
+          guests: form.value.guests,
+        },
+      });
+      availableTables.value = res.data.tables || [];
+    } catch (err) {
+      availableTables.value = [];
+      console.error(err);
+    }
+  }
+);
+
 const submitForm = async () => {
-  if (!form.value.date || !form.value.time) {
-    ElMessage.error("Vui lòng chọn ngày và giờ");
+  if (!form.value.date || !form.value.time || !form.value.table_id) {
+    ElMessage.error("Vui lòng điền đầy đủ thông tin và chọn bàn");
     return;
   }
 
   const date = new Date(form.value.date);
   const time = new Date(form.value.time);
-
   date.setHours(time.getHours());
   date.setMinutes(time.getMinutes());
 
   const payload = {
     reservation_time: date.toISOString(),
     number_of_guests: form.value.guests,
+    note: form.value.note,
+    table_id: form.value.table_id,
   };
 
   try {
-    const token = localStorage.getItem("token"); // ⚠️ Giả sử bạn lưu token tại đây
+    const token = localStorage.getItem("token");
 
     const res = await axios.post("/api/reservations", payload, {
       headers: {

@@ -554,7 +554,7 @@ const scrollRight = () => scrollByCard("right");
 
 .dish-card img {
   width: 100%;
-  height: 400px; /* hoặc 180px, tùy layout */
+  height: 200px; /* hoặc 180px, tùy layout */
   object-fit: cover;
   border-top-left-radius: 12px;
   border-top-right-radius: 12px;

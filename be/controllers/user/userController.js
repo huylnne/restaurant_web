@@ -1,4 +1,4 @@
-const db = require("../models/db"); // hoặc ../models nếu bạn dùng index.js trong models/
+const db = require("../../models/db"); // hoặc ../models nếu bạn dùng index.js trong models/
 const User = db.User;
 
 
@@ -62,7 +62,8 @@ exports.updateProfile = async (req, res) => {
 
     user.full_name = full_name ?? user.full_name
     user.phone = phone ?? user.phone
-    user.avatar_url = avatar_url ?? user.avatar_url
+    user.avatar_url = avatar_url !== undefined ? avatar_url : user.avatar_url;
+
 
     await user.save()
     res.json({ message: 'Cập nhật thành công', user })

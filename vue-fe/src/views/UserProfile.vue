@@ -4,47 +4,77 @@
       <template #header>
         <div class="card-header">
           <span>Hồ sơ cá nhân</span>
+          <el-button type="default" @click="goBack" class="back-button">
+            ← Quay lại trang chủ
+          </el-button>
         </div>
       </template>
 
-      <el-form :model="form" label-width="120px">
-        <el-form-item label="Họ tên">
-          <el-input v-model="form.full_name" />
+      <div class="profile-content">
+        <div class="avatar-section">
+          <img :src="getAvatarUrl(form.avatar_url)" alt="Avatar" class="user-avatar" />
+        </div>
+
+        <div class="form-section">
+          <el-form :model="form" label-width="140px">
+            <el-form-item label="Họ tên">
+              <el-input v-model="form.full_name" />
+            </el-form-item>
+
+            <el-form-item label="Số điện thoại">
+              <el-input v-model="form.phone" />
+            </el-form-item>
+
+            <el-form-item label="Cập nhật avatar">
+              <el-radio-group v-model="uploadMode">
+                <el-radio :label="'link'">Nhập đường dẫn</el-radio>
+                <el-radio :label="'file'">Tải ảnh từ máy</el-radio>
+              </el-radio-group>
+
+              <div v-if="uploadMode === 'link'" style="margin-top: 10px">
+                <el-input v-model="form.avatar_url" placeholder="Dán URL ảnh" />
+              </div>
+
+              <div v-else style="margin-top: 10px">
+                <input type="file" accept="image/*" @change="handleFileChange" />
+                <img
+                  v-if="previewUrl"
+                  :src="previewUrl"
+                  alt="Preview"
+                  class="preview-image"
+                />
+              </div>
+            </el-form-item>
+
+            <el-form-item>
+              <el-button type="primary" @click="updateProfile">Lưu thay đổi</el-button>
+            </el-form-item>
+          </el-form>
+        </div>
+      </div>
+
+      <el-divider />
+
+      <h3>🔒 Đổi mật khẩu</h3>
+      <el-form label-width="140px" class="form-section">
+        <el-form-item label="Mật khẩu hiện tại">
+          <el-input v-model="currentPassword" type="password" show-password />
         </el-form-item>
 
-        <el-form-item label="Số điện thoại">
-          <el-input v-model="form.phone" />
+        <el-form-item label="Mật khẩu mới">
+          <el-input v-model="newPassword" type="password" show-password />
         </el-form-item>
 
-        <el-form-item label="Cập nhật avatar">
-          <el-radio-group v-model="uploadMode">
-            <el-radio :value="'link'">Nhập đường dẫn</el-radio>
-            <el-radio :value="'file'">Tải ảnh từ máy</el-radio>
-          </el-radio-group>
-
-          <div v-if="uploadMode === 'link'" style="margin-top: 10px">
-            <el-input v-model="form.avatar_url" placeholder="Dán URL ảnh" />
-          </div>
-
-          <div v-else style="margin-top: 10px">
-            <input type="file" accept="image/*" @change="handleFileChange" />
-            <img
-              v-if="previewUrl"
-              :src="previewUrl"
-              alt="Preview"
-              style="width: 100px; margin-top: 10px"
-            />
-          </div>
+        <el-form-item label="Xác nhận mật khẩu">
+          <el-input v-model="confirmPassword" type="password" show-password />
         </el-form-item>
 
         <el-form-item>
-          <el-button type="default" @click="goBack" class="back-button">
-            ← Quay lại Dashboard
-          </el-button>
-          <el-button type="primary" @click="updateProfile">Lưu thay đổi</el-button>
+          <el-button type="primary" @click="changePassword">Lưu mật khẩu mới</el-button>
         </el-form-item>
       </el-form>
     </el-card>
+    <MyReservations />
   </div>
 </template>
 
@@ -53,22 +83,21 @@ import { ref, onMounted } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 import { ElMessage } from "element-plus";
-import Navbar from "@/components/Navbar.vue";
+import MyReservations from "@/components/MyReservations.vue";
+
 const router = useRouter();
 
-const form = ref({
-  full_name: "",
-  phone: "",
-  avatar_url: "",
-});
+const form = ref({ full_name: "", phone: "", avatar_url: "" });
+const uploadMode = ref("link");
+const selectedFile = ref(null);
+const previewUrl = ref("");
 
 onMounted(async () => {
+  const token = localStorage.getItem("token");
   try {
-    const token = localStorage.getItem("token");
     const res = await axios.get("http://localhost:3000/api/users/me", {
       headers: { Authorization: `Bearer ${token}` },
     });
-    console.log("Raw response:", res.data);
     form.value.full_name = res.data.full_name || res.data.name || "";
     form.value.phone = res.data.phone || "";
     form.value.avatar_url = res.data.avatar || res.data.avatar_url || "";
@@ -77,27 +106,25 @@ onMounted(async () => {
   }
 });
 
+const handleFileChange = (e) => {
+  selectedFile.value = e.target.files[0];
+  previewUrl.value = URL.createObjectURL(selectedFile.value);
+};
+
 const updateProfile = async () => {
   try {
     const token = localStorage.getItem("token");
-
-    // Nếu dùng file, upload trước
     if (uploadMode.value === "file" && selectedFile.value) {
       const formData = new FormData();
       formData.append("image", selectedFile.value);
       const uploadRes = await axios.post("http://localhost:3000/api/upload", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
+        headers: { "Content-Type": "multipart/form-data" },
       });
       form.value.avatar_url = uploadRes.data.imageUrl;
     }
-
-    // Cập nhật profile
     const res = await axios.put("http://localhost:3000/api/users/me", form.value, {
       headers: { Authorization: `Bearer ${token}` },
     });
-
     Object.assign(form.value, res.data.user);
     ElMessage.success("Cập nhật thành công!");
   } catch (err) {
@@ -106,32 +133,89 @@ const updateProfile = async () => {
   }
 };
 
-const goBack = () => {
-  router.push("/dashboard");
+const goBack = () => router.push("/dashboard");
+
+const currentPassword = ref("");
+const newPassword = ref("");
+const confirmPassword = ref("");
+
+const changePassword = async () => {
+  console.log("current:", currentPassword.value);
+  console.log("new:", newPassword.value);
+  console.log("confirm:", confirmPassword.value);
+  if (newPassword.value !== confirmPassword.value) {
+    return ElMessage.error("Mật khẩu mới không khớp!");
+  }
+
+  try {
+    const token = localStorage.getItem("token");
+    await axios.post(
+      "http://localhost:3000/api/users/change-password",
+      {
+        currentPassword: currentPassword.value,
+        newPassword: newPassword.value,
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    ElMessage.success("Đổi mật khẩu thành công!");
+    currentPassword.value = newPassword.value = confirmPassword.value = "";
+  } catch (err) {
+    console.error("Lỗi đổi mật khẩu:", err);
+    ElMessage.error("Đổi mật khẩu thất bại!");
+  }
 };
 
-const uploadMode = ref("link"); // mặc định dùng link
-const selectedFile = ref(null);
-const previewUrl = ref("");
-
-const handleFileChange = (e) => {
-  selectedFile.value = e.target.files[0];
-  previewUrl.value = URL.createObjectURL(selectedFile.value);
+const getAvatarUrl = (url) => {
+  if (!url) return "/default-avatar.png";
+  if (url.startsWith("/uploads")) return `http://localhost:3000${url}`;
+  return url;
 };
 </script>
 
 <style scoped>
 .profile-container {
-  max-width: 600px;
+  max-width: 800px;
   margin: 40px auto;
+  padding: 0 10px;
 }
 
-.back-button {
-  margin-bottom: 20px;
+.profile-content {
+  display: flex;
+  gap: 30px;
+  align-items: flex-start;
+  margin-bottom: 30px;
 }
 
-.back-button {
+.avatar-section {
+  flex: 0 0 150px;
+}
+
+.user-avatar {
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+
+.preview-image {
+  width: 100px;
+  margin-top: 10px;
+  border-radius: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
+.form-section {
+  flex: 1;
+}
+
+.card-header {
+  display: flex;
   align-items: center;
-  margin: 0;
+  justify-content: space-between;
+}
+
+.back-button {
+  color: black;
 }
 </style>

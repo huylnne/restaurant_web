@@ -1,4 +1,4 @@
-const pool = require('../models/db');
+const pool = require('../../models/db');
 
 const getAllMenuItems = async (req, res) => {
   try {

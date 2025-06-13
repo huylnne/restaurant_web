@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('admin', 'waiter', 'kitchen', 'manager', 'user'),
       allowNull: false
     },
-    avatar_url: DataTypes.STRING,
+    avatar_url: DataTypes.TEXT,
     full_name: DataTypes.STRING,
     phone: DataTypes.STRING,
     created_at: {

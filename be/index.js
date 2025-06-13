@@ -1,7 +1,7 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
-const uploadRoute = require("./routes/upload");
+// const uploadRoute = require("./");
 const path = require("path");
 require('dotenv').config();
 
@@ -29,32 +29,34 @@ db.sequelize.authenticate()
   });
 
 
-const menuRoutes = require('./routes/menuRoutes');
+const menuRoutes = require('./routes/user/menuRoutes');
 app.use('/api/menu', menuRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-const authRoutes = require('./routes/authRoutes');
+const authRoutes = require('./routes/user/authRoutes');
 app.use('/api/auth', authRoutes);
 
 
-const homeRoutes = require('./routes/home');
+const homeRoutes = require('./routes/user/home');
 app.use('/api/home', homeRoutes);
 
 
-const userRoutes = require('./routes/userRoutes');
+const userRoutes = require('./routes/user/userRoutes');
 app.use('/api/users', userRoutes);
 
-const menuItemRoutes = require("./routes/menuItem.routes");
+const menuItemRoutes = require("./routes/user/menuItem.routes");
 app.use("/api/menu-items", menuItemRoutes);
 
 
 
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
-// Dùng route upload
-app.use("/api/upload", uploadRoute);
+const uploadRoutes = require('./routes/user/upload');
+app.use('/api/upload', uploadRoutes);
 
-const reservationRoutes = require('./routes/reservationRoutes');
+
+
+const reservationRoutes = require('./routes/user/reservationRoutes');
 app.use('/api/reservations', reservationRoutes);
