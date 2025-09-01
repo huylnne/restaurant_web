@@ -43,8 +43,9 @@
 <script setup>
 import { ref, watch } from "vue";
 import axios from "axios";
-import { ElMessage } from "element-plus";
-
+import { ElMessage, ElMessageBox } from "element-plus";
+import { useRouter } from "vue-router";
+const router = useRouter();
 const form = ref({
   date: "",
   time: "",
@@ -108,7 +109,31 @@ const submitForm = async () => {
       },
     });
 
-    ElMessage.success(res.data.message || "Đặt bàn thành công");
+    // Lấy reservation_id từ response (thường backend trả về)
+    const reservation_id = res.data.reservation.reservation_id;
+    const reservation = res.data.reservation;
+    if (reservation_id) {
+      localStorage.setItem("reservation", JSON.stringify(reservation));
+      ElMessageBox.confirm("Bạn có muốn đặt món trước không?", "Đặt bàn thành công!", {
+        confirmButtonText: "Có, đặt món luôn",
+        cancelButtonText: "Không, để sau",
+        type: "info",
+      })
+        .then(() => {
+          ElMessage.success("Chuyển sang bước đặt món!");
+          // Chuyển sang màn đặt món trước, truyền reservation_id
+          router.push({ name: "OrderMenu", query: { reservation_id } });
+        })
+        .catch(() => {
+          ElMessage.success("Đặt bàn thành công!");
+          // Không đặt món luôn, quay về profile hoặc trang chủ
+          router.push("/dashboard");
+        });
+    } else {
+      // fallback nếu không lấy được reservation_id
+      ElMessage.error("Không lấy được mã đặt bàn! Vui lòng thử lại.");
+      router.push("/profile");
+    }
   } catch (err) {
     ElMessage.error(err.response?.data?.message || "Đặt bàn thất bại");
   }

@@ -33,11 +33,12 @@ const routes = [
     path: '/profile',
     name: 'UserProfile',
     component: () => import('@/views/UserProfile.vue')
-  }
-  
-    
-  
-  
+  },
+  {
+    path: '/order-menu',
+    name: 'OrderMenu',        // phải trùng tên, phân biệt HOA-thường!
+    component: () => import('@/views/OrderMenu.vue')
+  },
 ];
 
 const router = createRouter({

@@ -1,80 +1,84 @@
 <template>
-  <div class="profile-container">
-    <el-card class="box-card">
-      <template #header>
-        <div class="card-header">
-          <span>Hồ sơ cá nhân</span>
-          <el-button type="default" @click="goBack" class="back-button">
-            ← Quay lại trang chủ
-          </el-button>
+  <UserNavbar />
+  <div class="profile-page">
+    <div class="card-wrapper">
+      <el-card class="box-card">
+        <template #header>
+          <div class="card-header">
+            <span>Hồ sơ cá nhân</span>
+            <el-button type="default" @click="goBack" class="back-button">
+              ← Quay lại trang chủ
+            </el-button>
+          </div>
+        </template>
+
+        <div class="profile-content">
+          <div class="avatar-section">
+            <img :src="getAvatarUrl(form.avatar_url)" alt="Avatar" class="user-avatar" />
+          </div>
+
+          <div class="form-section">
+            <el-form :model="form" label-width="140px">
+              <el-form-item label="Họ tên">
+                <el-input v-model="form.full_name" />
+              </el-form-item>
+
+              <el-form-item label="Số điện thoại">
+                <el-input v-model="form.phone" />
+              </el-form-item>
+
+              <el-form-item label="Cập nhật avatar">
+                <el-radio-group v-model="uploadMode">
+                  <el-radio :label="'link'">Nhập đường dẫn</el-radio>
+                  <el-radio :label="'file'">Tải ảnh từ máy</el-radio>
+                </el-radio-group>
+
+                <div v-if="uploadMode === 'link'" style="margin-top: 10px">
+                  <el-input v-model="form.avatar_url" placeholder="Dán URL ảnh" />
+                </div>
+
+                <div v-else style="margin-top: 10px">
+                  <input type="file" accept="image/*" @change="handleFileChange" />
+                  <img
+                    v-if="previewUrl"
+                    :src="previewUrl"
+                    alt="Preview"
+                    class="preview-image"
+                  />
+                </div>
+              </el-form-item>
+
+              <el-form-item>
+                <el-button type="primary" @click="updateProfile">Lưu thay đổi</el-button>
+              </el-form-item>
+            </el-form>
+          </div>
         </div>
-      </template>
 
-      <div class="profile-content">
-        <div class="avatar-section">
-          <img :src="getAvatarUrl(form.avatar_url)" alt="Avatar" class="user-avatar" />
-        </div>
+        <el-divider />
 
-        <div class="form-section">
-          <el-form :model="form" label-width="140px">
-            <el-form-item label="Họ tên">
-              <el-input v-model="form.full_name" />
-            </el-form-item>
+        <h3>🔒 Đổi mật khẩu</h3>
+        <el-form label-width="140px" class="form-section">
+          <el-form-item label="Mật khẩu hiện tại">
+            <el-input v-model="currentPassword" type="password" show-password />
+          </el-form-item>
 
-            <el-form-item label="Số điện thoại">
-              <el-input v-model="form.phone" />
-            </el-form-item>
+          <el-form-item label="Mật khẩu mới">
+            <el-input v-model="newPassword" type="password" show-password />
+          </el-form-item>
 
-            <el-form-item label="Cập nhật avatar">
-              <el-radio-group v-model="uploadMode">
-                <el-radio :label="'link'">Nhập đường dẫn</el-radio>
-                <el-radio :label="'file'">Tải ảnh từ máy</el-radio>
-              </el-radio-group>
+          <el-form-item label="Xác nhận mật khẩu">
+            <el-input v-model="confirmPassword" type="password" show-password />
+          </el-form-item>
 
-              <div v-if="uploadMode === 'link'" style="margin-top: 10px">
-                <el-input v-model="form.avatar_url" placeholder="Dán URL ảnh" />
-              </div>
+          <el-form-item>
+            <el-button type="primary" @click="changePassword">Lưu mật khẩu mới</el-button>
+          </el-form-item>
+        </el-form>
+      </el-card>
 
-              <div v-else style="margin-top: 10px">
-                <input type="file" accept="image/*" @change="handleFileChange" />
-                <img
-                  v-if="previewUrl"
-                  :src="previewUrl"
-                  alt="Preview"
-                  class="preview-image"
-                />
-              </div>
-            </el-form-item>
-
-            <el-form-item>
-              <el-button type="primary" @click="updateProfile">Lưu thay đổi</el-button>
-            </el-form-item>
-          </el-form>
-        </div>
-      </div>
-
-      <el-divider />
-
-      <h3>🔒 Đổi mật khẩu</h3>
-      <el-form label-width="140px" class="form-section">
-        <el-form-item label="Mật khẩu hiện tại">
-          <el-input v-model="currentPassword" type="password" show-password />
-        </el-form-item>
-
-        <el-form-item label="Mật khẩu mới">
-          <el-input v-model="newPassword" type="password" show-password />
-        </el-form-item>
-
-        <el-form-item label="Xác nhận mật khẩu">
-          <el-input v-model="confirmPassword" type="password" show-password />
-        </el-form-item>
-
-        <el-form-item>
-          <el-button type="primary" @click="changePassword">Lưu mật khẩu mới</el-button>
-        </el-form-item>
-      </el-form>
-    </el-card>
-    <MyReservations />
+      <MyReservations />
+    </div>
   </div>
 </template>
 
@@ -84,6 +88,7 @@ import { useRouter } from "vue-router";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 import MyReservations from "@/components/MyReservations.vue";
+import UserNavbar from "@/components/UserNavbar.vue";
 
 const router = useRouter();
 
@@ -140,9 +145,6 @@ const newPassword = ref("");
 const confirmPassword = ref("");
 
 const changePassword = async () => {
-  console.log("current:", currentPassword.value);
-  console.log("new:", newPassword.value);
-  console.log("confirm:", confirmPassword.value);
   if (newPassword.value !== confirmPassword.value) {
     return ElMessage.error("Mật khẩu mới không khớp!");
   }
@@ -173,12 +175,24 @@ const getAvatarUrl = (url) => {
 </script>
 
 <style scoped>
-.profile-container {
-  max-width: 800px;
-  margin: 40px auto;
-  padding: 0 10px;
+/* Nền ngoài: màu 2 bên */
+.profile-page {
+  background-color: #fff7e6;
+  min-height: 100vh;
+  padding: 40px 0;
 }
 
+/* Khung giữa: card trắng */
+.card-wrapper {
+  max-width: 900px;
+  margin: 0 auto;
+  background: white;
+  border-radius: 12px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
+  padding: 30px;
+}
+
+/* Giữ nguyên layout nội dung */
 .profile-content {
   display: flex;
   gap: 30px;

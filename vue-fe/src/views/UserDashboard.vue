@@ -142,8 +142,14 @@
                 <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
                 <div class="dish-info">
                   <h3>{{ dish.name }}</h3>
-                  <p>{{ dish.description }}</p>
-                  <button>Đặt món</button>
+                  <p class="desc">{{ dish.description }}</p>
+                  <el-button
+                    class="order-button"
+                    type="primary"
+                    @click="handleOrderClick(dish)"
+                  >
+                    Đặt món
+                  </el-button>
                 </div>
               </div>
             </div>
@@ -176,14 +182,26 @@
               >
                 <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
                 <div class="dish-info">
-                  <h3>{{ dish.name }}</h3>
-                  <p>{{ dish.description }}</p>
-                  <p>
-                    <strong>{{ dish.price.toLocaleString() }} đ</strong>
-                  </p>
+                  <div class="dish-content">
+                    <h3>{{ dish.name }}</h3>
+                    <p class="desc">{{ dish.description }}</p>
+                    <p class="dish-price">
+                      <strong class="price-num"
+                        >{{ parseInt(dish.price).toLocaleString("vi-VN") }} đ</strong
+                      >
+                    </p>
+                  </div>
+                  <el-button
+                    class="order-button"
+                    type="primary"
+                    @click="handleOrderClick(dish)"
+                  >
+                    Đặt món
+                  </el-button>
                 </div>
               </div>
             </div>
+
             <div class="pagination">
               <button @click="prevPage" :disabled="currentPage === 1">
                 ← Trang trước
@@ -209,6 +227,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import axios from "axios";
 import { SwitchButton } from "@element-plus/icons-vue";
 import QuickBooking from "@/components/QuickBooking.vue";
+import { ElMessage } from "element-plus";
 
 const realImages = [
   "/images/homeimg1.png",
@@ -359,6 +378,19 @@ const prevPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
     fetchPaginatedMenu();
+  }
+};
+
+const handleOrderClick = () => {
+  const reservation = JSON.parse(localStorage.getItem("reservation"));
+
+  if (reservation && reservation.status === "confirmed") {
+    router.push({
+      name: "OrderMenu",
+      query: { reservation_id: reservation.reservation_id },
+    });
+  } else {
+    ElMessage.warning("Vui lòng đặt bàn trước khi gọi món.");
   }
 };
 </script>
@@ -832,6 +864,8 @@ const prevPage = () => {
   transition: transform 0.3s ease;
   display: flex;
   flex-direction: column;
+  justify-content: space-between;
+  height: 100%;
 }
 
 .all-dishes .dish-card:hover {
@@ -845,6 +879,10 @@ const prevPage = () => {
 }
 
 .all-dishes .dish-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
   padding: 12px;
 }
 
@@ -881,5 +919,77 @@ const prevPage = () => {
 .pagination button:disabled {
   background: #ccc;
   cursor: not-allowed;
+}
+.desc {
+  min-height: 48px; /* Hoặc tuỳ độ cao cần đồng bộ */
+  overflow: hidden;
+}
+
+.order-button {
+  background-color: #a16500;
+  color: white;
+  border: none;
+  margin-top: auto;
+  width: 100%;
+  font-weight: bold;
+}
+
+.order-button:hover {
+  background-color: #804d00;
+}
+
+.all-dishes .dish-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  flex: 1;
+  padding: 12px;
+}
+
+.dish-content {
+  flex-grow: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 100px;
+}
+
+.dish-info h3 {
+  font-size: 18px;
+  margin-bottom: 6px;
+  color: #333;
+  min-height: 44px;
+}
+
+.dish-info .desc {
+  font-size: 14px;
+  color: #666;
+  margin-bottom: 8px;
+  flex-grow: 1;
+}
+
+.dish-price {
+  font-weight: bold;
+  color: #a16500;
+  margin-top: auto;
+  text-align: center;
+}
+
+.price-num {
+  color: red;
+}
+
+.order-button {
+  background-color: #a16500;
+  color: white;
+  border: none;
+  margin-top: 12px;
+  width: 100%;
+  font-weight: bold;
+  transition: background 0.3s;
+}
+
+.order-button:hover {
+  background-color: #804d00;
 }
 </style>

@@ -57,11 +57,7 @@
         >
 
         <div class="dropdown">
-          <span>THỰC ĐƠN ▾</span>
-          <div class="dropdown-content">
-            <router-link to="/product/mon1" class="nav-link">Món 1</router-link>
-            <router-link to="/product/mon2" class="nav-link">Món 2</router-link>
-          </div>
+          <span>THỰC ĐƠN </span>
         </div>
 
         <router-link to="/sale" class="nav-link" active-class="active"
@@ -118,7 +114,7 @@
               <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
               <div class="dish-info">
                 <h3>{{ dish.name }}</h3>
-                <p>{{ dish.description }}</p>
+                <p class="desc">{{ dish.description }}</p>
                 <button>Đặt món</button>
               </div>
             </div>
@@ -588,5 +584,10 @@ const scrollRight = () => scrollByCard("right");
 
 .dish-info button:hover {
   background-color: #804d00;
+}
+
+.desc {
+  min-height: 48px; /* Hoặc tuỳ độ cao cần đồng bộ */
+  overflow: hidden;
 }
 </style>
