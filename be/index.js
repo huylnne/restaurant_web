@@ -29,21 +29,21 @@ db.sequelize.authenticate()
   });
 
 
-const menuRoutes = require('./routes/user/menuRoutes');
+const menuRoutes = require('./routes/user/menu.routes');
 app.use('/api/menu', menuRoutes);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
 
-const authRoutes = require('./routes/user/authRoutes');
+const authRoutes = require('./routes/user/auth.routes');
 app.use('/api/auth', authRoutes);
 
 
-const homeRoutes = require('./routes/user/home');
+const homeRoutes = require('./routes/user/home.routes');
 app.use('/api/home', homeRoutes);
 
 
-const userRoutes = require('./routes/user/userRoutes');
+const userRoutes = require('./routes/user/user.routes');
 app.use('/api/users', userRoutes);
 
 const menuItemRoutes = require("./routes/user/menuItem.routes");
@@ -58,5 +58,7 @@ app.use('/api/upload', uploadRoutes);
 
 
 
-const reservationRoutes = require('./routes/user/reservationRoutes');
+const reservationRoutes = require('./routes/user/reservation.routes');
 app.use('/api/reservations', reservationRoutes);
+
+app.use('/api/orders', require('./routes/user/order.routes')); // Đúng path

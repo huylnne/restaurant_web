@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const homeController = require('../../controllers/user/homeController');
+const homeController = require('../../controllers/user/home.controller');
 
 // API cho trang chủ
 router.get('/featured-dishes', homeController.getFeaturedDishes);

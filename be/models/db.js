@@ -15,5 +15,7 @@ db.User = require("./User")(sequelize, DataTypes);
 db.MenuItem = require("./MenuItem")(sequelize, DataTypes);
 db.Table = require("./Table")(sequelize, DataTypes);
 db.Reservation = require("./Reservation")(sequelize, DataTypes);
+ db.Order = require('./Order')(sequelize, Sequelize.DataTypes);
+ db.OrderItem = require('./OrderItem')(sequelize, Sequelize.DataTypes);
 
 module.exports = db;

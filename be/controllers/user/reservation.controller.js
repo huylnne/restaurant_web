@@ -3,6 +3,7 @@ const Reservation = db.Reservation;
 const Table = db.Table;
 const { Op } = db.Sequelize;
 
+// 📌 API: Tạo đặt bàn mới
 const createReservation = async (req, res) => {
   try {
     const user_id = req.userId; 
@@ -22,10 +23,8 @@ const createReservation = async (req, res) => {
     }
 
     // 2. Tạo reservation
-
-
     const reservation = await Reservation.create({
-      user_id:req.userId,
+      user_id,
       branch_id: 1,
       table_id: table.table_id,
       reservation_time,
@@ -44,6 +43,7 @@ const createReservation = async (req, res) => {
   }
 };
 
+// 📌 API: Lấy danh sách bàn trống
 const getAvailableTables = async (req, res) => {
   try {
     const { reservation_time, guests } = req.query;
@@ -84,6 +84,7 @@ const getAvailableTables = async (req, res) => {
   }
 };
 
+// 📌 API: Lấy lịch sử đặt bàn của user
 const getUserReservations = async (req, res) => {
   try {
     const userId = req.userId;
@@ -106,5 +107,47 @@ const getUserReservations = async (req, res) => {
   }
 };
 
+// 📌 API: Hủy đặt bàn
+const cancelReservation = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const userId = req.userId;
 
-module.exports = { createReservation,getAvailableTables,getUserReservations };
+    // 1. Tìm đặt bàn thuộc user hiện tại
+    const reservation = await Reservation.findOne({
+      where: {
+        reservation_id: id,
+        user_id: userId
+      }
+    });
+
+    if (!reservation) {
+      return res.status(404).json({ message: "Không tìm thấy đặt bàn" });
+    }
+
+    // 2. Kiểm tra trạng thái trong DB
+    if (!["pending", "confirmed"].includes(reservation.status)) {
+      return res.status(400).json({ message: "Không thể hủy ở trạng thái này" });
+    }
+
+    // 3. Cập nhật trạng thái
+    reservation.status = "cancelled";
+    await reservation.save();
+
+    return res.json({
+      message: "Đã hủy đặt bàn thành công",
+      reservation
+    });
+  } catch (error) {
+    console.error("❌ Error cancelling reservation:", error);
+    return res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+// ✅ Export tất cả hàm
+module.exports = { 
+  createReservation, 
+  getAvailableTables, 
+  getUserReservations,
+  cancelReservation
+};
