@@ -70,9 +70,9 @@
         <router-link to="/about" class="nav-link" active-class="active"
           >GIỚI THIỆU</router-link
         >
-        <div class="dropdown">
-          <span @click="scrollToAllDishes" style="cursor: pointer">THỰC ĐƠN</span>
-        </div>
+        <router-link to="/menu" class="nav-link" active-class="active"
+          >THỰC ĐƠN</router-link
+        >
         <router-link to="/sale" class="nav-link" active-class="active"
           >KHUYẾN MÃI</router-link
         >

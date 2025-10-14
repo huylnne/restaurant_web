@@ -1,11 +1,8 @@
 <template>
   <div class="login-page">
-    <!-- Bên trái: Ảnh -->
     <div class="login-left">
       <img src="/images/login.png" alt="login bg" class="login-image" />
     </div>
-
-    <!-- Bên phải: Form -->
     <div class="login-right">
       <div class="login-form-container">
         <div class="login-header">
@@ -54,20 +51,22 @@ const handleLogin = async () => {
     });
 
     localStorage.setItem("token", res.data.token);
+    localStorage.setItem("user", JSON.stringify(res.data.user));
+
+    const role = res.data.user?.role;
 
     setTimeout(() => {
-      isLoading.value = false;
-      isSuccess.value = true;
-
-      setTimeout(() => {
-        router.push("/dashboard");
-      }, 800);
-    }, 1000); // giữ loading 1s rồi mới hiển thị ✓
+      if (role === "admin") {
+        router.push("./admin");
+      } else {
+        router.push("/");
+      }
+    }, 1000);
   } catch (err) {
     setTimeout(() => {
       isLoading.value = false;
       errorMessage.value = err.response?.data?.message || "Lỗi đăng nhập";
-    }, 1000); // giữ loading 1s rồi mới báo lỗi
+    }, 1000);
   }
 };
 </script>

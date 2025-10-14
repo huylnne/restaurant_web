@@ -1,11 +1,9 @@
 <template>
   <div class="register-page">
-    <!-- Bên trái: Ảnh -->
     <div class="register-left">
       <img src="/images/login.png" alt="register bg" class="register-image" />
     </div>
 
-    <!-- Bên phải: Form -->
     <div class="register-right">
       <div class="register-form-container">
         <div class="register-header">
@@ -61,7 +59,7 @@ const handleRegister = async () => {
       full_name: fullName.value,
       phone: phone.value,
       branch_id: branchId.value,
-      role: "user", // ✅ ROLE CỐ ĐỊNH
+      role: "user",
     });
 
     alert("Đăng ký thành công!");

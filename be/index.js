@@ -62,3 +62,5 @@ const reservationRoutes = require('./routes/user/reservation.routes');
 app.use('/api/reservations', reservationRoutes);
 
 app.use('/api/orders', require('./routes/user/order.routes')); // Đúng path
+
+app.use('/api/payments', require('./routes/user/payments.routes')); //payments

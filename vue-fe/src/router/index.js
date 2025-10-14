@@ -1,12 +1,13 @@
 import { createRouter, createWebHistory } from 'vue-router';
-import MenuView from '../views/MenuView.vue'; // <-- import MenuView mới
+import AdminLayout from "../layouts/AdminLayout.vue";
 import Home from '../views/Home.vue';
+import AdminDashboard from "../views/admin/AdminDashboard.vue";
 const routes = [
   
   {
     path: '/menu',
     name: 'Menu',
-    component: MenuView
+    component:() => import('@/views/MenuView.vue')
   },
   {
     path: '/login',
@@ -16,7 +17,7 @@ const routes = [
   {
     path: '/',
     name: 'Home',
-    component:Home // hoặc import trực tiếp nếu bạn không dùng lazy-loading
+    component:Home 
   },
   {
     path: '/register',
@@ -36,8 +37,24 @@ const routes = [
   },
   {
     path: '/order-menu',
-    name: 'OrderMenu',        // phải trùng tên, phân biệt HOA-thường!
-    component: () => import('@/views/OrderMenu.vue')
+    name: 'OrderMenu',        
+    component: () => import('@/views/Ordermenu.vue')
+  },
+  {
+    path:"/booking",
+    name:"Booking",
+    component: () => import('@/views/Booking.vue')
+  },
+  {
+    path: "/admin",
+    component: AdminLayout,
+    children: [
+      {
+        path: "",
+        name: "AdminDashboard",
+        component: AdminDashboard,
+      },
+    ],
   },
 ];
 

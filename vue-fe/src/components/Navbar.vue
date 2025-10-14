@@ -2,7 +2,6 @@
   <div class="navbar-wrapper">
     <div class="zigzag-background">
       <div class="home-page_header">
-        <!-- Top Bar -->
         <div class="top-bar">
           <span>Chào mừng bạn đến với HLFood!</span>
           <div class="right-links">
@@ -15,7 +14,6 @@
           </div>
         </div>
 
-        <!-- Đường kẻ mảnh dưới top bar -->
         <div
           style="
             height: 1px;
@@ -29,7 +27,6 @@
           "
         ></div>
 
-        <!-- Middle Info Bar -->
         <div class="middle-bar">
           <div class="logo-wrapper">
             <img src="/images/logo.png" alt="HLFood Logo" class="logo" />
@@ -51,7 +48,6 @@
           </div>
         </div>
 
-        <!-- Nav Menu -->
         <nav class="nav-menu">
           <router-link to="/" class="nav-link" active-class="active"
             >TRANG CHỦ</router-link
@@ -81,7 +77,6 @@
         </nav>
       </div>
 
-      <!-- ✅ Zigzag ngay dưới navbar -->
       <div class="zigzag-border"></div>
     </div>
   </div>

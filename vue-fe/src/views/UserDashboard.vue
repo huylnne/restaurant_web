@@ -1,6 +1,5 @@
 <template>
   <div class="home-page">
-    <!-- Top Bar -->
     <div class="home-page_header">
       <div class="top-bar">
         <span>Chào mừng bạn đến với HLFood!</span>
@@ -11,7 +10,6 @@
             </router-link>
           </template>
 
-          <!-- Nếu đã đăng nhập -->
           <template v-else>
             <div class="nav-user-loggedin">
               <router-link to="/profile" class="nav-user">
@@ -27,7 +25,7 @@
           </template>
         </div>
       </div>
-      <!-- Đặt ngay dưới <body> hoặc ngoài .container -->
+
       <div
         style="
           height: 1px;
@@ -41,8 +39,6 @@
         "
       ></div>
 
-      <!-- Middle Info Bar -->
-      <!-- Middle Info Bar -->
       <div class="middle-bar">
         <div class="logo-wrapper">
           <img
@@ -68,7 +64,6 @@
         </div>
       </div>
 
-      <!-- Nav Menu -->
       <nav class="nav-menu">
         <router-link
           :to="isLoggedIn ? '/dashboard' : '/'"
@@ -82,9 +77,9 @@
           >GIỚI THIỆU</router-link
         >
 
-        <div class="dropdown">
-          <span @click="scrollToAllDishes" style="cursor: pointer">THỰC ĐƠN</span>
-        </div>
+        <router-link to="/menu" class="nav-link" active-class="active"
+          >THỰC ĐƠN</router-link
+        >
 
         <router-link to="/sale" class="nav-link" active-class="active"
           >KHUYẾN MÃI</router-link
@@ -97,6 +92,9 @@
         >
 
         <div class="nav-menu_icon">
+          <router-link to="./booking">
+            <el-button type="warning">Đặt bàn</el-button>
+          </router-link>
           <el-icon><Search /></el-icon>
           <el-icon><ShoppingCart /></el-icon>
         </div>
@@ -106,27 +104,39 @@
     </div>
     <div class="home-page_body">
       <div class="container">
-        <div class="slider-carousel">
-          <div
-            class="slider-carousel-track"
-            :class="{ 'no-transition': !isTransitionEnabled }"
-            :style="{ transform: `translateX(-${currentIndex * 60}vw)` }"
-          >
-            <img
-              v-for="(img, index) in images"
-              :key="index"
-              :src="img"
-              class="slider-carousel-image"
-            />
+        <div class="slider">
+          <div class="slider-carousel">
+            <div
+              class="slider-carousel-track"
+              :class="{ 'no-transition': !isTransitionEnabled }"
+              :style="{ transform: `translateX(-${currentIndex * 60}vw)` }"
+            >
+              <img
+                v-for="(img, index) in images"
+                :key="index"
+                :src="img"
+                class="slider-carousel-image"
+              />
+            </div>
+
+            <button class="arrow left" @click="prevSlide">‹</button>
+
+            <button class="arrow right" @click="nextSlide">›</button>
           </div>
-
-          <!-- Nút trái -->
-          <button class="arrow left" @click="prevSlide">‹</button>
-
-          <!-- Nút phải -->
-          <button class="arrow right" @click="nextSlide">›</button>
+          <div class="slider_overlay">
+            <h1>Chào mừng đến với</h1>
+            <span>HL Food</span>
+            <h2>Trải nghiệm ẩm thực Việt đặc sắc trong không gian ấm cúng</h2>
+            <div class="overlay_btn">
+              <router-link to="./booking">
+                <el-button type="warning">Đặt bàn ngay</el-button>
+              </router-link>
+              <router-link to="./menu">
+                <el-button>Xem thực đơn</el-button>
+              </router-link>
+            </div>
+          </div>
         </div>
-        <QuickBooking />
         <div class="featured-dishes">
           <h2 class="section-title">Món ăn nổi bật</h2>
           <div class="dish-grid-wrapper">
@@ -157,62 +167,6 @@
             <button class="scroll-right" @click="scrollRight">›</button>
           </div>
         </div>
-        <section class="featured-dishes-with-sidebar" ref="allDishesSection">
-          <aside class="sidebar">
-            <div class="sidebar-section">
-              <h3>DANH MỤC MÓN ĂN</h3>
-              <ul>
-                <li><a href="#">Món ăn mới</a></li>
-                <li><a href="#">Món ăn được khuyến mãi</a></li>
-                <li><a href="#">Món ăn nổi bật</a></li>
-                <li><a href="#">Pizza</a></li>
-                <li><a href="#">Bánh ngọt</a></li>
-                <li><a href="#">Bánh kem</a></li>
-                <li><a href="#">Đồ ăn nhẹ</a></li>
-              </ul>
-            </div>
-          </aside>
-          <div class="all-dishes">
-            <h2 class="section-title">Tất cả món ăn</h2>
-            <div class="dish-list">
-              <div
-                class="dish-card"
-                v-for="(dish, index) in allMenuItems"
-                :key="'all-' + index"
-              >
-                <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
-                <div class="dish-info">
-                  <div class="dish-content">
-                    <h3>{{ dish.name }}</h3>
-                    <p class="desc">{{ dish.description }}</p>
-                    <p class="dish-price">
-                      <strong class="price-num"
-                        >{{ parseInt(dish.price).toLocaleString("vi-VN") }} đ</strong
-                      >
-                    </p>
-                  </div>
-                  <el-button
-                    class="order-button"
-                    type="primary"
-                    @click="handleOrderClick(dish)"
-                  >
-                    Đặt món
-                  </el-button>
-                </div>
-              </div>
-            </div>
-
-            <div class="pagination">
-              <button @click="prevPage" :disabled="currentPage === 1">
-                ← Trang trước
-              </button>
-              <span>Trang {{ currentPage }} / {{ totalPages }}</span>
-              <button @click="nextPage" :disabled="currentPage === totalPages">
-                Trang sau →
-              </button>
-            </div>
-          </div>
-        </section>
       </div>
     </div>
   </div>
@@ -226,7 +180,6 @@ import { ShoppingCart } from "@element-plus/icons-vue";
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import axios from "axios";
 import { SwitchButton } from "@element-plus/icons-vue";
-import QuickBooking from "@/components/QuickBooking.vue";
 import { ElMessage } from "element-plus";
 
 const realImages = [
@@ -245,9 +198,9 @@ const logout = () => {
   }
 };
 
-const images = [realImages[realImages.length - 1], ...realImages, realImages[0]]; // clone cuối - thật - clone đầu
+const images = [realImages[realImages.length - 1], ...realImages, realImages[0]];
 const currentIndex = ref(1);
-const isTransitionEnabled = ref(true); // 🔥 thêm dòng này
+const isTransitionEnabled = ref(true);
 
 let intervalId = null;
 
@@ -260,7 +213,7 @@ onMounted(() => {
       setTimeout(() => {
         isTransitionEnabled.value = false;
         currentIndex.value = 1;
-      }, 600); // trùng với CSS transition
+      }, 600);
     }
   }, 3000);
 });
@@ -319,7 +272,7 @@ onMounted(async () => {
 });
 
 const getAvatarUrl = (path) => {
-  if (!path) return "/images/default-avatar.png"; // fallback ảnh mặc định
+  if (!path) return "/images/default-avatar.png";
   if (path.startsWith("http")) return path;
   return `http://localhost:3000${path}`;
 };
@@ -329,7 +282,7 @@ const dishCards = ref([]);
 
 const scrollByCard = (direction) => {
   if (!dishCards.value.length) return;
-  const itemWidth = dishCards.value[0].offsetWidth + 24; // 24 = gap
+  const itemWidth = dishCards.value[0].offsetWidth + 24;
   dishGrid.value.scrollBy({
     left: direction === "right" ? itemWidth : -itemWidth,
     behavior: "smooth",
@@ -343,22 +296,6 @@ const allMenuItems = ref([]);
 const currentPage = ref(1);
 const totalPages = ref(1);
 const limit = 10;
-
-const fetchPaginatedMenu = async () => {
-  try {
-    const res = await axios.get(
-      `http://localhost:3000/api/menu-items?page=${currentPage.value}&limit=${limit}`
-    );
-    allMenuItems.value = res.data.items;
-    totalPages.value = res.data.totalPages;
-  } catch (err) {
-    console.error("Lỗi khi lấy menu phân trang:", err);
-  }
-};
-
-onMounted(() => {
-  fetchPaginatedMenu();
-});
 
 const allDishesSection = ref(null);
 const scrollToAllDishes = () => {
@@ -396,6 +333,11 @@ const handleOrderClick = () => {
 </script>
 
 <style scoped>
+.el-button {
+  width: 150px;
+  height: 40px;
+}
+
 .home-page {
   background-color: #fffaf3;
   display: flex;
@@ -412,7 +354,7 @@ const handleOrderClick = () => {
 .home-page_header {
   max-width: 1200px;
   margin: 0 auto;
-  padding: 0 20px; /* tránh dính mép ở mobile */
+  padding: 0 20px;
   width: 100%;
   position: relative;
   overflow: visible;
@@ -476,8 +418,8 @@ const handleOrderClick = () => {
 
 .logo-wrapper {
   width: 160px;
-  height: 80px; /* ✅ Logo sẽ theo chiều cao của middle-bar */
-  aspect-ratio: 3 / 1; /* ✅ Giữ tỉ lệ ngang của logo */
+  height: 80px;
+  aspect-ratio: 3 / 1;
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -531,7 +473,7 @@ const handleOrderClick = () => {
 }
 
 .nav-menu .dropdown > span:hover {
-  color: #f2b94c; /* hoặc bất kỳ màu nào bạn muốn khi hover */
+  color: #f2b94c;
 }
 
 .dropdown:hover .dropdown-content {
@@ -564,7 +506,7 @@ const handleOrderClick = () => {
 }
 
 .nav-menu_icon .el-icon {
-  font-size: 22px; /* hoặc 24px, tuỳ bạn */
+  font-size: 22px;
 }
 
 .nav-menu_icon .el-icon:hover {
@@ -589,13 +531,63 @@ const handleOrderClick = () => {
   min-height: 100vh;
 }
 
+.slider {
+  position: relative;
+}
+
 .slider-carousel {
   width: 60vw;
   overflow: hidden;
   margin: 0 auto;
   position: relative;
-  height: 600px; /* chỉnh theo ảnh bạn */
+  height: 600px;
   max-width: 100%;
+}
+
+.slider-carousel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  z-index: 1;
+}
+
+.slider_overlay {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  z-index: 2;
+  left: 50%;
+  top: 50%;
+  display: flex;
+  justify-content: center;
+  flex-direction: column;
+  align-items: center;
+}
+
+.slider_overlay h1 {
+  color: #ffffff;
+  font-size: 50px;
+  justify-content: center;
+}
+
+.slider_overlay h2 {
+  color: #ffffff;
+  font-size: 30px;
+  font-weight: 100;
+  text-align: center;
+}
+
+.slider_overlay span {
+  font-size: 50px;
+  color: #ff6900;
+  font-weight: bold;
+}
+
+.overlay_btn {
+  gap: 20px;
+  width: 100%;
+  display: flex;
+  justify-content: center;
 }
 
 .slider-carousel-track {
@@ -660,10 +652,13 @@ const handleOrderClick = () => {
 
 .featured-dishes {
   padding: 50px 20px;
-  background: #fff;
   text-align: center;
   max-width: 1200px;
   width: 100%;
+}
+
+.dish-grid::-webkit-scrollbar {
+  display: none;
 }
 
 .section-title {
@@ -674,11 +669,11 @@ const handleOrderClick = () => {
 
 .dish-grid {
   display: flex;
-  overflow-x: auto;
+  overflow-x: scroll;
   gap: 24px;
   width: 100%;
-
   padding-bottom: 10px;
+  margin: 0 35px;
 }
 
 .dish-card {
@@ -976,7 +971,9 @@ const handleOrderClick = () => {
 }
 
 .price-num {
-  color: red;
+  color: #4a8f3c;
+  font-weight: 600;
+  font-size: 24px;
 }
 
 .order-button {

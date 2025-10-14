@@ -1,6 +1,6 @@
 <template>
   <el-card>
-    <h2 class="title">Lịch sử đặt bàn</h2>
+    <h2 class="title">Lịch sử dùng bữa</h2>
     <el-table :data="reservations" v-loading="loading" style="width: 100%">
       <el-table-column prop="reservation_time" label="Thời gian" width="200">
         <template #default="{ row }">
@@ -14,7 +14,7 @@
       <el-table-column prop="status" label="Trạng thái" />
       <el-table-column prop="note" label="Ghi chú" />
 
-      <!-- ✅ Món đã gọi -->
+      <!-- Món đã gọi -->
       <el-table-column label="Món đã gọi">
         <template #default="{ row }">
           <div v-if="row.Orders?.length">
@@ -76,7 +76,7 @@ async function fetchReservations() {
         Authorization: `Bearer ${token}`,
       },
     });
-    console.log("🎯 API reservations trả về:", res.data);
+
     reservations.value = res.data.reservations || res.data;
   } catch (err) {
     console.error("Lỗi khi lấy reservations:", err);

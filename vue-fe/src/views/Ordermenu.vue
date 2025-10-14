@@ -7,7 +7,6 @@
       <el-row :gutter="16">
         <el-col v-for="item in menu" :key="item.item_id" :span="8" style="display: flex">
           <el-card class="menu-item-card" style="flex: 1">
-            <!-- Bọc toàn bộ nội dung bằng một div flex-column -->
             <div class="menu-item-content">
               <img
                 :src="item.image_url"
@@ -50,10 +49,10 @@ const route = useRoute();
 const router = useRouter();
 const reservation_id = route.query.reservation_id;
 
-const menu = ref([]); // Danh sách món ăn
-const order = ref({}); // {item_id: quantity, ...}
+const menu = ref([]);
+const order = ref({}); 
 
-// Lấy menu món ăn khi vào trang
+
 onMounted(async () => {
   try {
     const res = await axios.get("/api/menu-items", { params: { page: 1, limit: 100 } });
@@ -67,7 +66,7 @@ onMounted(async () => {
   }
 });
 
-// Kiểm tra đã chọn ít nhất 1 món chưa
+
 const hasItemSelected = computed(() => Object.values(order.value).some((qty) => qty > 0));
 
 const submitOrder = async () => {

@@ -101,6 +101,10 @@
       </div>
       <div class="featured-dishes">
         <h2 class="section-title">Món ăn nổi bật</h2>
+        <span class="section-title_desc"
+          >Khám phá những món ăn đặc sắc nhất của chúng tôi,được chế biến từ những nguyên
+          liệu tươi ngon nhất</span
+        >
         <div class="dish-grid-wrapper">
           <button class="scroll-left" @click="scrollLeft">‹</button>
 
@@ -470,21 +474,26 @@ const scrollRight = () => scrollByCard("right");
 
 .featured-dishes {
   padding: 50px 20px;
-  background: #fff;
+
   text-align: center;
 
-  max-width: 1200px; /* ✅ Giới hạn chiều ngang */
+  max-width: 1200px;
   width: 100%;
-  margin: 0 auto; /* ✅ Căn giữa */
+  margin: 0 auto;
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 15px;
 }
 
 .section-title {
   font-size: 28px;
-  margin-bottom: 40px;
-  color: #a16500;
+  color: #2e4a3d;
+  margin: 0;
+}
+
+.section-title_desc {
+  font-size: 20px;
 }
 
 .dish-grid {
@@ -573,7 +582,7 @@ const scrollRight = () => scrollByCard("right");
 }
 
 .dish-info button {
-  background-color: #a16500;
+  background-color: #2f5d50;
   color: white;
   border: none;
   padding: 10px 16px;

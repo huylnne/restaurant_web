@@ -8,7 +8,6 @@ const config = require(__dirname + '/../config/config.json')[env];
 const db = {};
 const sequelize = new Sequelize(config.database, config.username, config.password, config);
 
-// Load tất cả model
 fs
   .readdirSync(__dirname)
   .filter(file => {
@@ -16,7 +15,7 @@ fs
       file.indexOf('.') !== 0 &&
       file !== basename &&
       file.endsWith('.js') &&
-      file !== 'db.js' // tránh file phụ nếu có
+      file !== 'db.js'
     );
   })
   .forEach(file => {
@@ -24,7 +23,7 @@ fs
     db[model.name] = model;
   });
 
-// Gọi associate
+
 Object.keys(db).forEach(modelName => {
   if (db[modelName].associate) {
     db[modelName].associate(db);

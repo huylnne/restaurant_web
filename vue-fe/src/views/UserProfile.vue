@@ -6,9 +6,6 @@
         <template #header>
           <div class="card-header">
             <span>Hồ sơ cá nhân</span>
-            <el-button type="default" @click="goBack" class="back-button">
-              ← Quay lại trang chủ
-            </el-button>
           </div>
         </template>
 
@@ -57,7 +54,7 @@
 
         <el-divider />
 
-        <h3>🔒 Đổi mật khẩu</h3>
+        <h3>Đổi mật khẩu</h3>
         <el-form label-width="140px" class="form-section">
           <el-form-item label="Mật khẩu hiện tại">
             <el-input v-model="currentPassword" type="password" show-password />
@@ -175,24 +172,20 @@ const getAvatarUrl = (url) => {
 </script>
 
 <style scoped>
-/* Nền ngoài: màu 2 bên */
 .profile-page {
-  background-color: #fff7e6;
+  background-color: #f0e9dc;
   min-height: 100vh;
   padding: 40px 0;
 }
 
-/* Khung giữa: card trắng */
 .card-wrapper {
   max-width: 900px;
   margin: 0 auto;
   background: white;
   border-radius: 12px;
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.1);
-  padding: 30px;
 }
 
-/* Giữ nguyên layout nội dung */
 .profile-content {
   display: flex;
   gap: 30px;
