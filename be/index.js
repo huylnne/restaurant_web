@@ -1,7 +1,6 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
-// const uploadRoute = require("./");
 const path = require("path");
 require('dotenv').config();
 
@@ -9,7 +8,6 @@ require('dotenv').config();
 app.use(cors());
 app.use(express.json());
 
-// Sample route
 app.get('/', (req, res) => {
   res.send('Hello from Backend');
 });
@@ -18,14 +16,14 @@ const db = require('./models/db');
 
 db.sequelize.authenticate()
   .then(() => {
-    console.log('✅ Kết nối DB thành công');
-    return db.sequelize.sync({ alter: true }); // ⬅ Thêm dòng này
+    console.log('Kết nối DB thành công');
+    return db.sequelize.sync({ alter: true }); 
   })
   .then(() => {
-    console.log('✅ Sequelize đã sync models');
+    console.log(' Sequelize đã sync models');
   })
   .catch((err) => {
-    console.error('❌ Lỗi kết nối DB:', err);
+    console.error(' Lỗi kết nối DB:', err);
   });
 
 
@@ -61,6 +59,6 @@ app.use('/api/upload', uploadRoutes);
 const reservationRoutes = require('./routes/user/reservation.routes');
 app.use('/api/reservations', reservationRoutes);
 
-app.use('/api/orders', require('./routes/user/order.routes')); // Đúng path
+app.use('/api/orders', require('./routes/user/order.routes')); 
 
-app.use('/api/payments', require('./routes/user/payments.routes')); //payments
+app.use('/api/payments', require('./routes/user/payments.routes')); 
