@@ -1,12 +1,16 @@
-// be/routes/admin/dashboard.routes.js
-const express = require("express");
+const express = require('express');
 const router = express.Router();
-const dashboardController = require("../../controllers/admin/dashboard.controller");
-const { verifyAdmin } = require("../../middlewares/auth");
+const dashboardController = require('../../controllers/admin/dashboard.controller');
+const { verifyAdmin } = require('../../middlewares/auth');  // ✅ Destructuring import
 
-// Lấy tổng quan dashboard
-router.get("/overview", verifyAdmin, dashboardController.getOverview);
+// ✅ Áp dụng middleware cho tất cả routes
+router.use(verifyAdmin);
 
-// Có thể thêm các routes khác
+// Routes
+router.get('/summary', dashboardController.getSummary);
+router.get('/weekly-revenue', dashboardController.getWeeklyRevenue);
+router.get('/top-dishes', dashboardController.getTopDishes);
+router.get('/table-status', dashboardController.getTableStatus);
+router.get('/peak-hours', dashboardController.getPeakHours);
 
 module.exports = router;

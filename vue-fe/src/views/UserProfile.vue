@@ -124,7 +124,7 @@ const updateProfile = async () => {
       });
       form.value.avatar_url = uploadRes.data.imageUrl;
     }
-    const res = await axios.put("http://localhost:3000/api/users/me", form.value, {
+    const res = await axios.put("http://localhost:3000/api/users/profile", form.value, {
       headers: { Authorization: `Bearer ${token}` },
     });
     Object.assign(form.value, res.data.user);

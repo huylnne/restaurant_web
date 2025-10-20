@@ -1,22 +1,60 @@
-// be/controllers/admin/dashboard.controller.js
-const { dashboardService } = require("../../services/admin/dashboard.service.js");
+const dashboardService = require('../../services/admin/dashboard.service');
 
 const dashboardController = {
-  // Lấy tổng quan dashboard
-  async getOverview(req, res) {
+  // ✅ 1. Tổng quan
+  async getSummary(req, res) {
     try {
-      const overview = await dashboardService.getOverview();
-      return res.status(200).json(overview);
+      const data = await dashboardService.getSummary();
+      res.json(data);
     } catch (error) {
-      console.error("Dashboard overview error:", error);
-      return res.status(500).json({ message: "Lỗi khi lấy dữ liệu tổng quan" });
+      console.error('❌ Lỗi getSummary:', error);
+      res.status(500).json({ message: 'Lỗi server' });
     }
   },
-  
-  // Có thể thêm các API endpoints khác ở đây như:
-  // - Thống kê theo khoảng thời gian
-  // - Thống kê món ăn bán chạy
-  // - Doanh thu theo tuần/tháng
+
+  // 📊 2. Doanh thu theo tuần
+  async getWeeklyRevenue(req, res) {
+    try {
+      const data = await dashboardService.getWeeklyRevenue();
+      res.json(data);
+    } catch (error) {
+      console.error('❌ Lỗi getWeeklyRevenue:', error);
+      res.status(500).json({ message: 'Lỗi server' });
+    }
+  },
+
+  // 🍽 3. Top món ăn bán chạy
+  async getTopDishes(req, res) {
+    try {
+      const data = await dashboardService.getTopDishes();
+      res.json(data);
+    } catch (error) {
+      console.error('❌ Lỗi getTopDishes:', error);
+      res.status(500).json({ message: 'Lỗi server' });
+    }
+  },
+
+  // 🪑 4. Tình trạng bàn ăn
+  async getTableStatus(req, res) {
+    try {
+      const data = await dashboardService.getTableStatus();
+      res.json(data);
+    } catch (error) {
+      console.error('❌ Lỗi getTableStatus:', error);
+      res.status(500).json({ message: 'Lỗi server' });
+    }
+  },
+
+  // ⏰ 5. Thời gian phục vụ cao điểm
+  async getPeakHours(req, res) {
+    try {
+      const data = await dashboardService.getPeakHours();
+      res.json(data);
+    } catch (error) {
+      console.error('❌ Lỗi getPeakHours:', error);
+      res.status(500).json({ message: 'Lỗi server' });
+    }
+  },
 };
 
 module.exports = dashboardController;

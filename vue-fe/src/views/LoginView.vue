@@ -59,7 +59,7 @@ const handleLogin = async () => {
       if (role === "admin") {
         router.push("./admin");
       } else {
-        router.push("/");
+        router.push("/dashboard");
       }
     }, 1000);
   } catch (err) {

@@ -1,14 +1,18 @@
 const express = require('express');
 const router = express.Router();
-const { createReservation } = require('../../controllers/user/reservation.controller');
-const verifyToken = require('../../middlewares/auth');
 const reservationController = require('../../controllers/user/reservation.controller');
-const authMiddleware = require('../../middlewares/auth');
+const { verifyToken } = require('../../middlewares/auth');  // ✅ Destructuring import
 
+// ✅ Tạo đặt bàn mới
+router.post('/', verifyToken, reservationController.createReservation);
 
-router.post('/', verifyToken, createReservation); // ✅ middleware phải nằm trước controller
+// ✅ Lấy bàn trống (không cần auth)
 router.get('/available', reservationController.getAvailableTables);
-router.get('/my', authMiddleware, reservationController.getUserReservations);
-router.put("/:id/cancel", authMiddleware, reservationController.cancelReservation);
+
+// ✅ Lấy lịch sử đặt bàn của user
+router.get('/my', verifyToken, reservationController.getUserReservations);
+
+// ✅ Hủy đặt bàn
+router.put('/:id/cancel', verifyToken, reservationController.cancelReservation);
 
 module.exports = router;

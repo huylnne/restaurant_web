@@ -1,14 +1,6 @@
 const userService = require("../../services/user.service");
 
-exports.registerUser = async (req, res) => {
-  try {
-    const newUser = await userService.registerUser(req.body);
-    res.status(201).json({ message: "Đăng ký thành công", user: newUser });
-  } catch (error) {
-    res.status(400).json({ message: error.message });
-  }
-};
-
+// ✅ Lấy profile
 exports.getProfile = async (req, res) => {
   try {
     const profile = await userService.getProfile(req.userId);
@@ -19,6 +11,7 @@ exports.getProfile = async (req, res) => {
   }
 };
 
+// ✅ Cập nhật profile
 exports.updateProfile = async (req, res) => {
   try {
     const user = await userService.updateProfile(req.userId, req.body);
@@ -29,6 +22,7 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
+// ✅ Đổi mật khẩu
 exports.changePassword = async (req, res) => {
   try {
     await userService.changePassword(
@@ -43,9 +37,10 @@ exports.changePassword = async (req, res) => {
   }
 };
 
+// ✅ Lấy lịch sử đặt bàn
 exports.getReservationsWithOrders = async (req, res) => {
   try {
-    const userId = req.userId; 
+    const userId = req.userId;
     const reservations = await userService.getReservationsWithOrders(userId);
     res.status(200).json(reservations);
   } catch (err) {
@@ -53,4 +48,3 @@ exports.getReservationsWithOrders = async (req, res) => {
     res.status(500).json({ message: "Không thể lấy lịch sử đặt bàn" });
   }
 };
-

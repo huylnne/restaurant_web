@@ -1,26 +1,11 @@
-// services/userService.js
-const db = require("../models/db"); // hoặc chỉnh đường dẫn cho đúng
+const db = require("../models/db");
 const User = db.User;
+const { Reservation, Order, OrderItem, MenuItem, Table } = require('../models');
 
-exports.registerUser = async (userData) => {
-  const { username, password, role, full_name, phone, avatar_url } = userData;
-  const existing = await User.findOne({ where: { username } });
-  if (existing) throw new Error("Username đã tồn tại");
-
-  const newUser = await User.create({
-    username,
-    password_hash: password, // NOTE: chưa hash đâu nhé!
-    role,
-    full_name,
-    phone,
-    avatar_url,
-  });
-  return newUser;
-};
-
+// ✅ Lấy profile
 exports.getProfile = async (userId) => {
   const user = await User.findByPk(userId, {
-    attributes: ['full_name', 'avatar_url','phone']
+    attributes: ['full_name', 'avatar_url', 'phone']
   });
   if (!user) throw new Error('User không tồn tại');
   return {
@@ -30,6 +15,7 @@ exports.getProfile = async (userId) => {
   };
 };
 
+//  Cập nhật profile
 exports.updateProfile = async (userId, data) => {
   const { full_name, phone, avatar_url } = data;
   const user = await User.findByPk(userId);
@@ -43,43 +29,71 @@ exports.updateProfile = async (userId, data) => {
   return user;
 };
 
+//  Đổi mật khẩu
 exports.changePassword = async (userId, currentPassword, newPassword) => {
+  const bcrypt = require('bcrypt');
   const user = await User.findByPk(userId);
   if (!user) throw new Error("Người dùng không tồn tại");
 
-  if (user.password_hash !== currentPassword) { // CHỐT: NÊN HASH PASSWORD!
+  // Kiểm tra password hiện tại
+  const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
+  if (!isMatch) {
     throw new Error("Mật khẩu hiện tại không đúng");
   }
-  user.password_hash = newPassword;
+
+  // Hash password mới
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  user.password_hash = hashedPassword;
   await user.save();
   return true;
 };
 
-const { Reservation, Order, OrderItem, MenuItem, Table } = require('../models');
-
+//  Lấy lịch sử đặt bàn với orders
 exports.getReservationsWithOrders = async (userId) => {
-  return await Reservation.findAll({
-    where: { user_id: userId },
-    include: [
-      {
-        model: Order,
-        include: [
-          {
-            model: OrderItem,
-            include: [
-              {
-                model: MenuItem,
-                attributes: ['name', 'price']
-              }
-            ]
-          }
-        ]
-      },
-      {
-        model: Table,
-        attributes: ['table_number', 'capacity']
-      }
-    ],
-    order: [['created_at', 'DESC']]
-  });
+  try {
+    const reservations = await Reservation.findAll({
+      where: { user_id: userId },
+      attributes: [
+        'reservation_id',
+        'reservation_time',
+        'number_of_guests',
+        'status',
+        'table_id',
+        'branch_id',
+        'created_at'
+      ],
+      include: [
+        {
+          model: Order,
+          as: 'Orders',
+          required: false,
+          include: [
+            {
+              model: OrderItem,
+              as: 'OrderItems',
+              required: false,
+              include: [
+                {
+                  model: MenuItem,
+                  as: 'MenuItem',
+                  attributes: ['name', 'price']
+                }
+              ]
+            }
+          ]
+        },
+        {
+          model: Table,
+          as: 'Table',
+          attributes: ['table_number', 'capacity']
+        }
+      ],
+      order: [['reservation_time', 'DESC']]
+    });
+
+    return reservations;
+  } catch (error) {
+    console.error('Lỗi getReservationsWithOrders:', error);
+    throw new Error('Không thể lấy lịch sử đặt bàn');
+  }
 };

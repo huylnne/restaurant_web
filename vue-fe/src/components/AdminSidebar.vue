@@ -50,7 +50,7 @@ import { KnifeFork, Grid, DataLine, User, Dish, Setting } from "@element-plus/ic
 <style scoped>
 .sidebar {
   width: 240px;
-  height: 100vh;
+  height: 100%;
   border-right: none;
   background-color: #78350f;
   padding-top: 10px;

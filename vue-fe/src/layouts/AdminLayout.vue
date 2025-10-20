@@ -18,18 +18,16 @@ import Navbar from "../components/UserNavbar.vue";
 
 <style scoped>
 .el-container {
-  height: 100vh;
-  overflow: hidden;
+  height: 100%;
 }
 .admin-layout {
-  height: 100vh;
-  overflow: hidden;
+  height: 100%;
 }
 
 .admin-main {
   background-color: #f0e9dc;
   padding: 20px;
   display: flex;
-  overflow: hidden;
+  overflow-y: auto;
 }
 </style>
