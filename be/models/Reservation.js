@@ -22,7 +22,8 @@ module.exports = (sequelize, DataTypes) => {
 
   Reservation.associate = (models) => {
     Reservation.belongsTo(models.Table, { foreignKey: 'table_id' });
-    Reservation.hasMany(models.Order, { foreignKey: 'reservation_id' });
+    Reservation.belongsTo(models.User, { foreignKey: 'user_id' }); 
+    Reservation.hasOne(models.Order, { foreignKey: 'reservation_id' });
   };
   
 

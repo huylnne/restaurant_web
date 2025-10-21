@@ -1,5 +1,5 @@
 module.exports = (sequelize, DataTypes) => {
-  const Table = sequelize.define("Table", { // 👈 Đổi tên model ở đây
+  const Table = sequelize.define("Table", { 
     table_id: {
       type: DataTypes.INTEGER,
       primaryKey: true,

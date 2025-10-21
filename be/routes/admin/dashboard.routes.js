@@ -1,9 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const dashboardController = require('../../controllers/admin/dashboard.controller');
-const { verifyAdmin } = require('../../middlewares/auth');  // ✅ Destructuring import
-
-// ✅ Áp dụng middleware cho tất cả routes
+const { verifyAdmin } = require('../../middlewares/auth');  
+//  Áp dụng middleware cho tất cả routes
 router.use(verifyAdmin);
 
 // Routes

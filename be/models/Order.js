@@ -23,7 +23,7 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: false,
   });
 
-  // 🔗 Thêm quan hệ ở đây:
+  //  Thêm quan hệ ở đây:
   Order.associate = (models) => {
     Order.belongsTo(models.Reservation, { foreignKey: 'reservation_id' });
     Order.hasMany(models.OrderItem, { foreignKey: 'order_id' });

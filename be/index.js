@@ -67,12 +67,16 @@ const adminDashboardRoutes = require('./routes/admin/dashboard.routes');
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 
 // Test route
+
+const adminTableRoutes = require('./routes/admin/table.routes')
+app.use('/api/admin/table', adminTableRoutes);
+
+
 app.get('/', (req, res) => {
-  res.send('✅ Backend API đang chạy!');
+  res.send(' Backend API đang chạy!');
 });
 
-// ========== START SERVER ==========
-// ✅ app.listen() phải ở CUỐI CÙNG
+
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`✅ Server đang chạy tại http://localhost:${PORT}`);
