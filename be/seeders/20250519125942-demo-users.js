@@ -1,31 +1,97 @@
-// seeders/20250521-users.js
 'use strict';
-
-const { faker } = require('@faker-js/faker');
+const bcrypt = require('bcryptjs');
 
 module.exports = {
-  async up(queryInterface, Sequelize) {
-    const now = new Date();
-    const users = [];
+  up: async (queryInterface, Sequelize) => {
+    const hashedPassword = await bcrypt.hash('123456', 10);
 
-    for (let i = 0; i < 100; i++) {
-      users.push({
-        branch_id: 1,
-        username: faker.internet.userName() + faker.number.int({ min: 1000, max: 9999 }),
-        password_hash: faker.internet.password(),
-        role: 'user', // hoặc 'user' nếu enum đúng tên đó
-        full_name: faker.person.fullName(),
-        phone: faker.phone.number('09########'),
-        created_at: now,
-        avatar_url: faker.image.avatar(),
-      });
-    }
-
-    await queryInterface.bulkDelete('users', { branch_id: 1 });
-    await queryInterface.bulkInsert('users', users, {});
+    await queryInterface.bulkInsert('users', [
+      // Admin users
+      {
+        username: 'admin',
+        password_hash: hashedPassword,
+        full_name: 'Administrator',
+        phone: '0123456789',
+        role: 'admin'
+      },
+      {
+        username: 'admin2',
+        password_hash: hashedPassword,
+        full_name: 'Admin Manager',
+        phone: '0123456790',
+        role: 'admin'
+      },
+      // Manager
+      {
+        username: 'manager1',
+        password_hash: hashedPassword,
+        full_name: 'Manager One',
+        phone: '0999111222',
+        role: 'manager'
+      },
+      // Kitchen
+      {
+        username: 'kitchen1',
+        password_hash: hashedPassword,
+        full_name: 'Kitchen Staff',
+        phone: '0999222333',
+        role: 'kitchen'
+      },
+      // Waiter
+      {
+        username: 'waiter1',
+        password_hash: hashedPassword,
+        full_name: 'Waiter Staff',
+        phone: '0999333444',
+        role: 'waiter'
+      },
+      // Regular users
+      {
+        username: 'ngochuy',
+        password_hash: hashedPassword,
+        full_name: 'Lê Ngọc Huy',
+        phone: '0999888777',
+        role: 'user'
+      },
+      {
+        username: 'kimberly',
+        password_hash: hashedPassword,
+        full_name: 'Dr. Kimberly Collier',
+        phone: '0359167823',
+        role: 'user'
+      },
+      {
+        username: 'sydney',
+        password_hash: hashedPassword,
+        full_name: 'Sydney Rodriguez',
+        phone: '0791401672',
+        role: 'user'
+      },
+      {
+        username: 'danny',
+        password_hash: hashedPassword,
+        full_name: 'Danny Terry',
+        phone: '0285970703',
+        role: 'user'
+      },
+      {
+        username: 'debbie',
+        password_hash: hashedPassword,
+        full_name: 'Debbie Will',
+        phone: '0137125574',
+        role: 'user'
+      },
+      {
+        username: 'adrian',
+        password_hash: hashedPassword,
+        full_name: 'Adrian Dietrich IV',
+        phone: '0754382616',
+        role: 'user'
+      }
+    ], {});
   },
 
-  async down(queryInterface, Sequelize) {
-    await queryInterface.bulkDelete('users', { branch_id: 1 });
+  down: async (queryInterface, Sequelize) => {
+    await queryInterface.bulkDelete('users', null, {});
   }
 };

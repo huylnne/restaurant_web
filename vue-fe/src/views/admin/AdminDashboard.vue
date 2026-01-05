@@ -12,7 +12,6 @@
           <p class="growth" :class="getGrowthClass(revenueGrowth)">{{ revenueGrowth }}</p>
         </div>
       </div>
-
       <div class="stat-card">
         <div class="icon-box blue">
           <el-icon><TrendCharts /></el-icon>
@@ -23,7 +22,6 @@
           <p class="growth" :class="getGrowthClass(ordersGrowth)">{{ ordersGrowth }}</p>
         </div>
       </div>
-
       <div class="stat-card">
         <div class="icon-box purple">
           <el-icon><User /></el-icon>
@@ -34,7 +32,6 @@
           <p class="growth" :class="getGrowthClass(usersGrowth)">{{ usersGrowth }}</p>
         </div>
       </div>
-
       <div class="stat-card">
         <div class="icon-box orange">
           <el-icon><KnifeFork /></el-icon>
@@ -46,7 +43,6 @@
         </div>
       </div>
     </div>
-    <!-- Biểu đồ doanh thu trong tuần -->
     <div class="two_charts">
       <div class="weekly-stats">
         <h3>Doanh thu trong tuần</h3>
@@ -135,7 +131,6 @@ Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, ArcEleme
 const weeklyLabels = ref([]);
 const weeklyData = ref([]);
 const topDishes = ref([]);
-// Dữ liệu thống kê
 const stats = ref({
   "revenue.today": 0,
   "revenue.yesterday": 0,
@@ -149,13 +144,12 @@ const stats = ref({
 
 function calcGrowth(today, yesterday) {
   if (!yesterday || yesterday === 0) {
-    return "+0%"; // ✅ Trả về +0% nếu không có dữ liệu hôm qua
+    return today > 0 ? "+100%" : "+0%";
   }
   const growth = ((today - yesterday) / yesterday) * 100;
   return (growth >= 0 ? "+" : "") + growth.toFixed(1) + "%";
 }
 
-// ✅ Hàm xác định class CSS cho growth (xanh = tăng, đỏ = giảm, xám = không đổi)
 function getGrowthClass(growthText) {
   if (growthText === "Mới" || growthText.startsWith("+")) {
     return "growth-positive";
@@ -170,7 +164,6 @@ const ordersGrowth = ref("+0%");
 const usersGrowth = ref("+0%");
 const dishesGrowth = ref("+0%");
 
-// Format tiền tệ
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -188,7 +181,6 @@ onMounted(async () => {
   try {
     const token = localStorage.getItem("token");
 
-    // Lấy dữ liệu tổng quan
     const response = await axios.get(
       "http://localhost:3000/api/admin/dashboard/summary",
       {
@@ -222,7 +214,6 @@ onMounted(async () => {
       stats.value["dishes.yesterday"]
     );
 
-    // Lấy dữ liệu doanh thu tuần
     const weeklyRes = await axios.get(
       "http://localhost:3000/api/admin/dashboard/weekly-revenue",
       { headers: { Authorization: `Bearer ${token}` } }
@@ -230,14 +221,12 @@ onMounted(async () => {
     weeklyLabels.value = weeklyRes.data.map((item) => item.day);
     weeklyData.value = weeklyRes.data.map((item) => item.revenue);
 
-    // Lấy dữ liệu top món ăn bán chạy
     const topDishesRes = await axios.get(
       "http://localhost:3000/api/admin/dashboard/top-dishes",
       { headers: { Authorization: `Bearer ${token}` } }
     );
     topDishes.value = topDishesRes.data;
 
-    // Lấy dữ liệu tình trạng bàn ăn
     const tableStatusRes = await axios.get(
       "http://localhost:3000/api/admin/dashboard/table-status",
       { headers: { Authorization: `Bearer ${token}` } }
@@ -249,7 +238,6 @@ onMounted(async () => {
       reserved: data.reserved || 0,
     };
 
-    // ✅ Đợi DOM cập nhật xong, sau đó vẽ biểu đồ
     await nextTick();
 
     const ctx = document.getElementById("tableStatusChart")?.getContext("2d");
@@ -320,7 +308,6 @@ const chartOptions = {
   box-sizing: border-box;
   gap: 30px;
 }
-
 .two_charts {
   display: flex;
   flex-direction: row;
@@ -328,19 +315,16 @@ const chartOptions = {
   width: 100%;
   gap: 20px;
 }
-
 h2 {
   margin-bottom: 20px;
   color: #78350f;
   font-weight: 600;
 }
-
 .stats {
   display: flex;
   flex-wrap: wrap;
   gap: 20px;
 }
-
 .stat-card {
   background: white;
   border-radius: 10px;
@@ -352,7 +336,6 @@ h2 {
   flex: 1;
   min-width: 240px;
 }
-
 .icon-box {
   width: 60px;
   height: 60px;
@@ -361,60 +344,47 @@ h2 {
   align-items: center;
   justify-content: center;
 }
-
 .icon-box .el-icon {
   font-size: 24px;
   color: white;
 }
-
 .green {
   background: #10b981;
 }
-
 .blue {
   background: #3b82f6;
 }
-
 .purple {
   background: #8b5cf6;
 }
-
 .orange {
   background: #f59e0b;
 }
-
 .text h3 {
   font-size: 16px;
   color: #64748b;
   margin: 0 0 10px;
 }
-
 .value {
   font-size: 28px;
   font-weight: 600;
   color: #1e293b;
   margin: 0;
 }
-
 .growth {
   margin: 5px 0 0;
   font-size: 14px;
   font-weight: 600;
 }
-
-/* ✅ CSS cho các trạng thái growth */
 .growth-positive {
-  color: #10b981; /* Xanh lá = tăng trưởng */
+  color: #10b981;
 }
-
 .growth-negative {
-  color: #ef4444; /* Đỏ = giảm */
+  color: #ef4444;
 }
-
 .growth-neutral {
-  color: #64748b; /* Xám = không đổi hoặc "Mới" */
+  color: #64748b;
 }
-
 .weekly-stats {
   display: flex;
   flex-direction: column;
@@ -423,18 +393,15 @@ h2 {
   padding: 15px;
   width: 70%;
 }
-
 .weekly-stats canvas {
   width: 100%;
   height: 500px;
 }
-
 .weekly-stats h3 {
   font-size: 20px;
   font-weight: 600;
   color: #78350f;
 }
-
 .top-dishes {
   background: white;
   border-radius: 12px;
@@ -442,19 +409,16 @@ h2 {
   margin-top: 30px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
 }
-
 .top-dishes h3 {
   font-size: 20px;
   font-weight: 600;
   margin-bottom: 20px;
   color: #78350f;
 }
-
 .top-dishes table {
   width: 100%;
   border-collapse: collapse;
 }
-
 .top-dishes thead th {
   background: #f3f4f6;
   text-align: left;
@@ -462,21 +426,17 @@ h2 {
   font-weight: 600;
   color: #64748b;
 }
-
 .top-dishes tbody tr {
   border-bottom: 1px solid #e5e7eb;
 }
-
 .top-dishes tbody td {
   padding: 12px;
   color: #1e293b;
 }
-
 .top-dishes tbody td.revenue {
   color: #10b981;
   font-weight: 600;
 }
-
 .table-status {
   background: white;
   border-radius: 12px;
@@ -484,66 +444,47 @@ h2 {
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
   flex: 1;
 }
-
-/* Responsive */
 @media (max-width: 768px) {
   .top-dishes h3 {
     font-size: 18px;
   }
-
   .top-dishes table {
     font-size: 14px;
   }
 }
-
-.table-status {
-  background: white;
-  border-radius: 12px;
-
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-  flex: 1;
-}
-
 .table-status h3 {
   font-size: 20px;
   font-weight: 600;
   margin-bottom: 20px;
   color: #78350f;
 }
-
 .status-chart {
   width: 100%;
   max-width: 300px;
   margin: 0 auto;
 }
-
 .status-list {
   margin-top: 20px;
   list-style: none;
   padding: 0;
 }
-
 .status-list li {
   display: flex;
   align-items: center;
   margin-bottom: 10px;
 }
-
 .status-color {
   width: 16px;
   height: 16px;
   border-radius: 50%;
   margin-right: 10px;
 }
-
 .status-color.empty {
   background: #10b981;
 }
-
 .status-color.serving {
   background: #f97316;
 }
-
 .status-color.reserved {
   background: #ef4444;
 }

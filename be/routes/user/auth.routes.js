@@ -2,10 +2,10 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../../controllers/user/auth.controller');
 
-// ✅ Route đăng ký
+//  Route đăng ký
 router.post('/register', authController.register);
 
-// ✅ Route đăng nhập
+//  Route đăng nhập
 router.post('/login', authController.login);
 
 module.exports = router;

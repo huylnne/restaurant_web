@@ -82,6 +82,11 @@
         <router-link to="/contact" class="nav-link" active-class="active"
           >LIÊN HỆ</router-link
         >
+        <template v-if="isLoggedIn && user && user.role === 'admin'">
+          <router-link to="/admin" class="nav-link admin-link" active-class="active">
+            Quản lý
+          </router-link>
+        </template>
 
         <div class="nav-menu_icon">
           <el-icon><Search /></el-icon>
@@ -123,6 +128,7 @@ onMounted(async () => {
       });
       user.value = res.data;
       isLoggedIn.value = true;
+      console.log("User info:", user.value);
     } catch (err) {
       console.error("Token lỗi hoặc hết hạn:", err);
     }

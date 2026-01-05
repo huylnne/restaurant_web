@@ -1,7 +1,5 @@
 <template>
   <div>
-    <UserNavbar />
-
     <el-card class="order-menu-card">
       <h2>Đặt món trước cho bàn đã đặt</h2>
       <el-row :gutter="16">
@@ -50,8 +48,7 @@ const router = useRouter();
 const reservation_id = route.query.reservation_id;
 
 const menu = ref([]);
-const order = ref({}); 
-
+const order = ref({});
 
 onMounted(async () => {
   try {
@@ -65,7 +62,6 @@ onMounted(async () => {
     ElMessage.error("Không lấy được thực đơn!");
   }
 });
-
 
 const hasItemSelected = computed(() => Object.values(order.value).some((qty) => qty > 0));
 

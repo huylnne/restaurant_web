@@ -25,8 +25,6 @@ db.sequelize.authenticate()
   });
 
 // ========== ROUTES ==========
-// ✅ Đăng ký TẤT CẢ routes TRƯỚC khi app.listen()
-
 // Auth routes
 const authRoutes = require('./routes/user/auth.routes');
 app.use('/api/auth', authRoutes);
@@ -66,16 +64,19 @@ app.use('/api/upload', uploadRoutes);
 const adminDashboardRoutes = require('./routes/admin/dashboard.routes');
 app.use('/api/admin/dashboard', adminDashboardRoutes);
 
-// Test route
-
 const adminTableRoutes = require('./routes/admin/table.routes')
 app.use('/api/admin/table', adminTableRoutes);
 
+// ✅ SỬA CHỖ NÀY: đổi từ /menu-items thành /menu
+const adminMenuRoutes = require('./routes/admin/menu.routes');
+app.use('/api/admin/menu', adminMenuRoutes);
+
+const adminEmployeeRoutes = require('./routes/admin/employee.routes')
+app.use('/api/admin/employees',adminEmployeeRoutes)
 
 app.get('/', (req, res) => {
   res.send(' Backend API đang chạy!');
 });
-
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

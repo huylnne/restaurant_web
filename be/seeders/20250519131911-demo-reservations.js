@@ -4,16 +4,24 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date();
 
-    // Lấy danh sách user và table có thực trong DB
+    // Lấy danh sách user_id và table_id thực tế
     const users = await queryInterface.sequelize.query(
-      `SELECT user_id FROM users WHERE branch_id = 1;`
+      `SELECT user_id FROM users WHERE role = 'user' ORDER BY user_id LIMIT 5;`,
+      { type: Sequelize.QueryTypes.SELECT }
     );
+    
     const tables = await queryInterface.sequelize.query(
-      `SELECT table_id FROM tables WHERE branch_id = 1;`
+      `SELECT table_id FROM tables WHERE branch_id = 1 ORDER BY table_id LIMIT 10;`,
+      { type: Sequelize.QueryTypes.SELECT }
     );
 
-    const userIds = users[0].map(u => u.user_id);
-    const tableIds = tables[0].map(t => t.table_id);
+    const userIds = users.map(u => u.user_id);
+    const tableIds = tables.map(t => t.table_id);
+
+    if (userIds.length === 0 || tableIds.length === 0) {
+      console.log('⚠️ Không có user hoặc table để seed reservations');
+      return;
+    }
 
     const reservations = [];
 

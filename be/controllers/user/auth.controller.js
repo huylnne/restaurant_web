@@ -4,7 +4,7 @@ const bcrypt = require("bcrypt");
 const db = require("../../models/db");
 const User = db.User;
 
-// ✅ ĐĂNG KÝ
+//  ĐĂNG KÝ
 const register = async (req, res) => {
   try {
     const { username, password, full_name, phone, branch_id, role } = req.body;
@@ -49,7 +49,7 @@ const register = async (req, res) => {
   }
 };
 
-// ✅ ĐĂNG NHẬP
+//  ĐĂNG NHẬP
 const login = async (req, res) => {
   try {
     const rawUsername = req.body.username || "";
@@ -91,7 +91,7 @@ const login = async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ Lỗi login:", error);
+    console.error(" Lỗi login:", error);
     res.status(500).json({ message: "Lỗi server" });
   }
 };

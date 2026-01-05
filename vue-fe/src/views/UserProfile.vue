@@ -1,5 +1,4 @@
 <template>
-  <UserNavbar />
   <div class="profile-page">
     <div class="card-wrapper">
       <el-card class="box-card">

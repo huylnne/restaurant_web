@@ -1,6 +1,5 @@
 <template>
   <div class="container">
-    <Header />
     <div class="booking_grid">
       <el-card class="booking-card">
         <h2 class="title">Đặt bàn nhanh</h2>

@@ -1,36 +1,30 @@
-const fs = require('fs');
-const path = require('path');
-const Sequelize = require('sequelize');
-const basename = path.basename(__filename);
-const env = process.env.NODE_ENV || 'development';
-const config = require(__dirname + '/../config/config.json')[env];
+const db = require('./db');
 
-const db = {};
-const sequelize = new Sequelize(config.database, config.username, config.password, config);
+// Định nghĩa quan hệ ở đây
+db.User.hasMany(db.Order, { foreignKey: 'user_id' });
+db.Order.belongsTo(db.User, { foreignKey: 'user_id' });
 
-fs
-  .readdirSync(__dirname)
-  .filter(file => {
-    return (
-      file.indexOf('.') !== 0 &&
-      file !== basename &&
-      file.endsWith('.js') &&
-      file !== 'db.js'
-    );
-  })
-  .forEach(file => {
-    const model = require(path.join(__dirname, file))(sequelize, Sequelize.DataTypes);
-    db[model.name] = model;
-  });
+db.Order.hasMany(db.OrderItem, { foreignKey: 'order_id' });
+db.OrderItem.belongsTo(db.Order, { foreignKey: 'order_id' });
 
+db.MenuItem.hasMany(db.OrderItem, { foreignKey: 'item_id' });
+db.OrderItem.belongsTo(db.MenuItem, { foreignKey: 'item_id' });
 
-Object.keys(db).forEach(modelName => {
-  if (db[modelName].associate) {
-    db[modelName].associate(db);
-  }
-});
+db.Order.hasOne(db.Payment, { foreignKey: 'order_id' });
+db.Payment.belongsTo(db.Order, { foreignKey: 'order_id' });
 
-db.sequelize = sequelize;
-db.Sequelize = Sequelize;
+db.Table.hasMany(db.Reservation, { foreignKey: 'table_id' });
+db.Reservation.belongsTo(db.Table, { foreignKey: 'table_id' });
+
+db.User.hasMany(db.Reservation, { foreignKey: 'user_id' });
+db.Reservation.belongsTo(db.User, { foreignKey: 'user_id' });
+
+// Employee relationships
+db.User.hasOne(db.Employee, { foreignKey: 'user_id' });
+db.Employee.belongsTo(db.User, { foreignKey: 'user_id' });
+
+// Reservation - Order (đúng alias)
+db.Reservation.hasMany(db.Order, { foreignKey: 'reservation_id', as: 'Orders' });
+db.Order.belongsTo(db.Reservation, { foreignKey: 'reservation_id' });
 
 module.exports = db;

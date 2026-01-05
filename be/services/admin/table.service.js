@@ -1,4 +1,12 @@
-const { Table, Reservation, Order, User } = require('../../models');
+const {
+  Table,
+  Reservation,
+  Order,
+  User,
+  OrderItem,
+  MenuItem,
+} = require("../../models");
+const { Sequelize } = require("sequelize");
 
 const tableService = {
   // Lấy danh sách bàn
@@ -11,40 +19,67 @@ const tableService = {
           include: [
             {
               model: Order,
-              required: false
+              as: "Orders",
+              required: false,
+              include: [
+                {
+                  model: OrderItem,
+                  required: false,
+                  include: [
+                    {
+                      model: MenuItem,
+                      required: false,
+                      attributes: ["price"],
+                    },
+                  ],
+                },
+              ],
             },
             {
               model: User,
               required: false,
-              attributes: ['user_id', 'full_name', 'phone']
-            }
-          ]
-        }
+              attributes: ["user_id", "full_name", "phone"],
+            },
+          ],
+        },
       ],
-      order: [['table_number', 'ASC']]
+      order: [["table_number", "ASC"]],
     });
 
     // Tính toán thông tin bổ sung cho mỗi bàn
-    return tables.map(table => {
+    return tables.map((table) => {
       const tableData = table.toJSON();
-      
-      // Tìm reservation đang active (confirmed và chưa qua)
-      const activeReservation = tableData.Reservations?.find(
-        r => r.status === 'confirmed' && new Date(r.reservation_time) > new Date()
-      );
+      const now = new Date();
 
-      // Tính doanh thu bàn (nếu có order completed)
-      const totalRevenue = tableData.Reservations?.reduce((sum, reservation) => {
-        if (reservation.Order && reservation.Order.status === 'COMPLETED') {
-          return sum + parseFloat(reservation.Order.total_amount || 0);
-        }
-        return sum;
-      }, 0) || 0;
+      // Tìm reservation đang ACTIVE (confirmed và đang diễn ra HOẶC sắp tới trong vòng 2 giờ)
+      const activeReservation = tableData.Reservations?.find((r) => {
+        const reservationTime = new Date(r.reservation_time);
+        const timeDiff = (reservationTime - now) / (1000 * 60 * 60); // giờ
+        return r.status === "confirmed" && timeDiff >= -2 && timeDiff <= 2;
+      });
+
+      // Tính doanh thu bàn: CHỈ tính từ reservation ĐANG ACTIVE
+      let totalRevenue = 0;
+      if (
+        activeReservation &&
+        activeReservation.Orders &&
+        Array.isArray(activeReservation.Orders)
+      ) {
+        activeReservation.Orders.forEach((order) => {
+          if (order.OrderItems && Array.isArray(order.OrderItems)) {
+            order.OrderItems.forEach((item) => {
+              const price = item.MenuItem?.price || 0;
+              const quantity = item.quantity || 0;
+              totalRevenue += price * quantity;
+            });
+          }
+        });
+      }
 
       return {
         ...tableData,
-        activeReservation,
-        totalRevenue
+        activeReservation: activeReservation || null,
+        totalRevenue,
       };
     });
   },
@@ -52,17 +87,17 @@ const tableService = {
   // Thêm bàn mới
   async createTable(data) {
     const { table_number, capacity } = data;
-    
-    // Kiểm tra số bàn đã tồn tại chưa
+
     const existingTable = await Table.findOne({ where: { table_number } });
     if (existingTable) {
-      throw new Error('Số bàn đã tồn tại');
+      throw new Error("Số bàn đã tồn tại");
     }
 
     const table = await Table.create({
       table_number,
       capacity,
-      status: 'available'
+      status: "available",
+      branch_id: 1,
     });
 
     return table;
@@ -71,112 +106,129 @@ const tableService = {
   // Sửa bàn
   async updateTable(tableNumber, data) {
     const table = await Table.findOne({ where: { table_number: tableNumber } });
-    if (!table) {
-      throw new Error('Không tìm thấy bàn');
-    }
+    if (!table) throw new Error("Không tìm thấy bàn");
 
     const { table_number, capacity, status } = data;
 
     // Nếu đổi số bàn, kiểm tra số mới đã tồn tại chưa
     if (table_number && table_number !== table.table_number) {
       const existingTable = await Table.findOne({ where: { table_number } });
-      if (existingTable) {
-        throw new Error('Số bàn mới đã tồn tại');
-      }
+      if (existingTable) throw new Error("Số bàn mới đã tồn tại");
     }
 
-    await table.update({ 
-      table_number: table_number || table.table_number, 
-      capacity: capacity || table.capacity, 
-      status: status || table.status 
+    await table.update({
+      table_number: table_number || table.table_number,
+      capacity: capacity || table.capacity,
+      status: status || table.status,
     });
-    
+
+    // Nếu chuyển trạng thái về "available", xóa reservation hiện tại (nếu có)
+    if (status === "available") {
+      await Reservation.update(
+        { status: "completed" },
+        {
+          where: {
+            table_id: table.table_id,
+            status: "confirmed",
+          },
+        }
+      );
+      // Có thể xóa hoặc cập nhật thêm các trường khác nếu cần
+    }
+
     return table;
   },
 
-  // ✅ Xóa bàn theo table_number
+  // Xóa bàn theo table_number
   async deleteTable(tableNumber) {
     const table = await Table.findOne({ where: { table_number: tableNumber } });
     if (!table) {
-      throw new Error('Không tìm thấy bàn');
+      throw new Error("Không tìm thấy bàn");
     }
 
-    // Kiểm tra bàn có đang được sử dụng không
-    if (table.status !== 'available') {
-      throw new Error('Không thể xóa bàn đang được sử dụng');
+    if (table.status !== "available") {
+      throw new Error("Không thể xóa bàn đang được sử dụng");
     }
 
     await table.destroy();
-    return { message: 'Đã xóa bàn thành công' };
+    return { message: "Đã xóa bàn thành công" };
   },
 
   // Lấy hoạt động gần đây
   async getTableActivities() {
     const activities = await Reservation.findAll({
       limit: 10,
-      order: [['created_at', 'DESC']],
+      order: [["created_at", "DESC"]],
       include: [
         {
           model: Table,
-          required: true
+          required: true,
         },
         {
           model: User,
           required: false,
-          attributes: ['user_id', 'full_name', 'phone']
+          attributes: ["user_id", "full_name", "phone"],
         },
         {
           model: Order,
-          required: false
-        }
-      ]
+          as: "Orders",
+          required: false,
+        },
+      ],
     });
 
-    return activities.map(activity => {
+    return activities.map((activity) => {
       const activityData = activity.toJSON();
       return {
         ...activityData,
-        activityType: activityData.Order ? 'order' : 'reservation',
-        timestamp: activityData.created_at
+        activityType:
+          activityData.Orders && activityData.Orders.length > 0
+            ? "order"
+            : "reservation",
+        timestamp: activityData.created_at,
       };
     });
   },
 
   // Lấy thống kê tổng quan bàn
-  // ...existing code...
+  async getTableSummary() {
+    const totalTables = await Table.count();
+    const emptyTables = await Table.count({ where: { status: "available" } });
+    const occupiedTables = await Table.count({ where: { status: "occupied" } });
+    const reservedTables = await Table.count({
+      where: { status: "pre-ordered" },
+    });
 
-// Lấy thống kê tổng quan bàn
-async getTableSummary() {
-  const totalTables = await Table.count();
-  const emptyTables = await Table.count({ where: { status: 'available' } });
-  const occupiedTables = await Table.count({ where: { status: 'occupied' } });
-  const reservedTables = await Table.count({ where: { status: 'pre-ordered' } });
+    const db = require("../../models/db");
+    const { Sequelize } = require("sequelize");
 
-  // ✅ Tính tổng doanh thu từ order_items (vì orders không có total_amount)
-  const { Sequelize } = require('sequelize');
-  const db = require('../../models/db');
-  
-  const revenueQuery = `
+    // Lấy ngày hôm nay (00:00:00)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Tính tổng doanh thu của các order COMPLETED trong hôm nay
+    const revenueQuery = `
     SELECT COALESCE(SUM(oi.quantity * mi.price), 0) as total
     FROM order_items oi
     JOIN menu_items mi ON oi.item_id = mi.item_id
     JOIN orders o ON oi.order_id = o.order_id
-    WHERE o.status IN ('IN_PROGRESS', 'COMPLETED')
+    WHERE o.status = 'COMPLETED'
+      AND o.updated_at >= :today
   `;
-  
-  const [revenueResult] = await db.sequelize.query(revenueQuery, {
-    type: Sequelize.QueryTypes.SELECT
-  });
 
-  return {
-    totalTables,
-    emptyTables,
-    occupiedTables,
-    reservedTables,
-    currentRevenue: parseFloat(revenueResult.total) || 0
-  };
-}
+    const [revenueResult] = await db.sequelize.query(revenueQuery, {
+      replacements: { today },
+      type: Sequelize.QueryTypes.SELECT,
+    });
 
+    return {
+      totalTables,
+      emptyTables,
+      occupiedTables,
+      reservedTables,
+      currentRevenue: parseFloat(revenueResult.total) || 0,
+    };
+  },
 };
 
 module.exports = tableService;

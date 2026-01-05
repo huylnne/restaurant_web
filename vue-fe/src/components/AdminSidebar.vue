@@ -6,10 +6,12 @@
     active-text-color="#fff"
     default-active="1"
   >
-    <el-menu-item index="1">
-      <el-icon><KnifeFork /></el-icon>
-      <span>Quản lý nhà hàng</span>
-    </el-menu-item>
+    <router-link to="/admin/" class="nav-item" style="text-decoration: none">
+      <el-menu-item index="1">
+        <el-icon><KnifeFork /></el-icon>
+        <span>Quản lý nhà hàng</span>
+      </el-menu-item>
+    </router-link>
 
     <el-menu-item index="2">
       <el-icon><Grid /></el-icon>
@@ -21,20 +23,26 @@
       <span>Thống kê doanh thu</span>
     </el-menu-item>
 
-    <el-menu-item index="4">
-      <el-icon><User /></el-icon>
-      <span>Quản lý nhân viên</span>
-    </el-menu-item>
+    <router-link to="/admin/employees" class="nav-item" style="text-decoration: none">
+      <el-menu-item index="4">
+        <el-icon><User /></el-icon>
+        <span>Quản lý nhân viên</span>
+      </el-menu-item>
+    </router-link>
 
-    <el-menu-item index="5">
-      <el-icon><Dish /></el-icon>
-      <span>Quản lý món ăn</span>
-    </el-menu-item>
+    <router-link to="/admin/menu" class="nav-item" style="text-decoration: none">
+      <el-menu-item index="5">
+        <el-icon><Dish /></el-icon>
+        <span>Quản lý món ăn</span>
+      </el-menu-item>
+    </router-link>
 
-    <el-menu-item index="6">
-      <el-icon><Grid /></el-icon>
-      <span>Quản lý bàn</span>
-    </el-menu-item>
+    <router-link to="/admin/tables" class="nav-item" style="text-decoration: none">
+      <el-menu-item index="6">
+        <el-icon><Grid /></el-icon>
+        <span>Quản lý bàn</span>
+      </el-menu-item>
+    </router-link>
 
     <el-menu-item index="7">
       <el-icon><Setting /></el-icon>
@@ -66,14 +74,15 @@ import { KnifeFork, Grid, DataLine, User, Dish, Setting } from "@element-plus/ic
   border-radius: 8px;
   margin: 5px 10px;
   transition: 0.3s;
+  text-decoration: none;
 }
 
 .el-menu-item .el-icon {
-  color: #f97316; /* cam */
+  color: #f97316;
 }
 
 .el-menu-item.is-active {
-  background-color: #f97316 !important; /* nền cam khi active */
+  background-color: #f97316 !important;
   color: #fff !important;
 }
 
