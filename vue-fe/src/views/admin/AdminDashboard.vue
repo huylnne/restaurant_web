@@ -53,7 +53,7 @@
             datasets: [
               {
                 label: 'Doanh thu',
-                backgroundColor: '#f97316',
+                backgroundColor: '#a16500',
                 data: weeklyData,
                 borderRadius: 8,
                 barPercentage: 0.6,
@@ -309,10 +309,12 @@ const chartOptions = {
 .dashboard {
   display: flex;
   flex-direction: column;
-  padding: 20px 30px;
+  padding: var(--hl-space-lg) var(--hl-space-xl);
   width: 100%;
   box-sizing: border-box;
-  gap: 30px;
+  gap: var(--hl-space-xl);
+  background: var(--hl-admin-bg);
+  min-height: 100%;
 }
 .two_charts {
   display: flex;
@@ -322,25 +324,27 @@ const chartOptions = {
   gap: 20px;
 }
 h2 {
-  margin-bottom: 20px;
-  color: #78350f;
+  margin-bottom: var(--hl-space-lg);
+  color: var(--hl-primary);
   font-weight: 600;
+  font-size: 1.5rem;
 }
 .stats {
   display: flex;
   flex-wrap: wrap;
-  gap: 20px;
+  gap: var(--hl-space-lg);
 }
 .stat-card {
-  background: white;
-  border-radius: 10px;
-  padding: 20px;
+  background: var(--hl-admin-card);
+  border-radius: var(--hl-radius-md);
+  padding: var(--hl-space-lg);
   display: flex;
   align-items: center;
-  gap: 20px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  gap: var(--hl-space-lg);
+  box-shadow: var(--hl-shadow-card);
   flex: 1;
   min-width: 240px;
+  border: 1px solid var(--hl-admin-border);
 }
 .icon-box {
   width: 60px;
@@ -355,114 +359,120 @@ h2 {
   color: white;
 }
 .green {
-  background: #10b981;
+  background: var(--hl-admin-success);
 }
 .blue {
-  background: #3b82f6;
+  background: var(--hl-admin-info);
 }
 .purple {
-  background: #8b5cf6;
+  background: #6b4c9a;
 }
 .orange {
-  background: #f59e0b;
+  background: var(--hl-primary);
 }
 .text h3 {
-  font-size: 16px;
-  color: #64748b;
-  margin: 0 0 10px;
+  font-size: 1rem;
+  color: var(--hl-text-muted);
+  margin: 0 0 var(--hl-space-sm);
 }
 .value {
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 600;
-  color: #1e293b;
+  color: var(--hl-text);
   margin: 0;
 }
 .growth {
-  margin: 5px 0 0;
+  margin: var(--hl-space-xs) 0 0;
   font-size: 14px;
   font-weight: 600;
 }
 .growth-positive {
-  color: #10b981;
+  color: var(--hl-admin-success);
 }
 .growth-negative {
-  color: #ef4444;
+  color: var(--hl-error);
 }
 .growth-neutral {
-  color: #64748b;
+  color: var(--hl-text-muted);
 }
 .weekly-stats {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  background-color: #fff;
-  padding: 15px;
+  background-color: var(--hl-admin-card);
+  padding: var(--hl-space-md);
   width: 70%;
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
+  border: 1px solid var(--hl-admin-border);
 }
 .weekly-stats canvas {
   width: 100%;
   height: 500px;
 }
 .weekly-stats h3 {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 600;
-  color: #78350f;
+  color: var(--hl-primary);
+  margin-bottom: var(--hl-space-md);
 }
 .top-dishes {
-  background: white;
-  border-radius: 12px;
-  padding: 24px;
-  margin-top: 30px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background: var(--hl-admin-card);
+  border-radius: var(--hl-radius-lg);
+  padding: var(--hl-space-lg);
+  margin-top: var(--hl-space-xl);
+  box-shadow: var(--hl-shadow-card);
+  border: 1px solid var(--hl-admin-border);
 }
 .top-dishes h3 {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 20px;
-  color: #78350f;
+  margin-bottom: var(--hl-space-lg);
+  color: var(--hl-primary);
 }
 .top-dishes table {
   width: 100%;
   border-collapse: collapse;
 }
 .top-dishes thead th {
-  background: #f3f4f6;
+  background: var(--hl-bg-muted);
   text-align: left;
-  padding: 12px;
+  padding: var(--hl-space-md);
   font-weight: 600;
-  color: #64748b;
+  color: var(--hl-text-muted);
 }
 .top-dishes tbody tr {
-  border-bottom: 1px solid #e5e7eb;
+  border-bottom: 1px solid var(--hl-admin-border);
 }
 .top-dishes tbody td {
-  padding: 12px;
-  color: #1e293b;
+  padding: var(--hl-space-md);
+  color: var(--hl-text);
 }
 .top-dishes tbody td.revenue {
-  color: #10b981;
+  color: var(--hl-admin-success);
   font-weight: 600;
 }
 .table-status {
-  background: white;
-  border-radius: 12px;
-  padding-left: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background: var(--hl-admin-card);
+  border-radius: var(--hl-radius-lg);
+  padding-left: var(--hl-space-md);
+  box-shadow: var(--hl-shadow-card);
   flex: 1;
+  border: 1px solid var(--hl-admin-border);
 }
 @media (max-width: 768px) {
   .top-dishes h3 {
-    font-size: 18px;
+    font-size: 1.125rem;
   }
   .top-dishes table {
     font-size: 14px;
   }
 }
 .table-status h3 {
-  font-size: 20px;
+  font-size: 1.25rem;
   font-weight: 600;
-  margin-bottom: 20px;
-  color: #78350f;
+  margin-bottom: var(--hl-space-lg);
+  color: var(--hl-primary);
 }
 .status-chart {
   width: 100%;
@@ -470,28 +480,28 @@ h2 {
   margin: 0 auto;
 }
 .status-list {
-  margin-top: 20px;
+  margin-top: var(--hl-space-lg);
   list-style: none;
   padding: 0;
 }
 .status-list li {
   display: flex;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: var(--hl-space-sm);
 }
 .status-color {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  margin-right: 10px;
+  margin-right: var(--hl-space-sm);
 }
 .status-color.empty {
-  background: #10b981;
+  background: var(--hl-admin-success);
 }
 .status-color.serving {
-  background: #f97316;
+  background: var(--hl-primary);
 }
 .status-color.reserved {
-  background: #ef4444;
+  background: var(--hl-error);
 }
 </style>

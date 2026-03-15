@@ -9,6 +9,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true, // Cho phép null vì có order không qua reservation
     },
+    table_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true, // Waiter tạo đơn gắn trực tiếp bàn; user đặt món qua reservation
+    },
     user_id: {
       type: DataTypes.INTEGER,
       allowNull: true, // Thêm trường này
@@ -29,7 +33,8 @@ module.exports = (sequelize, DataTypes) => {
 
   Order.associate = (models) => {
     Order.belongsTo(models.Reservation, { foreignKey: 'reservation_id' });
-    Order.belongsTo(models.User, { foreignKey: 'user_id' }); // Thêm dòng này
+    Order.belongsTo(models.Table, { foreignKey: 'table_id' });
+    Order.belongsTo(models.User, { foreignKey: 'user_id' });
     Order.hasMany(models.OrderItem, { foreignKey: 'order_id' });
     Order.hasOne(models.Payment, { foreignKey: 'order_id' });
   };

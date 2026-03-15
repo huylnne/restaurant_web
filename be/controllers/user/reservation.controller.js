@@ -35,8 +35,8 @@ const createReservation = async (req, res) => {
       created_at: new Date(),
     });
 
-    // 3. Cập nhật bàn thành 'reserved'
-    await table.update({ status: "reserved" });
+    // 3. Cập nhật bàn thành 'pre-ordered' (đã đặt trước) – đồng bộ với admin/tableSummary
+    await table.update({ status: "pre-ordered" });
 
     res.status(201).json({ message: "Đặt bàn thành công", reservation });
   } catch (err) {

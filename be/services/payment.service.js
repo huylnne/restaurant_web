@@ -1,5 +1,5 @@
 // be/services/payments.service.js
-const { Payment, Order, sequelize } = require('../models');
+const { Payment, Order, Reservation, Table, sequelize } = require('../models');
 const { QueryTypes } = require('sequelize');
 
 const ALLOWED_METHODS = ['COD', 'MOMO'];
@@ -69,6 +69,32 @@ async function createSession({ orderId, method, returnUrl, cancelUrl }) {
   throw new Error('UNSUPPORTED_METHOD');
 }
 
+/**
+ * Khi thanh toán xong: cập nhật order completed, bàn về trống (available), reservation completed.
+ * Gọi từ webhook MoMo hoặc bất kỳ flow nào đánh dấu đã thanh toán.
+ */
+async function onPaymentSucceeded(orderId) {
+  const order = await Order.findByPk(orderId);
+  if (!order) return;
+
+  await order.update({ status: 'COMPLETED' });
+
+  let tableId = order.table_id || null;
+  if (!tableId && order.reservation_id) {
+    const reservation = await Reservation.findByPk(order.reservation_id, { attributes: ['table_id'] });
+    if (reservation) tableId = reservation.table_id;
+  }
+  if (tableId) {
+    await Table.update({ status: 'available' }, { where: { table_id: tableId } });
+  }
+  if (order.reservation_id) {
+    await Reservation.update(
+      { status: 'completed' },
+      { where: { reservation_id: order.reservation_id } }
+    );
+  }
+}
+
 async function handleMomoWebhook(payload, verifyOk = true) {
   if (!verifyOk) throw new Error('INVALID_SIGNATURE');
 
@@ -84,8 +110,11 @@ async function handleMomoWebhook(payload, verifyOk = true) {
     if (ok) {
       payment.transaction_ref = payload.orderId || payload.requestId || null;
       payment.paid_at = now();
+      await payment.save();
+      await onPaymentSucceeded(orderId);
+    } else {
+      await payment.save();
     }
-    await payment.save();
   }
   return true;
 }
@@ -98,4 +127,5 @@ module.exports = {
   createSession,
   handleMomoWebhook,
   getPaymentByOrder,
+  onPaymentSucceeded,
 };

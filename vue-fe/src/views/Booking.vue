@@ -149,19 +149,29 @@ const submitForm = async () => {
 }
 
 .booking_grid {
-  background-color: #f0e9dc;
+  background-color: var(--hl-bg-section);
   min-height: 100vh;
+  padding: var(--hl-space-xl) var(--hl-space-md);
+}
+
+.booking_grid :deep(.el-card) {
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
+  border: 1px solid var(--hl-border-light);
 }
 
 .booking-card {
   max-width: 600px;
-  margin: 40px auto;
-  padding: 24px;
-  background-color: #fff;
+  margin: 0 auto;
+  padding: var(--hl-space-xl);
+  background-color: var(--hl-bg-card);
 }
+
 .title {
   text-align: center;
-  margin-bottom: 20px;
-  color: #a16500;
+  margin-bottom: var(--hl-space-lg);
+  color: var(--hl-primary);
+  font-size: 1.5rem;
+  font-weight: 600;
 }
 </style>

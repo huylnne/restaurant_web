@@ -5,7 +5,7 @@
         <h2>Quản lý bàn ăn</h2>
         <p>Quản lý và theo dõi tình trạng bàn ăn trong nhà hàng</p>
       </div>
-      <el-button type="warning" @click="showAddDialog = true">
+      <el-button v-if="userRole === 'admin'" type="warning" @click="showAddDialog = true">
         <el-icon><Plus /></el-icon>
         Đặt bàn mới
       </el-button>
@@ -104,7 +104,7 @@
 
           <!-- Nếu KHÔNG có activeReservation (bàn trống thật sự) -->
           <div v-else class="empty-info">
-            <p style="color: #10b981; font-weight: 600">Sẵn sàng phục vụ</p>
+            <p class="status-ready-text">Sẵn sàng phục vụ</p>
           </div>
         </div>
       </div>
@@ -194,7 +194,7 @@
 
         <div class="actions">
           <el-button @click="showEditDialog">Sửa</el-button>
-          <el-button type="danger" @click="deleteTable(selectedTable)">Xóa</el-button>
+          <el-button v-if="userRole === 'admin'" type="danger" @click="deleteTable(selectedTable)">Xóa</el-button>
         </div>
       </div>
     </el-dialog>
@@ -235,6 +235,7 @@
             v-model.number="editTableForm.table_number"
             type="number"
             placeholder="Nhập số bàn"
+            :disabled="userRole === 'waiter'"
           />
         </el-form-item>
         <el-form-item label="Số ghế">
@@ -242,6 +243,7 @@
             v-model.number="editTableForm.capacity"
             type="number"
             placeholder="Nhập số ghế"
+            :disabled="userRole === 'waiter'"
           />
         </el-form-item>
         <el-form-item label="Trạng thái">
@@ -273,11 +275,18 @@ import {
   User,
 } from "@element-plus/icons-vue";
 import axios from "axios";
+import {
+  normalizeTableStatus,
+  getTableStatusLabel,
+  getTableStatusClass,
+  getTableTagType,
+} from "@/constants/tableStatus";
 
 const API_BASE = "http://localhost:3000";
 const WAITER_API = `${API_BASE}/api/admin/waiter`;
 const TABLE_API = `${API_BASE}/api/admin/table`;
 
+const userRole = ref("");
 const tables = ref([]);
 const filteredTables = ref([]);
 const summary = ref({
@@ -458,25 +467,32 @@ const showEditDialog = () => {
   editTableForm.value = {
     table_number: selectedTable.value.table_number,
     capacity: selectedTable.value.capacity,
-    status: selectedTable.value.status,
+    status: normalizeTableStatus(selectedTable.value.status) || selectedTable.value.status,
   };
 
   showEditDialogVisible.value = true;
 };
 
-// Cập nhật bàn
+// Cập nhật bàn: admin dùng PUT /api/admin/table/:id, waiter dùng PATCH /api/admin/waiter/tables/:id/status
 const updateTable = async () => {
   try {
     const token = localStorage.getItem("token");
-    const oldTableNumber = selectedTable.value.table_number;
+    const role = userRole.value;
 
-    await axios.put(
-      `${TABLE_API}/${oldTableNumber}`,
-      editTableForm.value,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    if (role === "waiter") {
+      await axios.patch(
+        `${WAITER_API}/tables/${selectedTable.value.table_id}/status`,
+        { status: editTableForm.value.status },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } else {
+      const oldTableNumber = selectedTable.value.table_number;
+      await axios.put(
+        `${TABLE_API}/${oldTableNumber}`,
+        editTableForm.value,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    }
 
     ElMessage.success("Cập nhật bàn thành công");
     showEditDialogVisible.value = false;
@@ -523,7 +539,7 @@ const viewTableDetail = (table) => {
   showDetailDialog.value = true;
 };
 
-// Lọc bàn
+// Lọc bàn (chuẩn hóa: reserved = pre-ordered)
 const filterTables = () => {
   let result = tables.value;
 
@@ -532,39 +548,18 @@ const filterTables = () => {
   }
 
   if (filterStatus.value) {
-    result = result.filter((t) => t.status === filterStatus.value);
+    result = result.filter(
+      (t) => normalizeTableStatus(t.status) === filterStatus.value
+    );
   }
 
   filteredTables.value = result;
 };
 
-// Helper functions
-const getStatusClass = (status) => {
-  const map = {
-    available: "status-available",
-    occupied: "status-occupied",
-    "pre-ordered": "status-reserved",
-  };
-  return map[status] || "";
-};
-
-const getTagType = (status) => {
-  const map = {
-    available: "success",
-    occupied: "warning",
-    "pre-ordered": "info",
-  };
-  return map[status] || "";
-};
-
-const getStatusText = (status) => {
-  const map = {
-    available: "Trống",
-    occupied: "Đang phục vụ",
-    "pre-ordered": "Đã đặt trước",
-  };
-  return map[status] || status;
-};
+// Dùng chung constants/tableStatus
+const getStatusClass = getTableStatusClass;
+const getTagType = getTableTagType;
+const getStatusText = getTableStatusLabel;
 
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
@@ -581,6 +576,8 @@ const formatTime = (datetime) => {
 };
 
 onMounted(() => {
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  userRole.value = user?.role || "";
   fetchTables();
   fetchSummary();
 });
@@ -588,8 +585,8 @@ onMounted(() => {
 
 <style scoped>
 .admin-tables {
-  padding: 24px;
-  background: #f8fafc;
+  padding: var(--hl-space-lg);
+  background: var(--hl-admin-bg);
   min-height: 100vh;
   width: 100%;
 }
@@ -598,19 +595,19 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 24px;
+  margin-bottom: var(--hl-space-lg);
 }
 
 .title-section h2 {
-  margin: 0 0 8px;
-  color: #78350f;
-  font-size: 28px;
+  margin: 0 0 var(--hl-space-sm);
+  color: var(--hl-primary);
+  font-size: 1.75rem;
   font-weight: 700;
 }
 
 .title-section p {
   margin: 0;
-  color: #64748b;
+  color: var(--hl-text-muted);
   font-size: 14px;
 }
 
@@ -623,14 +620,14 @@ onMounted(() => {
 }
 
 .summary-card {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
+  background: var(--hl-admin-card);
+  border-radius: var(--hl-radius-xl);
+  padding: var(--hl-space-lg);
   display: flex;
   justify-content: space-between;
   align-items: center;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
-  border: 3px solid;
+  box-shadow: var(--hl-shadow-md);
+  border: 3px solid var(--hl-admin-border);
 }
 
 .summary-card.orange-border {
@@ -644,27 +641,27 @@ onMounted(() => {
 }
 
 .card-content h3 {
-  margin: 0 0 12px;
+  margin: 0 0 var(--hl-space-md);
   font-size: 14px;
-  color: #64748b;
+  color: var(--hl-text-muted);
   font-weight: 500;
 }
 
 .card-content .value {
   margin: 0;
-  font-size: 28px;
+  font-size: 1.75rem;
   font-weight: 700;
-  color: #1e293b;
+  color: var(--hl-text);
 }
 
 .value.green {
-  color: #10b981;
+  color: var(--hl-admin-success);
 }
 .value.orange {
-  color: #f97316;
+  color: var(--hl-primary);
 }
 .value.yellow {
-  color: #eab308;
+  color: var(--hl-admin-warning);
 }
 
 .card-icon {
@@ -679,13 +676,13 @@ onMounted(() => {
 }
 
 .card-icon.orange {
-  background: linear-gradient(135deg, #f97316, #fb923c);
+  background: linear-gradient(135deg, var(--hl-primary), var(--hl-primary-light));
 }
 .card-icon.green {
-  background: linear-gradient(135deg, #10b981, #34d399);
+  background: linear-gradient(135deg, var(--hl-admin-success), #34d399);
 }
 .card-icon.yellow {
-  background: linear-gradient(135deg, #eab308, #fbbf24);
+  background: linear-gradient(135deg, var(--hl-admin-warning), #fbbf24);
 }
 
 /* Filter section */
@@ -712,32 +709,32 @@ onMounted(() => {
 }
 
 .table-card {
-  background: white;
-  border-radius: 16px;
-  padding: 24px;
-  border: 4px solid;
+  background: var(--hl-admin-card);
+  border-radius: var(--hl-radius-xl);
+  padding: var(--hl-space-lg);
+  border: 4px solid var(--hl-admin-border);
   cursor: pointer;
-  transition: all 0.3s ease;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+  transition: all 0.2s ease;
+  box-shadow: var(--hl-shadow-sm);
 }
 
 .table-card:hover {
-  transform: translateY(-6px);
-  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px);
+  box-shadow: var(--hl-shadow-lg);
 }
 
 .table-card.status-available {
-  border-color: #10b981;
-  background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+  border-color: var(--hl-admin-success);
+  background: linear-gradient(135deg, var(--hl-success-bg) 0%, #d1fae5 100%);
 }
 
 .table-card.status-occupied {
-  border-color: #f97316;
+  border-color: var(--hl-primary);
   background: linear-gradient(135deg, #fff7ed 0%, #fed7aa 100%);
 }
 
 .table-card.status-reserved {
-  border-color: #eab308;
+  border-color: var(--hl-admin-warning);
   background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
 }
 
@@ -750,13 +747,13 @@ onMounted(() => {
 
 .table-header h3 {
   margin: 0;
-  font-size: 24px;
+  font-size: 1.5rem;
   font-weight: 800;
-  color: #1e293b;
+  color: var(--hl-text);
 }
 
 .table-info {
-  color: #64748b;
+  color: var(--hl-text-muted);
 }
 
 .table-info .capacity {
@@ -775,10 +772,10 @@ onMounted(() => {
 }
 
 .reservation-info .revenue {
-  color: #10b981;
+  color: var(--hl-admin-success);
   font-weight: 800;
-  font-size: 18px;
-  margin-top: 12px;
+  font-size: 1.125rem;
+  margin-top: var(--hl-space-md);
 }
 
 .empty-info p {
@@ -794,9 +791,9 @@ onMounted(() => {
 }
 
 .orders-section {
-  margin-top: 20px;
-  padding-top: 16px;
-  border-top: 1px solid #e2e8f0;
+  margin-top: var(--hl-space-lg);
+  padding-top: var(--hl-space-md);
+  border-top: 1px solid var(--hl-admin-border);
 }
 
 .orders-section-header {
@@ -819,22 +816,23 @@ onMounted(() => {
 }
 
 .text-muted {
-  color: #64748b;
+  color: var(--hl-text-muted);
   font-size: 14px;
   margin: 0;
 }
 
 .order-block {
-  margin-bottom: 12px;
-  padding: 10px;
-  background: #f8fafc;
-  border-radius: 8px;
+  margin-bottom: var(--hl-space-md);
+  padding: var(--hl-space-sm);
+  background: var(--hl-admin-bg);
+  border-radius: var(--hl-radius-md);
+  border: 1px solid var(--hl-admin-border);
 }
 
 .order-meta {
   font-size: 12px;
-  color: #64748b;
-  margin-bottom: 8px;
+  color: var(--hl-text-muted);
+  margin-bottom: var(--hl-space-sm);
 }
 
 .order-item-row {
@@ -846,9 +844,9 @@ onMounted(() => {
 }
 
 .create-order-form .table-info {
-  margin-bottom: 12px;
+  margin-bottom: var(--hl-space-md);
   font-weight: 600;
-  color: #78350f;
+  color: var(--hl-primary);
 }
 
 .create-order-form .menu-list {
@@ -859,18 +857,23 @@ onMounted(() => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 8px 0;
-  border-bottom: 1px solid #f1f5f9;
+  padding: var(--hl-space-sm) 0;
+  border-bottom: 1px solid var(--hl-admin-border);
 }
 
 .menu-row .menu-name {
   flex: 1;
-  margin-right: 12px;
+  margin-right: var(--hl-space-md);
 }
 
 .create-order-form .hint {
-  margin-top: 12px;
-  color: #64748b;
+  margin-top: var(--hl-space-md);
+  color: var(--hl-text-muted);
   font-size: 13px;
+}
+
+.status-ready-text {
+  color: var(--hl-admin-success);
+  font-weight: 600;
 }
 </style>

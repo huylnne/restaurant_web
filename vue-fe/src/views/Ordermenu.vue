@@ -93,20 +93,37 @@ const submitOrder = async () => {
 <style scoped>
 .order-menu-card {
   max-width: 900px;
-  margin: 40px auto;
-  padding: 24px;
-  background: #f9fafc;
+  margin: var(--hl-space-2xl) auto;
+  padding: var(--hl-space-xl);
+  background: var(--hl-bg-section);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
+  border: 1px solid var(--hl-border-light);
 }
+
+.order-menu-card :deep(.el-card__body) {
+  padding: var(--hl-space-lg);
+}
+
+.order-menu-card h2 {
+  color: var(--hl-primary);
+  font-weight: 600;
+  margin-bottom: var(--hl-space-lg);
+}
+
 .menu-item-card {
-  margin-bottom: 20px;
+  margin-bottom: var(--hl-space-lg);
   height: 350px;
   position: relative;
   padding-bottom: 60px;
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-sm);
+  border: 1px solid var(--hl-border-light);
 }
 
 .input-bottom {
   position: absolute;
-  bottom: 16px;
-  left: 16px;
+  bottom: var(--hl-space-md);
+  left: var(--hl-space-md);
 }
 </style>

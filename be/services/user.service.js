@@ -85,7 +85,7 @@ exports.getReservationsWithOrders = async (userId) => {
         {
           model: Table,
           as: 'Table',
-          attributes: ['table_number', 'capacity']
+          attributes: ['table_number', 'capacity', 'status']
         }
       ],
       order: [['reservation_time', 'DESC']]

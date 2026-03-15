@@ -12,7 +12,8 @@ const waiterController = {
       return res.status(201).json(result);
     } catch (err) {
       console.error('waiter.createOrder', err);
-      return res.status(500).json({ message: err.message || 'Server error' });
+      const message = err.message || (err.original && err.original.message) || 'Server error';
+      return res.status(500).json({ message });
     }
   },
 

@@ -78,7 +78,7 @@ import { ShoppingCart } from "@element-plus/icons-vue";
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import axios from "axios";
 import { SwitchButton } from "@element-plus/icons-vue";
-import { ElMessage } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 
 const realImages = [
   "/images/homeimg1.png",
@@ -86,14 +86,20 @@ const realImages = [
   "/images/homeimg3.png",
 ];
 
-const logout = () => {
-  const confirmed = window.confirm("Bạn có chắc muốn đăng xuất?");
-  if (confirmed) {
-    localStorage.removeItem("token");
-    isLoggedIn.value = false;
-    user.value = null;
-    router.push("/").then(() => location.reload());
+const logout = async () => {
+  try {
+    await ElMessageBox.confirm("Bạn có chắc muốn đăng xuất?", "Xác nhận", {
+      confirmButtonText: "Đăng xuất",
+      cancelButtonText: "Hủy",
+      type: "warning",
+    });
+  } catch {
+    return;
   }
+  localStorage.removeItem("token");
+  isLoggedIn.value = false;
+  user.value = null;
+  router.push("/").then(() => location.reload());
 };
 
 const images = [realImages[realImages.length - 1], ...realImages, realImages[0]];
@@ -169,10 +175,13 @@ onMounted(async () => {
   }
 });
 
+const DEFAULT_AVATAR = "https://maunhi.com/wp-content/uploads/2025/04/avatar-facebook-mac-dinh-3.jpeg";
+
 const getAvatarUrl = (path) => {
-  if (!path) return "/images/default-avatar.png";
+  if (!path || (typeof path === "string" && !path.trim())) return DEFAULT_AVATAR;
   if (path.startsWith("http")) return path;
-  return `http://localhost:3000${path}`;
+  if (path.startsWith("/uploads")) return `http://localhost:3000${path}`;
+  return path;
 };
 
 const dishGrid = ref(null);
@@ -237,13 +246,13 @@ const handleOrderClick = () => {
 }
 
 .home-page {
-  background-color: #fffaf3;
+  background-color: var(--hl-bg-page);
   display: flex;
   flex-direction: column;
   justify-content: center;
 }
 .container {
-  max-width: 1200px;
+  max-width: var(--hl-content-max);
   margin: 0 auto;
   padding: 0;
   width: 100%;
@@ -274,13 +283,13 @@ const handleOrderClick = () => {
 
 .right-links a {
   margin-left: 15px;
-  color: #333;
+  color: var(--hl-text);
   text-decoration: none;
 }
 
 .right-links a:hover {
   cursor: pointer;
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 
 .middle-bar {
@@ -344,13 +353,13 @@ const handleOrderClick = () => {
 .nav-menu a,
 .nav-menu .dropdown > span {
   text-decoration: none;
-  color: #333;
+  color: var(--hl-text);
   cursor: pointer;
 }
 
 .nav-menu a:hover {
   cursor: pointer;
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 
 .dropdown {
@@ -362,16 +371,18 @@ const handleOrderClick = () => {
   position: absolute;
   top: 120%;
   left: 0;
-  background-color: white;
-  border: 1px solid #ccc;
+  background-color: var(--hl-bg-card);
+  border: 1px solid var(--hl-border);
   padding: 10px;
   flex-direction: column;
   gap: 5px;
   z-index: 100;
+  border-radius: var(--hl-radius-md);
+  box-shadow: var(--hl-shadow-md);
 }
 
 .nav-menu .dropdown > span:hover {
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 
 .dropdown:hover .dropdown-content {
@@ -425,7 +436,7 @@ const handleOrderClick = () => {
 }
 
 .home-page_body {
-  background-color: #f0e9dc;
+  background-color: var(--hl-bg-section);
   min-height: 100vh;
 }
 
@@ -477,7 +488,7 @@ const handleOrderClick = () => {
 
 .slider_overlay span {
   font-size: 50px;
-  color: #ff6900;
+  color: var(--hl-primary-light);
   font-weight: bold;
 }
 
@@ -506,17 +517,18 @@ const handleOrderClick = () => {
   top: 50%;
   transform: translateY(-50%);
   font-size: 40px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.85);
   border: none;
   cursor: pointer;
   padding: 0 12px;
   z-index: 10;
   border-radius: 50%;
-  transition: background 0.3s;
+  transition: background 0.2s ease;
+  color: var(--hl-text);
 }
 
 .arrow:hover {
-  background: #f2b94c;
+  background: var(--hl-primary);
   color: white;
 }
 
@@ -534,18 +546,18 @@ const handleOrderClick = () => {
 
 .nav-link {
   text-decoration: none;
-  color: #333;
+  color: var(--hl-text);
   font-weight: bold;
 }
 
 .nav-link:hover {
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 
 .router-link-exact-active,
 .nav-link.active {
-  color: #f2b94c;
-  border-bottom: 2px solid #f2b94c;
+  color: var(--hl-primary);
+  border-bottom: 2px solid var(--hl-primary);
 }
 
 .featured-dishes {
@@ -562,7 +574,8 @@ const handleOrderClick = () => {
 .section-title {
   font-size: 28px;
   margin-bottom: 40px;
-  color: #a16500;
+  color: var(--hl-primary);
+  font-weight: 600;
 }
 
 .dish-grid {
@@ -577,14 +590,14 @@ const handleOrderClick = () => {
 .dish-card {
   flex: 0 0 calc(20% - 18px);
   flex-shrink: 0;
-
-  background: #fffaf3;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background: var(--hl-bg-page);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
   overflow: hidden;
-  transition: transform 0.3s ease;
+  transition: transform 0.2s ease;
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--hl-border-light);
 }
 
 .dish-card:hover {
@@ -606,27 +619,28 @@ const handleOrderClick = () => {
 .dish-info h3 {
   font-size: 20px;
   margin-bottom: 8px;
-  color: #333;
+  color: var(--hl-text);
 }
 
 .dish-info p {
   font-size: 14px;
-  color: #666;
+  color: var(--hl-text-muted);
   margin-bottom: 16px;
 }
 
 .dish-info button {
-  background-color: #a16500;
+  background-color: var(--hl-primary);
   color: white;
   border: none;
   padding: 10px 16px;
-  border-radius: 6px;
+  border-radius: var(--hl-radius-md);
   cursor: pointer;
-  transition: background 0.3s;
+  font-weight: 500;
+  transition: background 0.2s ease;
 }
 
 .dish-info button:hover {
-  background-color: #804d00;
+  background-color: var(--hl-primary-hover);
 }
 
 .nav-user {
@@ -634,12 +648,12 @@ const handleOrderClick = () => {
   align-items: center;
   gap: 8px;
   font-weight: bold;
-  color: #333;
+  color: var(--hl-text);
 }
 
 .nav-user:hover {
   cursor: pointer;
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 
 .username {
@@ -653,7 +667,7 @@ const handleOrderClick = () => {
 }
 
 .logout-button {
-  color: black;
+  color: var(--hl-text);
   font-size: 14px;
   padding: 0;
 }
@@ -661,7 +675,7 @@ const handleOrderClick = () => {
 .logout-button:hover {
   text-decoration: underline;
   cursor: pointer;
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 
 .featured-dishes-with-sidebar {
@@ -678,11 +692,12 @@ const handleOrderClick = () => {
 }
 
 .sidebar-section h3 {
-  background-color: #a16500;
+  background-color: var(--hl-primary);
   color: white;
-  padding: 10px;
+  padding: var(--hl-space-sm);
   font-size: 16px;
-  margin-bottom: 10px;
+  margin-bottom: var(--hl-space-sm);
+  border-radius: var(--hl-radius-sm);
 }
 
 .sidebar-section ul {
@@ -692,23 +707,23 @@ const handleOrderClick = () => {
 }
 
 .sidebar-section ul li {
-  padding: 8px 0;
-  border-bottom: 1px dashed #ccc;
+  padding: var(--hl-space-sm) 0;
+  border-bottom: 1px dashed var(--hl-border);
 }
 
 .sidebar-section ul li a {
-  color: #333;
+  color: var(--hl-text);
   text-decoration: none;
   font-size: 14px;
 }
 
 .sidebar-section ul li a:hover {
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 
 .router-link-exact-active.nav-link {
-  color: #f2b94c;
-  border-bottom: 2px solid #f2b94c;
+  color: var(--hl-primary);
+  border-bottom: 2px solid var(--hl-primary);
 }
 
 .dish-grid-wrapper {
@@ -724,12 +739,21 @@ const handleOrderClick = () => {
   top: 50%;
   transform: translateY(-50%);
   z-index: 2;
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
+  background: var(--hl-bg-card);
+  border: 1px solid var(--hl-border-light);
   font-size: 24px;
   padding: 8px 12px;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--hl-shadow-sm);
+  border-radius: var(--hl-radius-sm);
+  color: var(--hl-text);
+}
+
+.scroll-left:hover,
+.scroll-right:hover {
+  background: var(--hl-primary);
+  color: white;
+  border-color: var(--hl-primary);
 }
 
 .scroll-left {
@@ -750,11 +774,12 @@ const handleOrderClick = () => {
 }
 
 .all-dishes .dish-card {
-  background: #fffaf3;
-  border-radius: 12px;
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.05);
+  background: var(--hl-bg-page);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
+  border: 1px solid var(--hl-border-light);
   overflow: hidden;
-  transition: transform 0.3s ease;
+  transition: transform 0.2s ease;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
@@ -782,36 +807,41 @@ const handleOrderClick = () => {
 .all-dishes .dish-info h3 {
   font-size: 18px;
   margin-bottom: 6px;
-  color: #333;
+  color: var(--hl-text);
 }
 
 .all-dishes .dish-info p {
   font-size: 14px;
-  color: #666;
+  color: var(--hl-text-muted);
   margin-bottom: 8px;
 }
 
 .pagination {
   display: flex;
   justify-content: center;
-  gap: 16px;
-  margin-top: 24px;
+  gap: var(--hl-space-md);
+  margin-top: var(--hl-space-lg);
   align-items: center;
 }
 
 .pagination button {
-  background: #a16500;
+  background: var(--hl-primary);
   color: white;
   border: none;
-  padding: 6px 12px;
-  border-radius: 6px;
+  padding: var(--hl-space-xs) var(--hl-space-md);
+  border-radius: var(--hl-radius-sm);
   cursor: pointer;
-  transition: background 0.3s;
+  font-weight: 500;
+  transition: background 0.2s ease;
 }
 
 .pagination button:disabled {
-  background: #ccc;
+  background: var(--hl-border);
   cursor: not-allowed;
+}
+
+.pagination button:hover:not(:disabled) {
+  background: var(--hl-primary-hover);
 }
 .desc {
   min-height: 48px; /* Hoặc tuỳ độ cao cần đồng bộ */
@@ -819,16 +849,19 @@ const handleOrderClick = () => {
 }
 
 .order-button {
-  background-color: #a16500;
+  background-color: var(--hl-primary);
   color: white;
   border: none;
   margin-top: auto;
   width: 100%;
-  font-weight: bold;
+  font-weight: 600;
+  border-radius: var(--hl-radius-md);
+  padding: var(--hl-space-sm);
+  transition: background 0.2s ease;
 }
 
 .order-button:hover {
-  background-color: #804d00;
+  background-color: var(--hl-primary-hover);
 }
 
 .all-dishes .dish-info {
@@ -850,41 +883,27 @@ const handleOrderClick = () => {
 .dish-info h3 {
   font-size: 18px;
   margin-bottom: 6px;
-  color: #333;
+  color: var(--hl-text);
   min-height: 44px;
 }
 
 .dish-info .desc {
   font-size: 14px;
-  color: #666;
+  color: var(--hl-text-muted);
   margin-bottom: 8px;
   flex-grow: 1;
 }
 
 .dish-price {
   font-weight: bold;
-  color: #a16500;
+  color: var(--hl-primary);
   margin-top: auto;
   text-align: center;
 }
 
 .price-num {
-  color: #4a8f3c;
+  color: var(--hl-success);
   font-weight: 600;
   font-size: 24px;
-}
-
-.order-button {
-  background-color: #a16500;
-  color: white;
-  border: none;
-  margin-top: 12px;
-  width: 100%;
-  font-weight: bold;
-  transition: background 0.3s;
-}
-
-.order-button:hover {
-  background-color: #804d00;
 }
 </style>

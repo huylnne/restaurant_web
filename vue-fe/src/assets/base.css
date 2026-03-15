@@ -1,53 +1,86 @@
-/* color palette from <https://github.com/vuejs/theme> */
+/* ========== HLFood Design System ========== */
 :root {
-  --vt-c-white: #ffffff;
-  --vt-c-white-soft: #f8f8f8;
-  --vt-c-white-mute: #f2f2f2;
+  /* Backgrounds */
+  --hl-bg-page: #fffaf3;
+  --hl-bg-section: #f0e9dc;
+  --hl-bg-card: #ffffff;
+  --hl-bg-muted: #f5f0e8;
+  --hl-bg-input: #faf8f5;
 
-  --vt-c-black: #181818;
-  --vt-c-black-soft: #222222;
-  --vt-c-black-mute: #282828;
+  /* Primary - amber/brown (buttons, links, accent) */
+  --hl-primary: #a16500;
+  --hl-primary-hover: #804d00;
+  --hl-primary-light: #e8c97a;
+  --hl-primary-bg: rgba(161, 101, 0, 0.08);
 
-  --vt-c-indigo: #2c3e50;
+  /* Secondary - green (success, nature) */
+  --hl-secondary: #2e4a3d;
+  --hl-secondary-hover: #1e3329;
+  --hl-success: #2e7d5a;
+  --hl-success-bg: #ecfdf5;
 
-  --vt-c-divider-light-1: rgba(60, 60, 60, 0.29);
-  --vt-c-divider-light-2: rgba(60, 60, 60, 0.12);
-  --vt-c-divider-dark-1: rgba(84, 84, 84, 0.65);
-  --vt-c-divider-dark-2: rgba(84, 84, 84, 0.48);
+  /* Admin sidebar & panels */
+  --hl-sidebar-bg: #78350f;
+  --hl-sidebar-active: #c17a0a;
+  --hl-sidebar-active-bg: rgba(193, 122, 10, 0.25);
+  --hl-sidebar-icon: #e89b2e;
+  --hl-admin-bg: #f8f6f2;
+  --hl-admin-card: #ffffff;
+  --hl-admin-border: #e8e2d9;
+  --hl-admin-success: #2e7d5a;
+  --hl-admin-warning: #b45309;
+  --hl-admin-info: #1e5a8e;
 
-  --vt-c-text-light-1: var(--vt-c-indigo);
-  --vt-c-text-light-2: rgba(60, 60, 60, 0.66);
-  --vt-c-text-dark-1: var(--vt-c-white);
-  --vt-c-text-dark-2: rgba(235, 235, 235, 0.64);
+  /* Text */
+  --hl-text: #333333;
+  --hl-text-secondary: #555555;
+  --hl-text-muted: #666666;
+  --hl-text-light: #888888;
+
+  /* Border & divider */
+  --hl-border: #e0d5c4;
+  --hl-border-light: #ebe5dc;
+  --hl-divider: #d4c9b8;
+  --hl-divider-dashed: #a16500;
+
+  /* State */
+  --hl-error: #c53030;
+  --hl-error-bg: #fef2f2;
+  --hl-warning: #b45309;
+  --hl-info: #1e5a8e;
+
+  /* Shadow */
+  --hl-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.06);
+  --hl-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
+  --hl-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
+  --hl-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05);
+
+  /* Radius */
+  --hl-radius-sm: 6px;
+  --hl-radius-md: 10px;
+  --hl-radius-lg: 12px;
+  --hl-radius-xl: 16px;
+
+  /* Spacing */
+  --hl-space-xs: 4px;
+  --hl-space-sm: 8px;
+  --hl-space-md: 16px;
+  --hl-space-lg: 24px;
+  --hl-space-xl: 32px;
+  --hl-space-2xl: 48px;
+
+  /* Layout */
+  --hl-header-height: 80px;
+  --hl-nav-height: 60px;
+  --hl-content-max: 1200px;
 }
 
-/* semantic color variables for this project */
+/* Override Element Plus theme to match HLFood */
 :root {
-  --color-background: var(--vt-c-white);
-  --color-background-soft: var(--vt-c-white-soft);
-  --color-background-mute: var(--vt-c-white-mute);
-
-  --color-border: var(--vt-c-divider-light-2);
-  --color-border-hover: var(--vt-c-divider-light-1);
-
-  --color-heading: var(--vt-c-text-light-1);
-  --color-text: var(--vt-c-text-light-1);
-
-  --section-gap: 160px;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --color-background: var(--vt-c-black);
-    --color-background-soft: var(--vt-c-black-soft);
-    --color-background-mute: var(--vt-c-black-mute);
-
-    --color-border: var(--vt-c-divider-dark-2);
-    --color-border-hover: var(--vt-c-divider-dark-1);
-
-    --color-heading: var(--vt-c-text-dark-1);
-    --color-text: var(--vt-c-text-dark-2);
-  }
+  --el-color-primary: var(--hl-primary);
+  --el-color-primary-light-3: #c17a0a;
+  --el-color-primary-light-5: #d4891a;
+  --el-color-primary-dark-2: var(--hl-primary-hover);
 }
 
 *,
@@ -60,27 +93,67 @@
 
 body {
   min-height: 100vh;
-  color: var(--color-text);
-  background: var(--color-background);
-  transition:
-    color 0.5s,
-    background-color 0.5s;
+  color: var(--hl-text);
+  background: var(--hl-bg-page);
   line-height: 1.6;
   font-family:
-    Inter,
+    "Segoe UI",
     -apple-system,
     BlinkMacSystemFont,
-    'Segoe UI',
     Roboto,
     Oxygen,
     Ubuntu,
     Cantarell,
-    'Fira Sans',
-    'Droid Sans',
-    'Helvetica Neue',
+    "Helvetica Neue",
     sans-serif;
   font-size: 15px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+a {
+  color: var(--hl-primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+a:hover {
+  color: var(--hl-primary-hover);
+}
+
+/* Utility classes */
+.hl-page-section {
+  background: var(--hl-bg-section);
+  min-height: 60vh;
+  padding: var(--hl-space-xl) var(--hl-space-md);
+}
+.hl-card {
+  background: var(--hl-bg-card);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
+  padding: var(--hl-space-lg);
+}
+.hl-title {
+  color: var(--hl-text);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin-bottom: var(--hl-space-sm);
+}
+.hl-title-primary {
+  color: var(--hl-primary);
+  font-size: 1.25rem;
+  font-weight: 600;
+}
+.hl-btn-primary {
+  background-color: var(--hl-primary);
+  color: #fff;
+  border: none;
+  padding: 10px 20px;
+  border-radius: var(--hl-radius-md);
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 0.2s ease;
+}
+.hl-btn-primary:hover {
+  background-color: var(--hl-primary-hover);
 }

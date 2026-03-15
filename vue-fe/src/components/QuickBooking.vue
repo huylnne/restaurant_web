@@ -143,13 +143,23 @@ const submitForm = async () => {
 <style scoped>
 .booking-card {
   max-width: 600px;
-  margin: 40px auto;
-  padding: 24px;
-  background: #fffaf3;
+  margin: var(--hl-space-2xl) auto;
+  padding: var(--hl-space-xl);
+  background: var(--hl-bg-page);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
+  border: 1px solid var(--hl-border-light);
 }
+
+.booking-card :deep(.el-card__body) {
+  padding: var(--hl-space-lg);
+}
+
 .title {
   text-align: center;
-  margin-bottom: 20px;
-  color: #a16500;
+  margin-bottom: var(--hl-space-lg);
+  color: var(--hl-primary);
+  font-weight: 600;
+  font-size: 1.25rem;
 }
 </style>

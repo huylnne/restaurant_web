@@ -7,7 +7,7 @@
       <div class="login-form-container">
         <div class="login-header">
           <h2>Đăng Nhập</h2>
-          <a href="/register" class="register-link">Đăng ký</a>
+          <router-link to="/register" class="register-link">Đăng ký</router-link>
         </div>
 
         <form @submit.prevent="handleLogin">
@@ -77,11 +77,12 @@ const handleLogin = async () => {
   display: flex;
   height: 100vh;
   overflow: hidden;
+  background: var(--hl-bg-section);
 }
 
 .login-left {
   width: 40%;
-  background-color: #f0e9dc;
+  background-color: var(--hl-bg-section);
 }
 
 .login-image {
@@ -92,7 +93,7 @@ const handleLogin = async () => {
 
 .login-right {
   flex: 1;
-  background-color: #f0e9dc;
+  background-color: var(--hl-bg-section);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -101,36 +102,43 @@ const handleLogin = async () => {
 .login-form-container {
   width: 80%;
   max-width: 400px;
-  background-color: white;
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-  color: white;
+  background-color: var(--hl-bg-card);
+  padding: var(--hl-space-2xl);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-lg);
 }
 
 .login-form input {
   width: 100%;
-  padding: 10px;
-  margin: 12px 0;
-  border-radius: 6px;
-  border: none;
-  background-color: white;
-  color: #333;
+  padding: var(--hl-space-sm) var(--hl-space-md);
+  margin: var(--hl-space-md) 0;
+  border-radius: var(--hl-radius-sm);
+  border: 1px solid var(--hl-border);
+  background-color: var(--hl-bg-input);
+  color: var(--hl-text);
+  font-size: 1rem;
+}
+
+.login-form input:focus {
+  outline: none;
+  border-color: var(--hl-primary);
+  box-shadow: 0 0 0 2px var(--hl-primary-bg);
 }
 
 button {
   width: 100%;
-  padding: 12px;
-  background-color: #2563eb;
+  padding: var(--hl-space-md);
+  background-color: var(--hl-primary);
   border: none;
   color: white;
-  font-weight: bold;
-  border-radius: 8px;
-  margin-top: 10px;
+  font-weight: 600;
+  border-radius: var(--hl-radius-md);
+  margin-top: var(--hl-space-md);
   cursor: pointer;
   display: flex;
   align-items: center;
   justify-content: center;
+  transition: background-color 0.2s ease;
 }
 
 button:disabled {
@@ -138,8 +146,8 @@ button:disabled {
   cursor: not-allowed;
 }
 
-button:hover {
-  background-color: #1d4ed8;
+button:hover:not(:disabled) {
+  background-color: var(--hl-primary-hover);
 }
 
 .spinner {
@@ -159,7 +167,7 @@ button:hover {
 
 .success-check {
   font-size: 20px;
-  color: #4ade80;
+  color: var(--hl-success);
   font-weight: bold;
   animation: scaleUp 0.2s ease-out;
 }
@@ -176,29 +184,33 @@ button:hover {
 }
 
 p {
-  color: #ff6b6b;
-  margin-top: 10px;
+  color: var(--hl-error);
+  margin-top: var(--hl-space-sm);
+  font-size: 14px;
 }
 
 h2 {
-  color: black;
+  color: var(--hl-text);
+  font-size: 1.5rem;
+  font-weight: 600;
 }
 
 .login-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: var(--hl-space-lg);
 }
 
 .register-link {
-  color: #2563eb;
+  color: var(--hl-primary);
   text-decoration: none;
-  font-weight: bold;
-  font-size: 1.6rem;
+  font-weight: 600;
+  font-size: 1rem;
 }
 
 .register-link:hover {
   text-decoration: underline;
+  color: var(--hl-primary-hover);
 }
 </style>

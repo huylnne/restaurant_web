@@ -48,11 +48,11 @@ function filterWeeklyRevenueForRole(role, data) {
 }
 
 /**
- * Danh sách bàn: bỏ totalRevenue trên từng bàn cho waiter/kitchen.
+ * Danh sách bàn: admin và waiter được xem totalRevenue (hóa đơn tạm tính) để phục vụ; chỉ kitchen bỏ.
  */
 function filterTableListForRole(role, tables) {
   if (!Array.isArray(tables)) return tables;
-  if (isAdmin(role)) return tables;
+  if (isAdmin(role) || role === 'waiter') return tables;
   return tables.map((t) => {
     const { totalRevenue, ...rest } = t;
     return rest;

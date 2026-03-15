@@ -1,50 +1,33 @@
 <template>
-  <div class="container">
-    <div class="featured-dishes-with-sidebar" ref="allDishesSection">
-      <div class="menu_selection">
-        <el-button
-          plain
-          :type="selectedCategory === '' ? 'primary' : ''"
-          @click="selectCategory('')"
+  <div class="menu-page" :class="{ 'menu-page--admin': isAdmin }">
+    <!-- Header khi vào từ admin -->
+    <div v-if="isAdmin" class="page-header">
+      <div class="page-header__text">
+        <h1 class="page-header__title">Quản lý món ăn</h1>
+        <p class="page-header__desc">Xem, thêm, sửa và xóa món trong thực đơn</p>
+      </div>
+      <button class="add-dish-btn" @click="openAddModal">
+        <el-icon><Plus /></el-icon>
+        Thêm món
+      </button>
+    </div>
+
+    <div class="menu-content" ref="allDishesSection">
+      <!-- Thanh lọc danh mục -->
+      <div class="filter-bar">
+        <button
+          v-for="cat in categoryOptions"
+          :key="cat.value"
+          type="button"
+          class="filter-bar__btn"
+          :class="{ 'filter-bar__btn--active': selectedCategory === cat.value }"
+          @click="selectCategory(cat.value)"
         >
-          <span>Tất cả</span>
-        </el-button>
-        <el-button
-          plain
-          :type="selectedCategory === 'Khai vị' ? 'primary' : ''"
-          @click="selectCategory('Khai vị')"
-        >
-          <el-icon><CoffeeCup /></el-icon>
-          <span>Khai vị</span>
-        </el-button>
-        <el-button
-          plain
-          :type="selectedCategory === 'Món chính' ? 'primary' : ''"
-          @click="selectCategory('Món chính')"
-        >
-          <el-icon><KnifeFork /></el-icon>
-          <span>Món chính</span>
-        </el-button>
-        <el-button
-          plain
-          :type="selectedCategory === 'Tráng miệng' ? 'primary' : ''"
-          @click="selectCategory('Tráng miệng')"
-        >
-          <el-icon><IceCream /></el-icon>
-          <span>Tráng miệng</span>
-        </el-button>
-        <el-button
-          plain
-          :type="selectedCategory === 'Đồ uống' ? 'primary' : ''"
-          @click="selectCategory('Đồ uống')"
-        >
-          <el-icon><GobletFull /></el-icon>
-          <span>Đồ uống</span>
-        </el-button>
-        <button v-if="isAdmin" class="add-dish-btn" @click="openAddModal">
-          + Thêm món
+          <el-icon v-if="cat.icon"><component :is="cat.icon" /></el-icon>
+          <span>{{ cat.label }}</span>
         </button>
       </div>
+
       <div class="all-dishes">
         <div class="dish-list">
           <div
@@ -72,19 +55,31 @@
               >
                 Đặt món
               </el-button>
-              <!-- Admin: Hiện nút Sửa và Xóa -->
+              <!-- Admin: Sửa / Xóa -->
               <div v-if="isAdmin" class="admin-actions">
-                <button class="edit-dish-btn" @click="openEditModal(dish)">Sửa</button>
-                <button class="delete-dish-btn" @click="confirmDelete(dish)">Xóa</button>
+                <button type="button" class="admin-actions__btn admin-actions__btn--edit" @click="openEditModal(dish)">
+                  <el-icon><Edit /></el-icon>
+                  Sửa
+                </button>
+                <button type="button" class="admin-actions__btn admin-actions__btn--delete" @click="confirmDelete(dish)">
+                  <el-icon><Delete /></el-icon>
+                  Xóa
+                </button>
               </div>
             </div>
           </div>
         </div>
 
         <div class="pagination">
-          <button @click="prevPage" :disabled="currentPage === 1">← Trang trước</button>
-          <span>Trang {{ currentPage }} / {{ totalPages }}</span>
-          <button @click="nextPage" :disabled="currentPage === totalPages">
+          <button class="pagination__btn" @click="prevPage" :disabled="currentPage === 1">
+            ← Trang trước
+          </button>
+          <span class="pagination__info">Trang {{ currentPage }} / {{ totalPages }}</span>
+          <button
+            class="pagination__btn"
+            @click="nextPage"
+            :disabled="currentPage === totalPages"
+          >
             Trang sau →
           </button>
         </div>
@@ -161,8 +156,20 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from "vue";
+import { useRouter } from "vue-router";
 import axios from "axios";
-import { CoffeeCup, KnifeFork, IceCream, GobletFull } from "@element-plus/icons-vue";
+import { ElMessage, ElMessageBox } from "element-plus";
+import { CoffeeCup, KnifeFork, IceCream, GobletFull, Plus, Edit, Delete } from "@element-plus/icons-vue";
+
+const router = useRouter();
+
+const categoryOptions = [
+  { value: "", label: "Tất cả", icon: null },
+  { value: "Khai vị", label: "Khai vị", icon: CoffeeCup },
+  { value: "Món chính", label: "Món chính", icon: KnifeFork },
+  { value: "Tráng miệng", label: "Tráng miệng", icon: IceCream },
+  { value: "Đồ uống", label: "Đồ uống", icon: GobletFull },
+];
 
 // Chỉ admin mới CRUD món; waiter/kitchen chỉ xem và "Đặt món"
 const isAdmin = ref(false);
@@ -241,8 +248,16 @@ const prevPage = () => {
   }
 };
 
-const handleOrderClick = (dish) => {
-  alert(`Bạn đã chọn món: ${dish.name}`);
+const handleOrderClick = () => {
+  const reservation = JSON.parse(localStorage.getItem("reservation") || "null");
+  if (reservation && reservation.status === "confirmed") {
+    router.push({
+      name: "OrderMenu",
+      query: { reservation_id: reservation.reservation_id },
+    });
+  } else {
+    ElMessage.warning("Vui lòng đặt bàn trước khi gọi món.");
+  }
 };
 
 const openAddModal = () => {
@@ -279,17 +294,24 @@ const closeModal = () => {
 
 const confirmDelete = async (dish) => {
   const dishId = dish.item_id || dish.id;
-  const confirmed = confirm(`Bạn có chắc muốn xóa món "${dish.name}"?`);
-  if (!confirmed) return;
+  try {
+    await ElMessageBox.confirm(`Bạn có chắc muốn xóa món "${dish.name}"?`, "Xác nhận xóa", {
+      confirmButtonText: "Xóa",
+      cancelButtonText: "Hủy",
+      type: "warning",
+    });
+  } catch {
+    return;
+  }
   try {
     const token = localStorage.getItem("token");
     await axios.delete(`http://localhost:3000/api/admin/menu/${dishId}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
-    alert("Xóa món ăn thành công!");
+    ElMessage.success("Xóa món ăn thành công!");
     fetchAllMenuItems();
   } catch (error) {
-    alert(`Có lỗi xảy ra: ${error.response?.data?.message || error.message}`);
+    ElMessage.error(error.response?.data?.message || error.message || "Có lỗi xảy ra");
   }
 };
 
@@ -309,17 +331,17 @@ const handleSubmit = async () => {
       await axios.put(`http://localhost:3000/api/admin/menu/${formState.id}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      alert("Cập nhật món ăn thành công!");
+      ElMessage.success("Cập nhật món ăn thành công!");
     } else {
       await axios.post(`http://localhost:3000/api/admin/menu`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      alert("Thêm món ăn thành công!");
+      ElMessage.success("Thêm món ăn thành công!");
     }
     showModal.value = false;
     fetchAllMenuItems();
   } catch (error) {
-    alert(`Có lỗi xảy ra: ${error.response?.data?.message || error.message}`);
+    ElMessage.error(error.response?.data?.message || error.message || "Có lỗi xảy ra");
   } finally {
     submitting.value = false;
   }
@@ -327,263 +349,339 @@ const handleSubmit = async () => {
 </script>
 
 <style scoped>
-.container {
-  display: flex;
-  flex-direction: column;
+.menu-page {
   min-height: 100%;
-  background-color: #f0e9dc;
-  padding: 20px;
+  padding: var(--hl-space-lg);
+  background: var(--hl-bg-section);
 }
 
-.featured-dishes-with-sidebar {
+.menu-page--admin {
+  background: var(--hl-admin-bg);
+  padding: var(--hl-space-lg);
+}
+
+/* ----- Header (chỉ admin) ----- */
+.page-header {
   display: flex;
-  width: 100%;
-  max-width: 1300px;
-  margin: 0 auto;
-  padding: 40px 20px;
-  gap: 40px;
-  flex-direction: column;
+  justify-content: space-between;
   align-items: center;
-  justify-content: center;
+  margin-bottom: var(--hl-space-xl);
+  flex-wrap: wrap;
+  gap: var(--hl-space-md);
 }
 
-.menu_selection {
-  height: 80px;
-  width: 100%;
-  background-color: white;
-  align-items: center;
-  justify-content: flex-start;
-  text-align: center;
-  display: flex;
-  border-radius: 8px;
-  position: relative;
-  padding: 0 16px;
+.page-header__title {
+  margin: 0 0 var(--hl-space-xs);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--hl-primary);
 }
 
-.menu_selection button {
-  width: 20%;
+.page-header__desc {
   margin: 0;
-  height: 100%;
-}
-
-.menu_selection button span {
-  font-size: 24px;
-}
-
-.el-icon {
-  font-size: 24px;
+  font-size: 0.9375rem;
+  color: var(--hl-text-muted);
 }
 
 .add-dish-btn {
-  margin-left: auto;
-  background-color: #28a745;
-  color: white;
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hl-space-sm);
+  padding: var(--hl-space-sm) var(--hl-space-lg);
+  background: var(--hl-primary);
+  color: #fff;
   border: none;
-  padding: 10px 20px;
-  border-radius: 6px;
-  font-size: 16px;
-  font-weight: bold;
+  border-radius: var(--hl-radius-md);
+  font-size: 1rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background 0.3s ease;
+  transition: background 0.2s ease, transform 0.15s ease;
+  box-shadow: var(--hl-shadow-sm);
 }
 
 .add-dish-btn:hover {
-  background-color: #218838;
+  background: var(--hl-primary-hover);
+  transform: translateY(-1px);
+}
+
+.add-dish-btn .el-icon {
+  font-size: 1.125rem;
+}
+
+/* ----- Thanh lọc danh mục ----- */
+.menu-content {
+  max-width: 1280px;
+  margin: 0 auto;
+}
+
+.filter-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--hl-space-sm);
+  margin-bottom: var(--hl-space-xl);
+  padding: var(--hl-space-sm);
+  background: var(--hl-bg-card);
+  border-radius: var(--hl-radius-lg);
+  border: 1px solid var(--hl-border-light);
+  box-shadow: var(--hl-shadow-sm);
+}
+
+.menu-page--admin .filter-bar {
+  background: var(--hl-admin-card);
+  border-color: var(--hl-admin-border);
+}
+
+.filter-bar__btn {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--hl-space-xs);
+  padding: var(--hl-space-sm) var(--hl-space-md);
+  border: 1px solid var(--hl-border);
+  border-radius: var(--hl-radius-md);
+  background: transparent;
+  color: var(--hl-text-secondary);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.filter-bar__btn .el-icon {
+  font-size: 1.125rem;
+}
+
+.filter-bar__btn:hover {
+  border-color: var(--hl-primary);
+  color: var(--hl-primary);
+  background: var(--hl-primary-bg);
+}
+
+.filter-bar__btn--active {
+  border-color: var(--hl-primary);
+  background: var(--hl-primary);
+  color: #fff;
+}
+
+.filter-bar__btn--active:hover {
+  background: var(--hl-primary-hover);
+  border-color: var(--hl-primary-hover);
+  color: #fff;
 }
 
 .all-dishes {
-  flex: 1;
   width: 100%;
 }
 
 .dish-list {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--hl-space-lg);
 }
 
 .dish-card {
-  background: #fff;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  background: var(--hl-bg-card);
+  border-radius: var(--hl-radius-lg);
   overflow: hidden;
   display: flex;
   flex-direction: column;
-  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  border: 1px solid var(--hl-border-light);
+  box-shadow: var(--hl-shadow-sm);
+}
+
+.menu-page--admin .dish-card {
+  background: var(--hl-admin-card);
+  border-color: var(--hl-admin-border);
 }
 
 .dish-card:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.15);
+  transform: translateY(-4px);
+  box-shadow: var(--hl-shadow-lg);
 }
 
 .dish-card img {
   width: 100%;
-  height: 180px;
+  height: 200px;
   object-fit: cover;
+  background: var(--hl-bg-muted);
 }
 
 .dish-info {
-  padding: 16px;
+  padding: var(--hl-space-md);
   flex: 1;
   display: flex;
   flex-direction: column;
   justify-content: space-between;
+  min-height: 140px;
 }
 
 .dish-content h3 {
-  font-size: 20px;
+  font-size: 1.125rem;
   font-weight: 600;
-  margin-bottom: 8px;
-  color: #333;
+  margin: 0 0 var(--hl-space-xs);
+  color: var(--hl-text);
+  line-height: 1.3;
 }
 
 .dish-content .desc {
-  font-size: 14px;
-  color: #666;
-  line-height: 1.5;
-  margin-bottom: 10px;
-  height: 42px;
+  font-size: 0.875rem;
+  color: var(--hl-text-muted);
+  line-height: 1.45;
+  margin: 0;
+  height: 2.9em;
   overflow: hidden;
   text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
 }
 
 .dish-price {
-  font-size: 18px;
-  font-weight: bold;
-  color: #a16500;
-  margin-top: 10px;
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--hl-primary);
+  margin-top: var(--hl-space-sm);
 }
 
 .price-num {
-  color: #a16500;
+  color: var(--hl-primary);
 }
 
 .order-button {
-  margin-top: 12px;
-  padding: 10px;
-  background-color: #a16500;
+  margin-top: var(--hl-space-md);
+  width: 100%;
+  padding: var(--hl-space-sm) var(--hl-space-md);
+  background: var(--hl-primary);
   border: none;
   color: #fff;
-  font-size: 16px;
-  font-weight: bold;
-  border-radius: 8px;
-  transition: background 0.3s ease;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  border-radius: var(--hl-radius-md);
   cursor: pointer;
+  transition: background 0.2s ease;
 }
 
 .order-button:hover {
-  background-color: #e46d00;
+  background: var(--hl-primary-hover);
 }
 
-/* Admin actions */
+/* Admin: Sửa / Xóa */
 .admin-actions {
   display: flex;
-  gap: 8px;
-  margin-top: 12px;
+  gap: var(--hl-space-sm);
+  margin-top: var(--hl-space-md);
 }
 
-.edit-dish-btn,
-.delete-dish-btn {
+.admin-actions__btn {
   flex: 1;
-  padding: 10px;
-  border: none;
-  color: #fff;
-  font-size: 14px;
-  font-weight: bold;
-  border-radius: 6px;
-  cursor: pointer;
-  transition: all 0.3s ease;
-}
-
-.edit-dish-btn {
-  background-color: #007bff;
-}
-
-.edit-dish-btn:hover {
-  background-color: #0056b3;
-  transform: translateY(-2px);
-}
-
-.delete-dish-btn {
-  background-color: #dc3545;
-}
-
-.delete-dish-btn:hover {
-  background-color: #c82333;
-  transform: translateY(-2px);
-}
-
-.pagination {
-  margin-top: 30px;
-  text-align: center;
-  display: flex;
+  display: inline-flex;
+  align-items: center;
   justify-content: center;
-  gap: 20px;
+  gap: var(--hl-space-xs);
+  padding: var(--hl-space-sm) var(--hl-space-md);
+  border: none;
+  border-radius: var(--hl-radius-sm);
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s ease, transform 0.15s ease;
 }
 
-.pagination button {
-  background: #a16500;
+.admin-actions__btn .el-icon {
+  font-size: 1rem;
+}
+
+.admin-actions__btn--edit {
+  background: var(--hl-admin-info);
+  color: #fff;
+}
+
+.admin-actions__btn--edit:hover {
+  background: #1a4d75;
+  transform: translateY(-1px);
+}
+
+.admin-actions__btn--delete {
+  background: var(--hl-error);
+  color: #fff;
+}
+
+.admin-actions__btn--delete:hover {
+  background: #9b2c2c;
+  transform: translateY(-1px);
+}
+
+/* Phân trang */
+.pagination {
+  margin-top: var(--hl-space-xl);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hl-space-lg);
+  flex-wrap: wrap;
+}
+
+.pagination__btn {
+  padding: var(--hl-space-sm) var(--hl-space-lg);
+  background: var(--hl-primary);
   color: #fff;
   border: none;
-  padding: 10px 18px;
-  border-radius: 6px;
-  font-weight: bold;
+  border-radius: var(--hl-radius-md);
+  font-weight: 600;
+  font-size: 0.9375rem;
   cursor: pointer;
-  transition: background 0.3s ease;
+  transition: background 0.2s ease;
 }
 
-.pagination button:disabled {
-  background: #ccc;
+.pagination__btn:disabled {
+  background: var(--hl-border);
+  color: var(--hl-text-muted);
   cursor: not-allowed;
 }
 
-.pagination button:hover:not(:disabled) {
-  background: #e46d00;
+.pagination__btn:hover:not(:disabled) {
+  background: var(--hl-primary-hover);
 }
 
-.pagination span {
-  font-size: 16px;
-  color: #333;
-  line-height: 40px;
+.pagination__info {
+  font-size: 0.9375rem;
+  color: var(--hl-text-secondary);
+  font-weight: 500;
 }
 
-/* Modal Styles */
+/* ----- Modal Thêm/Sửa món ----- */
 .modal-overlay {
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0, 0, 0, 0.6);
+  inset: 0;
+  background: rgba(0, 0, 0, 0.45);
   display: flex;
-  justify-content: center;
   align-items: center;
+  justify-content: center;
   z-index: 1000;
-  animation: fadeIn 0.3s ease;
+  padding: var(--hl-space-lg);
+  animation: modalFadeIn 0.2s ease;
 }
 
-@keyframes fadeIn {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
+@keyframes modalFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
 }
 
 .modal-content {
-  background: white;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
-  box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
-  animation: slideUp 0.3s ease;
+  background: var(--hl-bg-card);
+  border-radius: var(--hl-radius-xl);
+  width: 100%;
+  max-width: 480px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: var(--hl-shadow-lg);
+  border: 1px solid var(--hl-border-light);
+  animation: modalSlideUp 0.25s ease;
 }
 
-@keyframes slideUp {
+@keyframes modalSlideUp {
   from {
-    transform: translateY(50px);
+    transform: translateY(20px);
     opacity: 0;
   }
   to {
@@ -596,152 +694,167 @@ const handleSubmit = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 20px;
-  border-bottom: 1px solid #eee;
+  padding: var(--hl-space-lg) var(--hl-space-xl);
+  border-bottom: 1px solid var(--hl-border-light);
 }
 
 .modal-header h2 {
   margin: 0;
-  font-size: 22px;
-  color: #333;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--hl-primary);
 }
 
 .close-btn {
+  width: 36px;
+  height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
   background: none;
   border: none;
-  font-size: 32px;
-  color: #999;
-  cursor: pointer;
+  font-size: 1.5rem;
   line-height: 1;
-  padding: 0;
-  width: 30px;
-  height: 30px;
-  transition: color 0.2s ease;
+  color: var(--hl-text-light);
+  cursor: pointer;
+  border-radius: var(--hl-radius-sm);
+  transition: color 0.2s ease, background 0.2s ease;
 }
 
 .close-btn:hover {
-  color: #333;
+  color: var(--hl-text);
+  background: var(--hl-bg-muted);
 }
 
 .modal-form {
-  padding: 20px;
+  padding: var(--hl-space-xl);
 }
 
 .form-group {
-  margin-bottom: 16px;
+  margin-bottom: var(--hl-space-md);
 }
 
 .form-group label {
   display: block;
-  margin-bottom: 6px;
+  margin-bottom: var(--hl-space-xs);
+  font-size: 0.875rem;
   font-weight: 600;
-  color: #333;
-  font-size: 14px;
+  color: var(--hl-text);
 }
 
 .required {
-  color: red;
+  color: var(--hl-error);
 }
 
 .form-group input,
 .form-group textarea,
 .form-group select {
   width: 100%;
-  padding: 10px;
-  border: 1px solid #ddd;
-  border-radius: 6px;
-  font-size: 14px;
-  box-sizing: border-box;
-  transition: border-color 0.2s ease;
+  padding: var(--hl-space-sm) var(--hl-space-md);
+  border: 1px solid var(--hl-border);
+  border-radius: var(--hl-radius-md);
+  font-size: 0.9375rem;
+  background: var(--hl-bg-input);
+  color: var(--hl-text);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .form-group input:focus,
 .form-group textarea:focus,
 .form-group select:focus {
   outline: none;
-  border-color: #a16500;
-  box-shadow: 0 0 0 2px rgba(161, 101, 0, 0.1);
+  border-color: var(--hl-primary);
+  box-shadow: 0 0 0 3px var(--hl-primary-bg);
+}
+
+.form-group textarea {
+  resize: vertical;
+  min-height: 80px;
 }
 
 .modal-actions {
   display: flex;
   justify-content: flex-end;
-  gap: 12px;
-  margin-top: 20px;
+  gap: var(--hl-space-md);
+  margin-top: var(--hl-space-xl);
+  padding-top: var(--hl-space-md);
+  border-top: 1px solid var(--hl-border-light);
 }
 
 .btn-cancel,
 .btn-submit {
-  padding: 10px 24px;
+  padding: var(--hl-space-sm) var(--hl-space-lg);
   border: none;
-  border-radius: 6px;
-  font-size: 16px;
-  font-weight: bold;
+  border-radius: var(--hl-radius-md);
+  font-size: 0.9375rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: all 0.3s ease;
+  transition: background 0.2s ease, transform 0.1s ease;
 }
 
 .btn-cancel {
-  background-color: #6c757d;
-  color: white;
+  background: var(--hl-border);
+  color: var(--hl-text);
 }
 
 .btn-cancel:hover {
-  background-color: #5a6268;
-  transform: translateY(-2px);
+  background: var(--hl-text-muted);
+  color: #fff;
 }
 
 .btn-submit {
-  background-color: #a16500;
-  color: white;
+  background: var(--hl-primary);
+  color: #fff;
 }
 
-.btn-submit:hover {
-  background-color: #e46d00;
-  transform: translateY(-2px);
+.btn-submit:hover:not(:disabled) {
+  background: var(--hl-primary-hover);
 }
 
 .btn-submit:disabled {
-  background-color: #ccc;
+  background: var(--hl-border);
   cursor: not-allowed;
   transform: none;
 }
 
+/* ----- Responsive ----- */
 @media (max-width: 992px) {
-  .featured-dishes-with-sidebar {
-    flex-direction: column;
-  }
-
   .dish-list {
     grid-template-columns: repeat(2, 1fr);
   }
-
-  .menu_selection {
-    width: 100%;
-  }
 }
 
-@media (max-width: 600px) {
+@media (max-width: 640px) {
+  .page-header {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .dish-list {
     grid-template-columns: 1fr;
+    gap: var(--hl-space-md);
   }
 
-  .menu_selection button {
-    width: auto;
-    padding: 8px;
+  .filter-bar__btn span {
+    display: none;
   }
 
-  .menu_selection button span {
-    font-size: 14px;
+  .filter-bar__btn .el-icon {
+    margin: 0;
   }
 
   .add-dish-btn {
-    padding: 8px 12px;
-    font-size: 14px;
+    width: 100%;
+    justify-content: center;
+  }
+
+  .pagination {
+    flex-direction: column;
+    gap: var(--hl-space-sm);
   }
 
   .modal-content {
-    width: 95%;
+    max-height: 85vh;
   }
 }
 </style>

@@ -46,6 +46,25 @@ const tableService = {
             },
           ],
         },
+        // Đơn waiter tạo trực tiếp cho bàn (order.table_id = table.table_id)
+        {
+          model: Order,
+          as: "TableOrders",
+          required: false,
+          include: [
+            {
+              model: OrderItem,
+              required: false,
+              include: [
+                {
+                  model: MenuItem,
+                  required: false,
+                  attributes: ["price"],
+                },
+              ],
+            },
+          ],
+        },
       ],
       order: [["table_number", "ASC"]],
     });
@@ -62,22 +81,25 @@ const tableService = {
         return r.status === "confirmed" && timeDiff >= -2 && timeDiff <= 2;
       });
 
-      // Tính doanh thu bàn: CHỈ tính từ reservation ĐANG ACTIVE
+      // Hóa đơn tạm tính = tổng (price * quantity) của tất cả order items gắn với bàn:
+      // 1) Đơn user qua reservation (order.reservation_id → reservation.table_id)
+      // 2) Đơn waiter trực tiếp (order.table_id)
       let totalRevenue = 0;
-      if (
-        activeReservation &&
-        activeReservation.Orders &&
-        Array.isArray(activeReservation.Orders)
-      ) {
-        activeReservation.Orders.forEach((order) => {
-          if (order.OrderItems && Array.isArray(order.OrderItems)) {
-            order.OrderItems.forEach((item) => {
-              const price = item.MenuItem?.price || 0;
-              const quantity = item.quantity || 0;
-              totalRevenue += price * quantity;
-            });
-          }
+      const sumOrderItems = (orders) => {
+        (orders || []).forEach((order) => {
+          (order.OrderItems || []).forEach((item) => {
+            const price = item.MenuItem?.price ?? 0;
+            const quantity = item.quantity ?? 0;
+            totalRevenue += Number(price) * Number(quantity);
+          });
         });
+      };
+      const reservations = tableData.Reservations || [];
+      reservations.forEach((reservation) => sumOrderItems(reservation.Orders));
+      sumOrderItems(tableData.TableOrders);
+
+      if (tableData.status === 'available') {
+        totalRevenue = 0;
       }
 
       return {
@@ -204,8 +226,8 @@ const tableService = {
     const revenueQuery = `
       SELECT COALESCE(SUM(oi.quantity * mi.price), 0) as total
       FROM order_items oi
+      JOIN orders o ON oi.order_id = o.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
-      JOIN orders o ON o.order_id = o.order_id
       WHERE o.status = 'COMPLETED'
         AND o.created_at >= :today
     `;

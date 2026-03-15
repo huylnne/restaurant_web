@@ -50,19 +50,19 @@ window.addEventListener("storage", checkStaff);
   overflow: hidden;
 }
 .admin-main {
-  background-color: #f0e9dc;
+  background-color: var(--hl-bg-section);
   padding: 0;
   display: flex;
   overflow: hidden;
-  height: calc(100vh - 80px);
+  height: calc(100vh - var(--hl-header-height, 80px));
 }
 .content-wrapper {
   flex: 1;
   overflow-y: auto;
-  padding: 20px;
+  padding: var(--hl-space-lg);
 }
 .content-wrapper.no-sidebar {
   width: 100%;
-  padding: 20px;
+  padding: var(--hl-space-lg);
 }
 </style>

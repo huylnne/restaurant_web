@@ -142,7 +142,7 @@ const scrollRight = () => scrollByCard("right");
 
 <style scoped>
 .home-page {
-  background-color: #fffaf3;
+  background-color: var(--hl-bg-page);
   display: flex;
   flex-direction: column;
   justify-content: center;
@@ -168,13 +168,13 @@ const scrollRight = () => scrollByCard("right");
 
 .right-links a {
   margin-left: 15px;
-  color: #333;
+  color: var(--hl-text);
   text-decoration: none;
 }
 
 .right-links a:hover {
   cursor: pointer;
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 
 .middle-bar {
@@ -238,13 +238,13 @@ const scrollRight = () => scrollByCard("right");
 .nav-menu a,
 .nav-menu .dropdown > span {
   text-decoration: none;
-  color: #333;
+  color: var(--hl-text);
   cursor: pointer;
 }
 
 .nav-menu a:hover {
   cursor: pointer;
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 
 .dropdown {
@@ -256,16 +256,18 @@ const scrollRight = () => scrollByCard("right");
   position: absolute;
   top: 120%;
   left: 0;
-  background-color: white;
-  border: 1px solid #ccc;
+  background-color: var(--hl-bg-card);
+  border: 1px solid var(--hl-border);
   padding: 10px;
   flex-direction: column;
   gap: 5px;
   z-index: 100;
+  border-radius: var(--hl-radius-md);
+  box-shadow: var(--hl-shadow-md);
 }
 
 .nav-menu .dropdown > span:hover {
-  color: #f2b94c; /* hoặc bất kỳ màu nào bạn muốn khi hover */
+  color: var(--hl-primary);
 }
 
 .dropdown:hover .dropdown-content {
@@ -319,7 +321,7 @@ const scrollRight = () => scrollByCard("right");
 }
 
 .home-page_body {
-  background-color: #f0e9dc;
+  background-color: var(--hl-bg-section);
   min-height: 100vh;
   justify-content: center;
   align-items: center;
@@ -352,17 +354,18 @@ const scrollRight = () => scrollByCard("right");
   top: 50%;
   transform: translateY(-50%);
   font-size: 40px;
-  background: rgba(255, 255, 255, 0.7);
+  background: rgba(255, 255, 255, 0.85);
   border: none;
   cursor: pointer;
   padding: 0 12px;
   z-index: 10;
   border-radius: 50%;
-  transition: background 0.3s;
+  transition: background 0.2s ease;
+  color: var(--hl-text);
 }
 
 .arrow:hover {
-  background: #f2b94c;
+  background: var(--hl-primary);
   color: white;
 }
 
@@ -390,8 +393,8 @@ const scrollRight = () => scrollByCard("right");
 
 .router-link-exact-active,
 .nav-link.active {
-  color: #f2b94c;
-  border-bottom: 2px solid #f2b94c;
+  color: var(--hl-primary);
+  border-bottom: 2px solid var(--hl-primary);
 }
 
 .featured-dishes {
@@ -410,7 +413,7 @@ const scrollRight = () => scrollByCard("right");
 
 .section-title {
   font-size: 28px;
-  color: #2e4a3d;
+  color: var(--hl-secondary);
   margin: 0;
 }
 
@@ -448,12 +451,21 @@ const scrollRight = () => scrollByCard("right");
   top: 30%;
   transform: translateY(-50%);
   z-index: 2;
-  background: rgba(255, 255, 255, 0.9);
-  border: none;
+  background: var(--hl-bg-card);
+  border: 1px solid var(--hl-border-light);
   font-size: 24px;
   padding: 8px 12px;
   cursor: pointer;
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  box-shadow: var(--hl-shadow-sm);
+  border-radius: var(--hl-radius-sm);
+  color: var(--hl-text);
+}
+
+.scroll-left:hover,
+.scroll-right:hover {
+  background: var(--hl-primary);
+  color: white;
+  border-color: var(--hl-primary);
 }
 
 .scroll-left {
@@ -466,13 +478,14 @@ const scrollRight = () => scrollByCard("right");
 .dish-card {
   flex: 0 0 calc(20% - 18px);
   flex-shrink: 0;
-  background: #fffaf3;
-  border-radius: 12px;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+  background: var(--hl-bg-page);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
   overflow: hidden;
-  transition: transform 0.3s ease;
+  transition: transform 0.2s ease;
   display: flex;
   flex-direction: column;
+  border: 1px solid var(--hl-border-light);
 }
 
 .dish-card:hover {
@@ -494,27 +507,28 @@ const scrollRight = () => scrollByCard("right");
 .dish-info h3 {
   font-size: 20px;
   margin-bottom: 8px;
-  color: #333;
+  color: var(--hl-text);
 }
 
 .dish-info p {
   font-size: 14px;
-  color: #666;
+  color: var(--hl-text-muted);
   margin-bottom: 16px;
 }
 
 .dish-info button {
-  background-color: #2f5d50;
+  background-color: var(--hl-primary);
   color: white;
   border: none;
   padding: 10px 16px;
-  border-radius: 6px;
+  border-radius: var(--hl-radius-md);
   cursor: pointer;
-  transition: background 0.3s;
+  font-weight: 500;
+  transition: background 0.2s ease;
 }
 
 .dish-info button:hover {
-  background-color: #804d00;
+  background-color: var(--hl-primary-hover);
 }
 
 .desc {

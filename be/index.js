@@ -15,10 +15,22 @@ const db = require('./models/db');
 db.sequelize.authenticate()
   .then(() => {
     console.log('✅ Kết nối DB thành công');
-    return db.sequelize.sync({ alter: true }); 
+    return db.sequelize.sync({ alter: true });
   })
   .then(() => {
     console.log('✅ Sequelize đã sync models');
+    // Cho phép reservation_id = NULL (đơn waiter tạo theo bàn không qua đặt bàn)
+    return db.sequelize.query(
+      'ALTER TABLE orders ALTER COLUMN reservation_id DROP NOT NULL;',
+      { raw: true }
+    ).catch(() => {});
+  })
+  .then(() => {
+    // Chuẩn hóa trạng thái bàn: chỉ dùng available | occupied | pre-ordered
+    return db.sequelize.query(
+      "UPDATE tables SET status = 'pre-ordered' WHERE status = 'reserved';",
+      { raw: true }
+    ).catch(() => {});
   })
   .catch((err) => {
     console.error('❌ Lỗi kết nối DB:', err);

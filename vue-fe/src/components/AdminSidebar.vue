@@ -1,7 +1,7 @@
 <template>
   <el-menu
     class="sidebar"
-    background-color="#78350f"
+    background-color="var(--hl-sidebar-bg)"
     text-color="#fff"
     active-text-color="#fff"
     :default-active="activeMenuKey"
@@ -70,8 +70,8 @@ const activeMenuKey = computed(() => {
   width: 240px;
   height: 100%;
   border-right: none;
-  background-color: #78350f;
-  padding-top: 10px;
+  background-color: var(--hl-sidebar-bg);
+  padding-top: var(--hl-space-sm);
 }
 
 .el-menu-item {
@@ -80,19 +80,19 @@ const activeMenuKey = computed(() => {
   font-weight: 500;
   display: flex;
   align-items: center;
-  gap: 10px;
-  border-radius: 8px;
-  margin: 5px 10px;
-  transition: 0.3s;
+  gap: var(--hl-space-sm);
+  border-radius: var(--hl-radius-md);
+  margin: var(--hl-space-xs) var(--hl-space-sm);
+  transition: 0.2s ease;
   text-decoration: none;
 }
 
 .el-menu-item .el-icon {
-  color: #f97316;
+  color: var(--hl-sidebar-icon);
 }
 
 .el-menu-item.is-active {
-  background-color: #f97316 !important;
+  background-color: var(--hl-sidebar-active) !important;
   color: #fff !important;
 }
 
@@ -101,6 +101,6 @@ const activeMenuKey = computed(() => {
 }
 
 .el-menu-item:hover {
-  background-color: rgba(249, 115, 22, 0.2);
+  background-color: var(--hl-sidebar-active-bg);
 }
 </style>

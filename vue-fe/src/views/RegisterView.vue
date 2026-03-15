@@ -35,6 +35,7 @@
 import { ref } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
 
 const router = useRouter();
 
@@ -62,7 +63,7 @@ const handleRegister = async () => {
       role: "user",
     });
 
-    alert("Đăng ký thành công!");
+    ElMessage.success("Đăng ký thành công!");
     router.push("/login");
   } catch (err) {
     if (err.response && err.response.data?.message) {
@@ -78,10 +79,12 @@ const handleRegister = async () => {
 .register-page {
   display: flex;
   height: 100vh;
+  background: var(--hl-bg-section);
 }
 
 .register-left {
   width: 40%;
+  background-color: var(--hl-bg-section);
 }
 
 .register-image {
@@ -92,17 +95,17 @@ const handleRegister = async () => {
 
 .register-right {
   flex: 1;
-  background-color: #f3ede2;
+  background-color: var(--hl-bg-section);
   display: flex;
   justify-content: center;
   align-items: center;
 }
 
 .register-form-container {
-  background: white;
-  padding: 40px;
-  border-radius: 12px;
-  box-shadow: 0 0 10px rgba(0, 0, 0, 0.2);
+  background: var(--hl-bg-card);
+  padding: var(--hl-space-2xl);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-md);
   min-width: 300px;
   width: 100%;
   max-width: 400px;
@@ -112,39 +115,65 @@ const handleRegister = async () => {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 20px;
+  margin-bottom: var(--hl-space-lg);
 }
 
 .register-header h2 {
-  font-size: 20px;
-  font-weight: bold;
-  color: #000;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--hl-text);
 }
 
 .login-link {
-  font-size: 16px;
-  color: #0055ff;
+  font-size: 1rem;
+  color: var(--hl-primary);
   text-decoration: none;
+  font-weight: 500;
+}
+
+.login-link:hover {
+  color: var(--hl-primary-hover);
+  text-decoration: underline;
 }
 
 input {
   display: block;
   width: 100%;
-  padding: 10px;
-  margin-bottom: 15px;
-  border: 1px solid #ccc;
-  border-radius: 6px;
-  background: #f1f7ff;
+  padding: var(--hl-space-sm) var(--hl-space-md);
+  margin-bottom: var(--hl-space-md);
+  border: 1px solid var(--hl-border);
+  border-radius: var(--hl-radius-sm);
+  background: var(--hl-bg-input);
+  color: var(--hl-text);
+  font-size: 1rem;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--hl-primary);
+  box-shadow: 0 0 0 2px var(--hl-primary-bg);
 }
 
 button {
-  background-color: #1a73e8;
+  background-color: var(--hl-primary);
   color: white;
   width: 100%;
-  padding: 10px;
+  padding: var(--hl-space-md);
   border: none;
-  border-radius: 6px;
+  border-radius: var(--hl-radius-md);
   cursor: pointer;
-  font-weight: bold;
+  font-weight: 600;
+  margin-top: var(--hl-space-xs);
+  transition: background-color 0.2s ease;
+}
+
+button:hover {
+  background-color: var(--hl-primary-hover);
+}
+
+p {
+  color: var(--hl-error);
+  margin-top: var(--hl-space-sm);
+  font-size: 14px;
 }
 </style>

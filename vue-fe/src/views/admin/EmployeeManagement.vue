@@ -410,11 +410,18 @@ onMounted(() => {
 
 <style scoped>
 .employee-management {
-  padding: 20px;
+  padding: var(--hl-space-lg);
+  background: var(--hl-admin-bg);
+  min-height: 100vh;
 }
 
-.header-card {
-  margin-bottom: 20px;
+.header-card,
+.filter-card,
+.table-card {
+  margin-bottom: var(--hl-space-lg);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
+  border: 1px solid var(--hl-admin-border);
 }
 
 .header-content {
@@ -425,15 +432,9 @@ onMounted(() => {
 
 .header-content h2 {
   margin: 0;
-  color: #78350f;
-}
-
-.filter-card {
-  margin-bottom: 20px;
-}
-
-.table-card {
-  margin-bottom: 20px;
+  color: var(--hl-primary);
+  font-size: 1.5rem;
+  font-weight: 600;
 }
 
 .user-info {
@@ -442,15 +443,15 @@ onMounted(() => {
 }
 
 .pagination-container {
-  margin-top: 20px;
+  margin-top: var(--hl-space-lg);
   display: flex;
   justify-content: flex-end;
 }
 
 .form-hint {
   font-size: 12px;
-  color: #999;
-  margin-top: 5px;
+  color: var(--hl-text-light);
+  margin-top: var(--hl-space-xs);
   display: block;
 }
 </style>

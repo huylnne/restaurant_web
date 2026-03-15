@@ -16,6 +16,9 @@ db.Payment.belongsTo(db.Order, { foreignKey: 'order_id' });
 db.Table.hasMany(db.Reservation, { foreignKey: 'table_id' });
 db.Reservation.belongsTo(db.Table, { foreignKey: 'table_id' });
 
+db.Table.hasMany(db.Order, { foreignKey: 'table_id', as: 'TableOrders' });
+db.Order.belongsTo(db.Table, { foreignKey: 'table_id' });
+
 db.User.hasMany(db.Reservation, { foreignKey: 'user_id' });
 db.Reservation.belongsTo(db.User, { foreignKey: 'user_id' });
 

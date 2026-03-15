@@ -13,8 +13,8 @@
           <template v-else>
             <div class="nav-user-loggedin">
               <router-link to="/profile" class="nav-user">
-                <el-avatar :size="28" :src="getAvatarUrl(user.avatar)" />
-                <span class="username">{{ user.name }}</span>
+                <el-avatar :size="28" :src="getAvatarUrl(user.avatar || user.avatar_url)" />
+                <span class="username">{{ user.name || user.full_name }}</span>
               </router-link>
               <el-button type="text" @click="logout" class="logout-button">
                 <el-icon><SwitchButton /></el-icon>
@@ -25,18 +25,7 @@
         </div>
       </div>
 
-      <div
-        style="
-          height: 1px;
-          border-bottom: 1px dashed #a16500;
-          width: 100vw;
-          position: relative;
-          left: 50%;
-          transform: translateX(-50%);
-          margin: 0;
-          padding: 0;
-        "
-      ></div>
+      <div class="header-divider"></div>
 
       <!-- Middle Bar -->
       <div class="middle-bar">
@@ -105,6 +94,7 @@ import { useRouter } from "vue-router";
 import { Search, ShoppingCart, SwitchButton } from "@element-plus/icons-vue";
 import axios from "axios";
 import { isStaffRole as checkStaffRole, getDefaultStaffPath } from "@/utils/auth.js";
+import { ElMessageBox } from "element-plus";
 
 const router = useRouter();
 const user = ref(null);
@@ -112,14 +102,20 @@ const isLoggedIn = ref(false);
 const isStaff = computed(() => !!user.value && checkStaffRole(user.value.role));
 const staffHomePath = computed(() => getDefaultStaffPath(user.value?.role) || "/admin");
 
-const logout = () => {
-  const confirmed = window.confirm("Bạn có chắc muốn đăng xuất?");
-  if (confirmed) {
-    localStorage.removeItem("token");
-    isLoggedIn.value = false;
-    user.value = null;
-    router.push("/").then(() => location.reload());
+const logout = async () => {
+  try {
+    await ElMessageBox.confirm("Bạn có chắc muốn đăng xuất?", "Xác nhận", {
+      confirmButtonText: "Đăng xuất",
+      cancelButtonText: "Hủy",
+      type: "warning",
+    });
+  } catch {
+    return;
   }
+  localStorage.removeItem("token");
+  isLoggedIn.value = false;
+  user.value = null;
+  router.push("/").then(() => location.reload());
 };
 
 onMounted(async () => {
@@ -138,10 +134,15 @@ onMounted(async () => {
   }
 });
 
+const DEFAULT_AVATAR = "https://maunhi.com/wp-content/uploads/2025/04/avatar-facebook-mac-dinh-3.jpeg";
+
 const getAvatarUrl = (path) => {
-  if (!path) return "/images/default-avatar.png";
+  if (path === null || path === undefined || (typeof path === "string" && !path.trim())) {
+    return DEFAULT_AVATAR;
+  }
   if (path.startsWith("http")) return path;
-  return `http://localhost:3000${path}`;
+  if (path.startsWith("/uploads")) return `http://localhost:3000${path}`;
+  return path;
 };
 
 const scrollToAllDishes = () => {
@@ -154,49 +155,60 @@ const scrollToAllDishes = () => {
 
 <style scoped>
 .header-wrapper {
-  background-color: #fffaf3;
+  background-color: var(--hl-bg-page);
   width: 100vw;
 }
 
 .home-page_header {
-  max-width: 1200px;
+  max-width: var(--hl-content-max);
   margin: 0 auto;
-  padding: 0 20px;
+  padding: 0 var(--hl-space-lg);
   width: 100%;
   position: relative;
   overflow: visible;
+}
+.header-divider {
+  height: 1px;
+  border-bottom: 1px dashed var(--hl-divider-dashed);
+  width: 100vw;
+  position: relative;
+  left: 50%;
+  transform: translateX(-50%);
+  margin: 0;
+  padding: 0;
 }
 .top-bar {
   display: flex;
   justify-content: space-between;
   font-size: 14px;
-  height: 60px;
-  line-height: 60px;
+  height: var(--hl-nav-height);
+  line-height: var(--hl-nav-height);
   align-items: center;
+  color: var(--hl-text-secondary);
 }
 .right-links {
   display: flex;
-  gap: 10px;
+  gap: var(--hl-space-sm);
 }
 .right-links a {
-  margin-left: 15px;
-  color: #333;
+  margin-left: var(--hl-space-md);
+  color: var(--hl-text);
   text-decoration: none;
 }
 .right-links a:hover {
   cursor: pointer;
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 .middle-bar {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  padding: 10px 0;
-  height: 80px;
+  padding: var(--hl-space-sm) 0;
+  height: var(--hl-header-height);
 }
 .info-items {
   display: flex;
-  gap: 30px;
+  gap: var(--hl-space-xl);
   align-items: center;
   flex-wrap: wrap;
   justify-content: flex-end;
@@ -204,14 +216,14 @@ const scrollToAllDishes = () => {
 .info {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: var(--hl-space-sm);
 }
 .icon {
   font-size: 18px;
 }
 .logo-wrapper {
   width: 160px;
-  height: 80px;
+  height: var(--hl-header-height);
   aspect-ratio: 3 / 1;
   overflow: hidden;
   display: flex;
@@ -225,22 +237,22 @@ const scrollToAllDishes = () => {
 }
 .nav-menu {
   display: flex;
-  gap: 30px;
-  margin-top: 10px;
+  gap: var(--hl-space-xl);
+  margin-top: var(--hl-space-sm);
   font-weight: bold;
-  padding-top: 10px;
-  height: 60px;
+  padding-top: var(--hl-space-sm);
+  height: var(--hl-nav-height);
   align-items: center;
 }
 .nav-menu a,
 .nav-menu .dropdown > span {
   text-decoration: none;
-  color: #333;
+  color: var(--hl-text);
   cursor: pointer;
 }
 .nav-menu a:hover,
 .nav-menu .dropdown > span:hover {
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 .dropdown {
   position: relative;
@@ -250,12 +262,14 @@ const scrollToAllDishes = () => {
   position: absolute;
   top: 120%;
   left: 0;
-  background-color: white;
-  border: 1px solid #ccc;
-  padding: 10px;
+  background-color: var(--hl-bg-card);
+  border: 1px solid var(--hl-border);
+  padding: var(--hl-space-sm);
   flex-direction: column;
-  gap: 5px;
+  gap: var(--hl-space-xs);
   z-index: 100;
+  border-radius: var(--hl-radius-md);
+  box-shadow: var(--hl-shadow-md);
 }
 .dropdown:hover .dropdown-content {
   display: flex;
@@ -263,14 +277,16 @@ const scrollToAllDishes = () => {
 .nav-menu_icon {
   margin-left: auto;
   display: flex;
-  gap: 20px;
+  gap: var(--hl-space-lg);
   align-items: center;
 }
 .nav-menu_icon .el-icon {
   font-size: 22px;
+  color: var(--hl-text-secondary);
 }
 .nav-menu_icon .el-icon:hover {
   cursor: pointer;
+  color: var(--hl-primary);
 }
 .zigzag-border {
   position: absolute;
@@ -287,13 +303,13 @@ const scrollToAllDishes = () => {
 .nav-user {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--hl-space-sm);
   font-weight: bold;
-  color: #333;
+  color: var(--hl-text);
 }
 .nav-user:hover {
   cursor: pointer;
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 .username {
   font-size: 14px;
@@ -301,36 +317,36 @@ const scrollToAllDishes = () => {
 .nav-user-loggedin {
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: var(--hl-space-md);
 }
 .logout-button {
-  color: black;
+  color: var(--hl-text);
   font-size: 14px;
   padding: 0;
 }
 .logout-button:hover {
   text-decoration: underline;
   cursor: pointer;
-  color: #f2b94c;
+  color: var(--hl-primary);
 }
 .router-link-exact-active,
 .nav-link.active {
-  color: #f2b94c;
-  border-bottom: 2px solid #f2b94c;
+  color: var(--hl-primary);
+  border-bottom: 2px solid var(--hl-primary);
 }
 @media (max-width: 768px) {
   .middle-bar {
     flex-direction: column;
     align-items: flex-start;
-    gap: 20px;
+    gap: var(--hl-space-lg);
   }
   .info-items {
     flex-direction: column;
-    gap: 15px;
+    gap: var(--hl-space-md);
   }
   .nav-menu {
     flex-wrap: wrap;
-    gap: 10px;
+    gap: var(--hl-space-sm);
   }
 }
 </style>

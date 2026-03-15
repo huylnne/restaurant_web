@@ -11,7 +11,11 @@
       <el-table-column prop="number_of_guests" label="Số khách" width="100" />
       <el-table-column prop="Table.table_number" label="Bàn số" />
       <el-table-column prop="Table.capacity" label="Sức chứa" />
-      <el-table-column prop="status" label="Trạng thái" />
+      <el-table-column label="Trạng thái" width="140">
+        <template #default="{ row }">
+          {{ getDiningStatusLabel(row) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="note" label="Ghi chú" />
 
       <!-- Món đã gọi -->
@@ -42,11 +46,11 @@
         </template>
       </el-table-column>
 
-      <!-- ❌ Hủy đặt bàn -->
+      <!-- ❌ Hủy đặt bàn: chỉ khi bàn vẫn là "Đã đặt trước", chưa chuyển sang Đang phục vụ -->
       <el-table-column label="Hành động" width="150">
         <template #default="{ row }">
           <el-button
-            v-if="['pending', 'confirmed'].includes(row.status?.trim().toLowerCase())"
+            v-if="canCancelReservation(row)"
             type="danger"
             size="small"
             @click="cancelReservation(row.reservation_id)"
@@ -63,6 +67,7 @@
 import { ref, onMounted } from "vue";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { normalizeTableStatus, getTableStatusLabel } from "@/constants/tableStatus";
 
 const reservations = ref([]);
 const loading = ref(true);
@@ -127,34 +132,66 @@ function calculateSubtotal(orders) {
   }, 0);
 }
 
+/** Trạng thái dùng bữa đồng bộ với bàn (admin/waiter cập nhật trạng thái bàn → user thấy ngay) */
+/** Chỉ cho hủy khi: đặt bàn đã xác nhận/pending VÀ bàn vẫn trạng thái "Đã đặt trước" (chưa chuyển Đang phục vụ) */
+function canCancelReservation(row) {
+  const resStatus = (row.status || "").trim().toLowerCase();
+  const tableStatus = normalizeTableStatus(row.Table?.status);
+  if (!["pending", "confirmed"].includes(resStatus)) return false;
+  return tableStatus === "pre-ordered";
+}
+
+function getDiningStatusLabel(row) {
+  const resStatus = (row.status || "").trim().toLowerCase();
+  const tableStatus = normalizeTableStatus(row.Table?.status);
+
+  if (resStatus === "cancelled") return "Đã hủy";
+  if (resStatus === "pending") return "Chờ xác nhận";
+
+  if (tableStatus === "occupied") return "Đang phục vụ";
+  if (tableStatus === "available" && resStatus === "confirmed") return "Đã xong";
+  if (tableStatus === "pre-ordered") return "Đã đặt trước";
+
+  if (resStatus === "confirmed") return "Đã xác nhận";
+  return getTableStatusLabel(row.Table?.status) || row.status || "-";
+}
+
 onMounted(fetchReservations);
 </script>
 
 <style scoped>
 .title {
-  font-size: 20px;
-  margin-bottom: 16px;
-  color: #a16500;
+  font-size: 1.25rem;
+  margin-bottom: var(--hl-space-md);
+  color: var(--hl-primary);
+  font-weight: 600;
 }
 
 .order-items {
   display: flex;
   flex-direction: column;
-  gap: 4px;
-  padding: 4px 0;
+  gap: var(--hl-space-xs);
+  padding: var(--hl-space-xs) 0;
 }
 
 .order-item {
   font-size: 14px;
   line-height: 1.4;
+  color: var(--hl-text-secondary);
 }
 
 .invoice {
-  margin-top: 6px;
-  padding-top: 4px;
-  font-weight: bold;
+  margin-top: var(--hl-space-xs);
+  padding-top: var(--hl-space-xs);
+  font-weight: 600;
   font-size: 14px;
-  color: #4caf50;
-  border-top: 1px dashed #ccc;
+  color: var(--hl-success);
+  border-top: 1px dashed var(--hl-border);
+}
+
+:deep(.el-card) {
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
+  border: 1px solid var(--hl-border-light);
 }
 </style>
