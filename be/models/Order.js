@@ -7,7 +7,11 @@ module.exports = (sequelize, DataTypes) => {
     },
     reservation_id: {
       type: DataTypes.INTEGER,
-      allowNull: false,
+      allowNull: true, // Cho phép null vì có order không qua reservation
+    },
+    user_id: {
+      type: DataTypes.INTEGER,
+      allowNull: true, // Thêm trường này
     },
     status: {
       type: DataTypes.STRING,
@@ -23,10 +27,11 @@ module.exports = (sequelize, DataTypes) => {
     timestamps: false,
   });
 
-  //  Thêm quan hệ ở đây:
   Order.associate = (models) => {
     Order.belongsTo(models.Reservation, { foreignKey: 'reservation_id' });
+    Order.belongsTo(models.User, { foreignKey: 'user_id' }); // Thêm dòng này
     Order.hasMany(models.OrderItem, { foreignKey: 'order_id' });
+    Order.hasOne(models.Payment, { foreignKey: 'order_id' });
   };
 
   return Order;

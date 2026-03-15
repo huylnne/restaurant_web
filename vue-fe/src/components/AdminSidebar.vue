@@ -4,55 +4,65 @@
     background-color="#78350f"
     text-color="#fff"
     active-text-color="#fff"
-    default-active="1"
+    :default-active="activeMenuKey"
   >
-    <router-link to="/admin/" class="nav-item" style="text-decoration: none">
-      <el-menu-item index="1">
-        <el-icon><KnifeFork /></el-icon>
-        <span>Quản lý nhà hàng</span>
+    <template v-for="(item, idx) in visibleMenus" :key="item.key">
+      <router-link
+        v-if="item.route"
+        :to="item.route"
+        class="nav-item"
+        style="text-decoration: none"
+      >
+        <el-menu-item :index="String(idx + 1)">
+          <el-icon>
+            <component :is="iconComponent(item.icon)" />
+          </el-icon>
+          <span>{{ item.label }}</span>
+        </el-menu-item>
+      </router-link>
+      <el-menu-item v-else :index="`_${idx}`">
+        <el-icon>
+          <component :is="iconComponent(item.icon)" />
+        </el-icon>
+        <span>{{ item.label }}</span>
       </el-menu-item>
-    </router-link>
-
-    <el-menu-item index="2">
-      <el-icon><Grid /></el-icon>
-      <span>Tổng quan</span>
-    </el-menu-item>
-
-    <el-menu-item index="3">
-      <el-icon><DataLine /></el-icon>
-      <span>Thống kê doanh thu</span>
-    </el-menu-item>
-
-    <router-link to="/admin/employees" class="nav-item" style="text-decoration: none">
-      <el-menu-item index="4">
-        <el-icon><User /></el-icon>
-        <span>Quản lý nhân viên</span>
-      </el-menu-item>
-    </router-link>
-
-    <router-link to="/admin/menu" class="nav-item" style="text-decoration: none">
-      <el-menu-item index="5">
-        <el-icon><Dish /></el-icon>
-        <span>Quản lý món ăn</span>
-      </el-menu-item>
-    </router-link>
-
-    <router-link to="/admin/tables" class="nav-item" style="text-decoration: none">
-      <el-menu-item index="6">
-        <el-icon><Grid /></el-icon>
-        <span>Quản lý bàn</span>
-      </el-menu-item>
-    </router-link>
-
-    <el-menu-item index="7">
-      <el-icon><Setting /></el-icon>
-      <span>Cài đặt</span>
-    </el-menu-item>
+    </template>
   </el-menu>
 </template>
 
 <script setup>
+import { computed } from "vue";
+import { useRoute } from "vue-router";
 import { KnifeFork, Grid, DataLine, User, Dish, Setting } from "@element-plus/icons-vue";
+import { getMenuByRole } from "@/config/sidebarMenu.js";
+import { getCurrentRole } from "@/utils/auth.js";
+
+const route = useRoute();
+
+const role = computed(() => getCurrentRole());
+const visibleMenus = computed(() => getMenuByRole(role.value));
+
+const iconMap = {
+  KnifeFork,
+  Grid,
+  DataLine,
+  User,
+  Dish,
+  Setting,
+};
+function iconComponent(name) {
+  return iconMap[name] || Grid;
+}
+
+/** Active menu theo route hiện tại */
+const activeMenuKey = computed(() => {
+  const path = route.path;
+  const idx = visibleMenus.value.findIndex((item) => item.route === path);
+  if (idx >= 0) return String(idx + 1);
+  const byRoute = visibleMenus.value.find((item) => item.route && path.startsWith(item.route));
+  if (byRoute) return String(visibleMenus.value.indexOf(byRoute) + 1);
+  return "1";
+});
 </script>
 
 <style scoped>

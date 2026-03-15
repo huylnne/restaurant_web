@@ -1,51 +1,59 @@
 const dashboardService = require('../../services/admin/dashboard.service');
+const {
+  filterSummaryForRole,
+  filterTopDishesForRole,
+  filterWeeklyRevenueForRole,
+} = require('../../utils/roleResponse');
 
 const dashboardController = {
-  // ✅ 1. Tổng quan
   async getSummary(req, res) {
     try {
       const data = await dashboardService.getSummary();
-      res.json(data);
+      const role = req.userRole || req.user?.role;
+      res.json(filterSummaryForRole(role, data));
     } catch (error) {
       console.error('❌ Lỗi getSummary:', error);
       res.status(500).json({ message: 'Lỗi server' });
     }
   },
 
-  // 📊 2. Doanh thu theo tuần
   async getWeeklyRevenue(req, res) {
     try {
       const data = await dashboardService.getWeeklyRevenue();
-      res.json(data);
+      const role = req.userRole || req.user?.role;
+      res.json(filterWeeklyRevenueForRole(role, data));
     } catch (error) {
       console.error('❌ Lỗi getWeeklyRevenue:', error);
       res.status(500).json({ message: 'Lỗi server' });
     }
   },
 
-  // 🍽 3. Top món ăn bán chạy
   async getTopDishes(req, res) {
     try {
       const data = await dashboardService.getTopDishes();
-      res.json(data);
+      const role = req.userRole || req.user?.role;
+      res.json(filterTopDishesForRole(role, data));
     } catch (error) {
       console.error('❌ Lỗi getTopDishes:', error);
       res.status(500).json({ message: 'Lỗi server' });
     }
   },
 
-  // 🪑 4. Tình trạng bàn ăn
   async getTableStatus(req, res) {
     try {
       const data = await dashboardService.getTableStatus();
-      res.json(data);
+      res.json({
+        ...data,
+        availableTables: data.empty,
+        occupiedTables: data.occupied ?? data.serving,
+        reservedTables: data.reserved,
+      });
     } catch (error) {
       console.error('❌ Lỗi getTableStatus:', error);
       res.status(500).json({ message: 'Lỗi server' });
     }
   },
 
-  // ⏰ 5. Thời gian phục vụ cao điểm
   async getPeakHours(req, res) {
     try {
       const data = await dashboardService.getPeakHours();

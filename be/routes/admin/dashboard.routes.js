@@ -1,11 +1,11 @@
 const express = require('express');
 const router = express.Router();
 const dashboardController = require('../../controllers/admin/dashboard.controller');
-const { verifyAdmin } = require('../../middlewares/auth');  
-//  Áp dụng middleware cho tất cả routes
-router.use(verifyAdmin);
+const { verifyToken, authorizeRole } = require('../../middlewares/auth');
 
-// Routes
+// Admin, waiter (kitchen chỉ dùng tab Bếp, không gọi dashboard)
+router.use(verifyToken, authorizeRole('admin', 'waiter'));
+
 router.get('/summary', dashboardController.getSummary);
 router.get('/weekly-revenue', dashboardController.getWeeklyRevenue);
 router.get('/top-dishes', dashboardController.getTopDishes);

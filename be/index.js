@@ -74,6 +74,16 @@ app.use('/api/admin/menu', adminMenuRoutes);
 const adminEmployeeRoutes = require('./routes/admin/employee.routes')
 app.use('/api/admin/employees',adminEmployeeRoutes)
 
+const adminReportRoutes = require('./routes/admin/report.routes')
+app.use('/api/admin/reports',adminReportRoutes)
+
+// ========== BỔ SUNG 2 ROUTE MỚI ==========
+const kitchenRoutes = require('./routes/admin/kitchen.routes');
+app.use('/api/admin/kitchen', kitchenRoutes);
+
+const waiterRoutes = require('./routes/admin/waiter.routes');
+app.use('/api/admin/waiter', waiterRoutes);
+
 app.get('/', (req, res) => {
   res.send(' Backend API đang chạy!');
 });

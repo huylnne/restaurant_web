@@ -62,7 +62,7 @@
       <!-- Navigation Menu -->
       <nav class="nav-menu">
         <router-link
-          :to="isLoggedIn ? '/dashboard' : '/'"
+          :to="isStaff ? staffHomePath : (isLoggedIn ? '/dashboard' : '/')"
           class="nav-link"
           active-class="active"
           >TRANG CHỦ</router-link
@@ -82,9 +82,9 @@
         <router-link to="/contact" class="nav-link" active-class="active"
           >LIÊN HỆ</router-link
         >
-        <template v-if="isLoggedIn && user && user.role === 'admin'">
-          <router-link to="/admin" class="nav-link admin-link" active-class="active">
-            Quản lý
+        <template v-if="isLoggedIn && isStaff">
+          <router-link :to="staffHomePath" class="nav-link admin-link" active-class="active">
+            Quản lý nhà hàng
           </router-link>
         </template>
 
@@ -100,14 +100,17 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import { Search, ShoppingCart, SwitchButton } from "@element-plus/icons-vue";
 import axios from "axios";
+import { isStaffRole as checkStaffRole, getDefaultStaffPath } from "@/utils/auth.js";
 
 const router = useRouter();
 const user = ref(null);
 const isLoggedIn = ref(false);
+const isStaff = computed(() => !!user.value && checkStaffRole(user.value.role));
+const staffHomePath = computed(() => getDefaultStaffPath(user.value?.role) || "/admin");
 
 const logout = () => {
   const confirmed = window.confirm("Bạn có chắc muốn đăng xuất?");

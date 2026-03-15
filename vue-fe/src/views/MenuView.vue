@@ -11,32 +11,32 @@
         </el-button>
         <el-button
           plain
-          :type="selectedCategory === 'starter' ? 'primary' : ''"
-          @click="selectCategory('starter')"
+          :type="selectedCategory === 'Khai vị' ? 'primary' : ''"
+          @click="selectCategory('Khai vị')"
         >
           <el-icon><CoffeeCup /></el-icon>
           <span>Khai vị</span>
         </el-button>
         <el-button
           plain
-          :type="selectedCategory === 'main' ? 'primary' : ''"
-          @click="selectCategory('main')"
+          :type="selectedCategory === 'Món chính' ? 'primary' : ''"
+          @click="selectCategory('Món chính')"
         >
           <el-icon><KnifeFork /></el-icon>
           <span>Món chính</span>
         </el-button>
         <el-button
           plain
-          :type="selectedCategory === 'dessert' ? 'primary' : ''"
-          @click="selectCategory('dessert')"
+          :type="selectedCategory === 'Tráng miệng' ? 'primary' : ''"
+          @click="selectCategory('Tráng miệng')"
         >
           <el-icon><IceCream /></el-icon>
           <span>Tráng miệng</span>
         </el-button>
         <el-button
           plain
-          :type="selectedCategory === 'drink' ? 'primary' : ''"
-          @click="selectCategory('drink')"
+          :type="selectedCategory === 'Đồ uống' ? 'primary' : ''"
+          @click="selectCategory('Đồ uống')"
         >
           <el-icon><GobletFull /></el-icon>
           <span>Đồ uống</span>
@@ -49,7 +49,7 @@
         <div class="dish-list">
           <div
             class="dish-card"
-            v-for="(dish, index) in allMenuItems"
+            v-for="(dish, index) in filteredMenuItems"
             :key="'all-' + index"
           >
             <img :src="dish.image_url || '/images/default.jpg'" :alt="dish.name" />
@@ -131,10 +131,10 @@
           <div class="form-group">
             <label>Danh mục <span class="required">*</span></label>
             <select v-model="formState.category" required>
-              <option value="starter">Khai vị</option>
-              <option value="main">Món chính</option>
-              <option value="dessert">Tráng miệng</option>
-              <option value="drink">Đồ uống</option>
+              <option value="Khai vị">Khai vị</option>
+              <option value="Món chính">Món chính</option>
+              <option value="Tráng miệng">Tráng miệng</option>
+              <option value="Đồ uống">Đồ uống</option>
             </select>
           </div>
           <div class="form-group">
@@ -160,10 +160,11 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from "vue";
+import { ref, reactive, onMounted, computed } from "vue";
 import axios from "axios";
+import { CoffeeCup, KnifeFork, IceCream, GobletFull } from "@element-plus/icons-vue";
 
-// Quản lý quyền admin
+// Chỉ admin mới CRUD món; waiter/kitchen chỉ xem và "Đặt món"
 const isAdmin = ref(false);
 
 // Thêm biến filter
@@ -183,7 +184,7 @@ const formState = reactive({
   name: "",
   description: "",
   price: 0,
-  category: "main",
+  category: "Món chính",
   image_url: "",
   branch_id: 1,
 });
@@ -192,40 +193,51 @@ onMounted(() => {
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   isAdmin.value = !!token && user && user.role === "admin";
-  fetchPaginatedMenu();
+  fetchAllMenuItems();
 });
 
-const fetchPaginatedMenu = async () => {
+// Lấy toàn bộ menu từ API
+const fetchAllMenuItems = async () => {
   try {
-    let url = `http://localhost:3000/api/menu-items?page=${currentPage.value}&limit=${limit}`;
-    if (selectedCategory.value) {
-      url += `&category=${selectedCategory.value}`;
-    }
-    const res = await axios.get(url);
-    allMenuItems.value = res.data.items;
-    totalPages.value = res.data.totalPages;
+    const res = await axios.get("http://localhost:3000/api/menu-items?limit=1000");
+    allMenuItems.value = res.data.items || [];
   } catch (err) {
-    console.error("Lỗi khi lấy menu phân trang:", err);
+    console.error("Lỗi khi lấy menu:", err);
   }
 };
 
+// Filter items theo category (client-side)
+const filteredMenuItems = computed(() => {
+  let items = allMenuItems.value;
+
+  // Lọc theo category
+  if (selectedCategory.value) {
+    items = items.filter((item) => item.category === selectedCategory.value);
+  }
+
+  // Tính tổng số trang
+  totalPages.value = Math.ceil(items.length / limit);
+
+  // Phân trang
+  const start = (currentPage.value - 1) * limit;
+  const end = start + limit;
+  return items.slice(start, end);
+});
+
 const selectCategory = (category) => {
   selectedCategory.value = category;
-  currentPage.value = 1;
-  fetchPaginatedMenu();
+  currentPage.value = 1; // Reset về trang 1
 };
 
 const nextPage = () => {
   if (currentPage.value < totalPages.value) {
     currentPage.value++;
-    fetchPaginatedMenu();
   }
 };
 
 const prevPage = () => {
   if (currentPage.value > 1) {
     currentPage.value--;
-    fetchPaginatedMenu();
   }
 };
 
@@ -240,7 +252,7 @@ const openAddModal = () => {
     name: "",
     description: "",
     price: 0,
-    category: "main",
+    category: "Món chính",
     image_url: "",
     branch_id: 1,
   });
@@ -275,7 +287,7 @@ const confirmDelete = async (dish) => {
       headers: { Authorization: `Bearer ${token}` },
     });
     alert("Xóa món ăn thành công!");
-    fetchPaginatedMenu();
+    fetchAllMenuItems();
   } catch (error) {
     alert(`Có lỗi xảy ra: ${error.response?.data?.message || error.message}`);
   }
@@ -305,7 +317,7 @@ const handleSubmit = async () => {
       alert("Thêm món ăn thành công!");
     }
     showModal.value = false;
-    fetchPaginatedMenu();
+    fetchAllMenuItems();
   } catch (error) {
     alert(`Có lỗi xảy ra: ${error.response?.data?.message || error.message}`);
   } finally {

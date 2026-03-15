@@ -1,9 +1,15 @@
 const tableService = require('../../services/admin/table.service');
+const { filterTableListForRole, filterTableSummaryForRole } = require('../../utils/roleResponse');
+
+function getRole(req) {
+  return req.userRole || req.user?.role;
+}
 
 exports.getTables = async (req, res) => {
   try {
     const tables = await tableService.getTables();
-    res.json(tables);
+    const filtered = filterTableListForRole(getRole(req), tables);
+    res.json(filtered);
   } catch (error) {
     console.error('Lỗi getTables:', error);
     res.status(500).json({ message: 'Lỗi lấy danh sách bàn', error: error.message });
@@ -53,7 +59,8 @@ exports.getTableActivities = async (req, res) => {
 exports.getTableSummary = async (req, res) => {
   try {
     const summary = await tableService.getTableSummary();
-    res.json(summary);
+    const filtered = filterTableSummaryForRole(getRole(req), summary);
+    res.json(filtered);
   } catch (error) {
     console.error('Lỗi getTableSummary:', error);
     res.status(500).json({ message: 'Lỗi lấy thống kê bàn', error: error.message });

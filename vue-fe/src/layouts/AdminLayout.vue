@@ -3,9 +3,9 @@
     <el-container direction="vertical" class="right-section">
       <Navbar />
       <el-main class="admin-main">
-        <!-- Chỉ hiện Sidebar khi là admin -->
-        <Sidebar v-if="isAdmin" />
-        <div class="content-wrapper" :class="{ 'no-sidebar': !isAdmin }">
+        <!-- Sidebar hiện khi đăng nhập bằng admin / waiter / kitchen -->
+        <Sidebar v-if="isStaffRole" />
+        <div class="content-wrapper" :class="{ 'no-sidebar': !isStaffRole }">
           <router-view />
         </div>
       </el-main>
@@ -18,26 +18,27 @@ import { ref, onMounted, watch } from "vue";
 import Sidebar from "../components/AdminSidebar.vue";
 import Navbar from "../components/UserNavbar.vue";
 import { useRouter } from "vue-router";
+import { isStaffRole as checkStaffRole } from "@/utils/auth.js";
 
-const isAdmin = ref(false);
+const isStaffRole = ref(false);
 const router = useRouter();
 
-function checkAdmin() {
+function checkStaff() {
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user") || "{}");
-  isAdmin.value = !!token && user && user.role === "admin";
+  isStaffRole.value = !!token && checkStaffRole(user.role);
 }
 
 onMounted(() => {
-  checkAdmin();
+  checkStaff();
 });
 watch(
   () => router.currentRoute.value.path,
   () => {
-    checkAdmin();
+    checkStaff();
   }
 );
-window.addEventListener("storage", checkAdmin);
+window.addEventListener("storage", checkStaff);
 </script>
 
 <style scoped>

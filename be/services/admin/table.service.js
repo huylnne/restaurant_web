@@ -7,11 +7,15 @@ const {
   MenuItem,
 } = require("../../models");
 const { Sequelize } = require("sequelize");
+const tableSummaryService = require("./tableSummary.service");
+
+const DEFAULT_BRANCH_ID = tableSummaryService.DEFAULT_BRANCH_ID;
 
 const tableService = {
-  // Lấy danh sách bàn
-  async getTables() {
+  // Lấy danh sách bàn (cùng branch với getTableSummary để số liệu khớp)
+  async getTables(branchId = DEFAULT_BRANCH_ID) {
     const tables = await Table.findAll({
+      where: { branch_id: branchId },
       include: [
         {
           model: Reservation,
@@ -190,42 +194,31 @@ const tableService = {
     });
   },
 
-  // Lấy thống kê tổng quan bàn
-  async getTableSummary() {
-    const totalTables = await Table.count();
-    const emptyTables = await Table.count({ where: { status: "available" } });
-    const occupiedTables = await Table.count({ where: { status: "occupied" } });
-    const reservedTables = await Table.count({
-      where: { status: "pre-ordered" },
-    });
-
+  // Lấy thống kê tổng quan bàn – dùng chung tableSummary.service với Dashboard
+  async getTableSummary(branchId = DEFAULT_BRANCH_ID) {
+    const summary = await tableSummaryService.getTableSummary(branchId);
     const db = require("../../models/db");
-    const { Sequelize } = require("sequelize");
-
-    // Lấy ngày hôm nay (00:00:00)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
-    // Tính tổng doanh thu của các order COMPLETED trong hôm nay
     const revenueQuery = `
-    SELECT COALESCE(SUM(oi.quantity * mi.price), 0) as total
-    FROM order_items oi
-    JOIN menu_items mi ON oi.item_id = mi.item_id
-    JOIN orders o ON oi.order_id = o.order_id
-    WHERE o.status = 'COMPLETED'
-      AND o.updated_at >= :today
-  `;
-
+      SELECT COALESCE(SUM(oi.quantity * mi.price), 0) as total
+      FROM order_items oi
+      JOIN menu_items mi ON oi.item_id = mi.item_id
+      JOIN orders o ON o.order_id = o.order_id
+      WHERE o.status = 'COMPLETED'
+        AND o.created_at >= :today
+    `;
     const [revenueResult] = await db.sequelize.query(revenueQuery, {
       replacements: { today },
       type: Sequelize.QueryTypes.SELECT,
     });
 
     return {
-      totalTables,
-      emptyTables,
-      occupiedTables,
-      reservedTables,
+      totalTables: summary.totalTables,
+      availableTables: summary.availableTables,
+      occupiedTables: summary.servingTables,
+      reservedTables: summary.reservedTables,
       currentRevenue: parseFloat(revenueResult.total) || 0,
     };
   },

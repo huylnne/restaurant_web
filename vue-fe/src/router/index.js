@@ -3,7 +3,10 @@ import AdminLayout from "../layouts/AdminLayout.vue";
 import Home from '../views/Home.vue';
 import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminTables from "../views/admin/AdminTables.vue";
+import AdminKitchen from "../views/admin/AdminKitchen.vue";
 import EmployeeManagement from "../views/admin/EmployeeManagement.vue";
+import AdminReports from "../views/admin/AdminReports.vue";
+import { getDefaultStaffPath, canAccessRoute, isStaffRole } from '@/utils/auth.js';
 
 // Import các view khác nếu cần
 const MenuView = () => import('@/views/MenuView.vue');
@@ -35,11 +38,13 @@ const routes = [
       { path: 'order-menu', name: 'OrderMenu', component: OrderMenu },
       { path: 'dashboard', name: 'UserDashboard', component: UserDashboard, meta: { requiresAuth: true } },
       { path: 'profile', name: 'UserProfile', component: UserProfile },
-      // Admin routes
-      { path: 'admin', name: 'AdminDashboard', component: AdminDashboard, meta: { requiresAdmin: true } },
-      { path: 'admin/tables', name: 'AdminTables', component: AdminTables, meta: { requiresAdmin: true } },
-      { path: 'admin/menu', name: 'AdminMenu', component: MenuView, meta: { requiresAdmin: true } },
-      { path: 'admin/employees', name: 'EmployeeManagement', component: EmployeeManagement, meta: { requiresAdmin: true } },
+      // Routes quản lý: meta.allowedRoles – kitchen chỉ được vào /admin/kitchen
+      { path: 'admin', name: 'AdminDashboard', component: AdminDashboard, meta: { allowedRoles: ['admin', 'waiter'] } },
+      { path: 'admin/tables', name: 'AdminTables', component: AdminTables, meta: { allowedRoles: ['admin', 'waiter'] } },
+      { path: 'admin/kitchen', name: 'AdminKitchen', component: AdminKitchen, meta: { allowedRoles: ['admin', 'waiter', 'kitchen'] } },
+      { path: 'admin/menu', name: 'AdminMenu', component: MenuView, meta: { allowedRoles: ['admin', 'waiter'] } },
+      { path: 'admin/employees', name: 'EmployeeManagement', component: EmployeeManagement, meta: { allowedRoles: ['admin'] } },
+      { path: 'admin/reports', name: 'AdminReports', component: AdminReports, meta: { allowedRoles: ['admin'] } },
     ],
   },
 ];
@@ -49,17 +54,34 @@ const router = createRouter({
   routes,
 });
 
-// Navigation guard cho admin
+// Navigation guard: phân quyền theo meta.allowedRoles
 router.beforeEach((to, from, next) => {
   const token = localStorage.getItem('token');
   const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const isAdmin = token && user && user.role === 'admin';
+  const role = user?.role || null;
+  const isStaff = isStaffRole(role);
 
-  if (to.meta.requiresAdmin && !isAdmin) {
-    next('/login');
-  } else {
+  // Route yêu cầu role (allowedRoles)
+  if (to.meta.allowedRoles) {
+    if (!token) {
+      next('/login');
+      return;
+    }
+    if (!canAccessRoute(role, to.meta)) {
+      next(getDefaultStaffPath(role) || '/admin');
+      return;
+    }
     next();
+    return;
   }
+
+  // Staff vào /dashboard thì chuyển sang trang quản lý mặc định
+  if (to.path === '/dashboard' && isStaff) {
+    next(getDefaultStaffPath(role));
+    return;
+  }
+
+  next();
 });
 
 export default router;

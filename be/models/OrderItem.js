@@ -16,6 +16,11 @@ module.exports = (sequelize, DataTypes) => {
     quantity: {
       type: DataTypes.INTEGER,
       allowNull: false,
+    },
+    status: {
+      type: DataTypes.ENUM('pending', 'processing', 'done', 'served'),
+      allowNull: false,
+      defaultValue: 'pending',
     }
   }, {
     tableName: 'order_items',

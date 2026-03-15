@@ -7,6 +7,7 @@ const {
   Reservation,
   Table,
 } = require("../../models");
+const tableSummaryService = require("./tableSummary.service");
 
 const dashboardService = {
   //  1. Tổng quan
@@ -225,72 +226,19 @@ const dashboardService = {
     }));
   },
 
-  //  4. Tình trạng bàn ăn (Trống / Đang phục vụ / Đã đặt)
-  async getTableStatus() {
-    const now = new Date();
-
-    // Bàn trống
-    const emptyTables = await Table.count({
-      where: {
-        status: "available",
-      },
-    });
-
-    // Bàn đang phục vụ
-    const occupiedTables = await Table.count({
-      where: {
-        status: "occupied",
-      },
-    });
-
-    // ✅ Bàn đã đặt trước (có reservation_time > now)
-    const reservedTablesQuery = `
-      SELECT COUNT(DISTINCT t.table_id) as count
-      FROM tables t
-      JOIN reservations r ON t.table_id = r.table_id
-      WHERE r.status = 'confirmed'
-        AND r.reservation_time > :now
-    `;
-    const [reservedResult] = await db.sequelize.query(reservedTablesQuery, {
-      replacements: { now: now.toISOString() },
-      type: Sequelize.QueryTypes.SELECT,
-    });
-    const reservedTables = parseInt(reservedResult.count) || 0;
-
-    // ✅ Tự động set lại status 'available' cho bàn có reservation đã qua
-    const expiredReservationsQuery = `
-      UPDATE tables t
-      SET status = 'available'
-      WHERE t.status = 'pre-ordered'
-        AND t.table_id IN (
-          SELECT r.table_id
-          FROM reservations r
-          WHERE r.status = 'confirmed'
-            AND r.reservation_time <= :now
-        )
-    `;
-    await db.sequelize.query(expiredReservationsQuery, {
-      replacements: { now: now.toISOString() },
-      type: Sequelize.QueryTypes.UPDATE,
-    });
-
-    const totalTables = await Table.count();
-
+  //  4. Tình trạng bàn ăn – dùng chung tableSummary.service với trang Quản lý bàn
+  async getTableStatus(branchId = tableSummaryService.DEFAULT_BRANCH_ID) {
+    const summary = await tableSummaryService.getTableSummary(branchId);
+    const { totalTables, availableTables, servingTables, reservedTables } = summary;
     return {
-      empty: emptyTables,
-      serving: occupiedTables,
-      occupied: occupiedTables,
+      empty: availableTables,
+      serving: servingTables,
+      occupied: servingTables,
       reserved: reservedTables,
       total: totalTables,
-      emptyPercent: totalTables
-        ? Math.round((emptyTables / totalTables) * 100)
-        : 0,
-      occupiedPercent: totalTables
-        ? Math.round((occupiedTables / totalTables) * 100)
-        : 0,
-      reservedPercent: totalTables
-        ? Math.round((reservedTables / totalTables) * 100)
-        : 0,
+      emptyPercent: totalTables ? Math.round((availableTables / totalTables) * 100) : 0,
+      occupiedPercent: totalTables ? Math.round((servingTables / totalTables) * 100) : 0,
+      reservedPercent: totalTables ? Math.round((reservedTables / totalTables) * 100) : 0,
     };
   },
 

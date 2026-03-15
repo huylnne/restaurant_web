@@ -2,7 +2,7 @@
   <div class="dashboard">
     <h2>Tổng quan</h2>
     <div class="stats">
-      <div class="stat-card">
+      <div v-if="showFinancials" class="stat-card">
         <div class="icon-box green">
           <el-icon><Money /></el-icon>
         </div>
@@ -44,7 +44,7 @@
       </div>
     </div>
     <div class="two_charts">
-      <div class="weekly-stats">
+      <div v-if="showFinancials" class="weekly-stats">
         <h3>Doanh thu trong tuần</h3>
         <Bar
           v-if="weeklyLabels.length"
@@ -72,11 +72,11 @@
         <ul class="status-list">
           <li>
             <span class="status-color empty"></span>
-            Bàn trống: {{ tableStatus.empty }} bàn
+            Bàn trống: {{ tableStatus.available }} bàn
           </li>
           <li>
             <span class="status-color serving"></span>
-            Đang phục vụ: {{ tableStatus.serving }} bàn
+            Đang phục vụ: {{ tableStatus.occupied }} bàn
           </li>
           <li>
             <span class="status-color reserved"></span>
@@ -94,7 +94,7 @@
             <th>Tên món</th>
             <th>Loại món</th>
             <th>Đã bán</th>
-            <th>Doanh thu</th>
+            <th v-if="showFinancials">Doanh thu</th>
           </tr>
         </thead>
         <tbody>
@@ -103,7 +103,7 @@
             <td>{{ dish.name }}</td>
             <td>{{ dish.category }}</td>
             <td>{{ dish.soldCount }}</td>
-            <td class="revenue">{{ formatCurrency(dish.revenue) }}</td>
+            <td v-if="showFinancials" class="revenue">{{ formatCurrency(dish.revenue) }}</td>
           </tr>
         </tbody>
       </table>
@@ -112,10 +112,11 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from "vue";
+import { ref, onMounted, nextTick, computed } from "vue";
 import { Money, TrendCharts, User, KnifeFork } from "@element-plus/icons-vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
+import { getCurrentRole } from "@/utils/auth.js";
 import {
   Chart,
   BarElement,
@@ -164,6 +165,8 @@ const ordersGrowth = ref("+0%");
 const usersGrowth = ref("+0%");
 const dishesGrowth = ref("+0%");
 
+const showFinancials = computed(() => getCurrentRole() === "admin");
+
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -171,9 +174,10 @@ const formatCurrency = (amount) => {
   }).format(amount);
 };
 
+// Đổi tên các trường cho đồng bộ với backend
 const tableStatus = ref({
-  empty: 0,
-  serving: 0,
+  available: 0,
+  occupied: 0,
   reserved: 0,
 });
 
@@ -188,14 +192,14 @@ onMounted(async () => {
       }
     );
     stats.value = {
-      "revenue.today": response.data.todayRevenue,
-      "revenue.yesterday": response.data.yesterdayRevenue,
-      "orders.count": response.data.totalOrders,
-      "orders.yesterday": response.data.yesterdayOrders,
-      "users.total": response.data.totalCustomers,
-      "users.yesterday": response.data.yesterdayCustomers,
-      "dishes.sold": response.data.totalItems,
-      "dishes.yesterday": response.data.yesterdayItems,
+      "revenue.today": response.data.todayRevenue ?? 0,
+      "revenue.yesterday": response.data.yesterdayRevenue ?? 0,
+      "orders.count": response.data.totalOrders ?? 0,
+      "orders.yesterday": response.data.yesterdayOrders ?? 0,
+      "users.total": response.data.totalCustomers ?? 0,
+      "users.yesterday": response.data.yesterdayCustomers ?? 0,
+      "dishes.sold": response.data.totalItems ?? 0,
+      "dishes.yesterday": response.data.yesterdayItems ?? 0,
     };
     revenueGrowth.value = calcGrowth(
       stats.value["revenue.today"],
@@ -218,8 +222,9 @@ onMounted(async () => {
       "http://localhost:3000/api/admin/dashboard/weekly-revenue",
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    weeklyLabels.value = weeklyRes.data.map((item) => item.day);
-    weeklyData.value = weeklyRes.data.map((item) => item.revenue);
+    const weeklyList = Array.isArray(weeklyRes.data) ? weeklyRes.data : [];
+    weeklyLabels.value = weeklyList.map((item) => item.day);
+    weeklyData.value = weeklyList.map((item) => item.revenue);
 
     const topDishesRes = await axios.get(
       "http://localhost:3000/api/admin/dashboard/top-dishes",
@@ -227,15 +232,16 @@ onMounted(async () => {
     );
     topDishes.value = topDishesRes.data;
 
+    // Lấy đúng trường từ backend
     const tableStatusRes = await axios.get(
       "http://localhost:3000/api/admin/dashboard/table-status",
       { headers: { Authorization: `Bearer ${token}` } }
     );
     const data = tableStatusRes.data;
     tableStatus.value = {
-      empty: data.empty || 0,
-      serving: data.occupied || 0,
-      reserved: data.reserved || 0,
+      available: data.availableTables || 0,
+      occupied: data.occupiedTables || 0,
+      reserved: data.reservedTables || 0,
     };
 
     await nextTick();
@@ -249,8 +255,8 @@ onMounted(async () => {
           datasets: [
             {
               data: [
-                tableStatus.value.empty,
-                tableStatus.value.serving,
+                tableStatus.value.available,
+                tableStatus.value.occupied,
                 tableStatus.value.reserved,
               ],
               backgroundColor: ["#10b981", "#f97316", "#ef4444"],

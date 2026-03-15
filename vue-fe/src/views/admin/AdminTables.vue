@@ -26,7 +26,7 @@
       <div class="summary-card green-border">
         <div class="card-content">
           <h3>Bàn trống</h3>
-          <p class="value green">{{ summary.emptyTables }} bàn</p>
+          <p class="value green">{{ summary.availableTables }} bàn</p>
         </div>
         <div class="card-icon green">
           <el-icon><CircleCheck /></el-icon>
@@ -135,7 +135,7 @@
     </el-dialog>
 
     <!-- Dialog chi tiết bàn -->
-    <el-dialog v-model="showDetailDialog" title="Chi tiết bàn" width="600px">
+    <el-dialog v-model="showDetailDialog" title="Chi tiết bàn" width="700px" @open="onDetailDialogOpen">
       <div v-if="selectedTable" class="table-detail">
         <el-descriptions :column="2" border>
           <el-descriptions-item label="Số bàn"
@@ -154,11 +154,77 @@
           }}</el-descriptions-item>
         </el-descriptions>
 
+        <!-- Đơn hàng của bàn (API nhân viên phục vụ) -->
+        <div class="orders-section">
+          <div class="orders-section-header">
+            <h4>Đơn hàng bàn</h4>
+            <el-button type="primary" size="small" @click="openCreateOrderDialog">
+              <el-icon><Plus /></el-icon>
+              Tạo đơn
+            </el-button>
+          </div>
+          <div v-loading="tableOrdersLoading" class="orders-list">
+            <template v-if="tableOrders.length === 0 && !tableOrdersLoading">
+              <p class="text-muted">Chưa có đơn nào. Nhấn "Tạo đơn" để thêm món.</p>
+            </template>
+            <template v-else>
+              <div v-for="order in tableOrders" :key="order.order_id" class="order-block">
+                <div class="order-meta">Đơn #{{ order.order_id }}</div>
+                <div
+                  v-for="oi in order.OrderItems || []"
+                  :key="oi.order_item_id"
+                  class="order-item-row"
+                >
+                  <span>{{ oi.MenuItem?.name }} x {{ oi.quantity }}</span>
+                  <el-tag v-if="oi.status === 'served'" type="success" size="small">Đã phục vụ</el-tag>
+                  <el-button
+                    v-else
+                    type="primary"
+                    size="small"
+                    link
+                    @click="markItemServed(oi.order_item_id)"
+                  >
+                    Đánh dấu đã phục vụ
+                  </el-button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
         <div class="actions">
           <el-button @click="showEditDialog">Sửa</el-button>
           <el-button type="danger" @click="deleteTable(selectedTable)">Xóa</el-button>
         </div>
       </div>
+    </el-dialog>
+
+    <!-- Dialog tạo đơn (chọn món) -->
+    <el-dialog v-model="showCreateOrderDialog" title="Tạo đơn hàng" width="560px">
+      <div v-loading="menuItemsLoading" class="create-order-form">
+        <p v-if="selectedTable" class="table-info">Bàn B{{ selectedTable?.table_number }}</p>
+        <el-scrollbar max-height="320px">
+          <div class="menu-list">
+            <div v-for="item in menuItemsForOrder" :key="item.item_id" class="menu-row">
+              <span class="menu-name">{{ item.name }}</span>
+              <el-input-number
+                v-model="orderQuantities[item.item_id]"
+                :min="0"
+                :max="20"
+                size="small"
+                style="width: 120px"
+              />
+            </div>
+          </div>
+        </el-scrollbar>
+        <p v-if="!hasOrderItemsSelected" class="hint">Chọn ít nhất một món với số lượng > 0</p>
+      </div>
+      <template #footer>
+        <el-button @click="showCreateOrderDialog = false">Hủy</el-button>
+        <el-button type="primary" :disabled="!hasOrderItemsSelected" @click="submitCreateOrder">
+          Tạo đơn
+        </el-button>
+      </template>
     </el-dialog>
 
     <!-- Dialog sửa bàn -->
@@ -195,7 +261,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, computed } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Plus,
@@ -208,11 +274,15 @@ import {
 } from "@element-plus/icons-vue";
 import axios from "axios";
 
+const API_BASE = "http://localhost:3000";
+const WAITER_API = `${API_BASE}/api/admin/waiter`;
+const TABLE_API = `${API_BASE}/api/admin/table`;
+
 const tables = ref([]);
 const filteredTables = ref([]);
 const summary = ref({
   totalTables: 0,
-  emptyTables: 0,
+  availableTables: 0,
   occupiedTables: 0,
   reservedTables: 0,
   currentRevenue: 0,
@@ -224,6 +294,18 @@ const showAddDialog = ref(false);
 const showDetailDialog = ref(false);
 const showEditDialogVisible = ref(false);
 const selectedTable = ref(null);
+
+// Waiter: đơn hàng theo bàn
+const tableOrders = ref([]);
+const tableOrdersLoading = ref(false);
+const showCreateOrderDialog = ref(false);
+const menuItemsForOrder = ref([]);
+const menuItemsLoading = ref(false);
+const orderQuantities = ref({});
+
+const hasOrderItemsSelected = computed(() =>
+  Object.values(orderQuantities.value).some((qty) => qty > 0)
+);
 
 const newTable = ref({
   table_number: null,
@@ -240,7 +322,7 @@ const editTableForm = ref({
 const fetchTables = async () => {
   try {
     const token = localStorage.getItem("token");
-    const response = await axios.get("http://localhost:3000/api/admin/table", {
+    const response = await axios.get(TABLE_API, {
       headers: { Authorization: `Bearer ${token}` },
     });
     tables.value = response.data;
@@ -254,7 +336,7 @@ const fetchTables = async () => {
 const fetchSummary = async () => {
   try {
     const token = localStorage.getItem("token");
-    const response = await axios.get("http://localhost:3000/api/admin/table/summary", {
+    const response = await axios.get(`${TABLE_API}/summary`, {
       headers: { Authorization: `Bearer ${token}` },
     });
     summary.value = response.data;
@@ -263,11 +345,101 @@ const fetchSummary = async () => {
   }
 };
 
+// API nhân viên phục vụ: đơn hàng theo bàn
+const fetchTableOrders = async (table_id) => {
+  if (!table_id) return;
+  tableOrdersLoading.value = true;
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.get(`${WAITER_API}/orders`, {
+      params: { table_id },
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    tableOrders.value = Array.isArray(res.data) ? res.data : res.data.orders || [];
+  } catch (err) {
+    console.error("Lỗi lấy đơn hàng bàn:", err);
+    tableOrders.value = [];
+  } finally {
+    tableOrdersLoading.value = false;
+  }
+};
+
+const onDetailDialogOpen = () => {
+  if (selectedTable.value?.table_id) {
+    fetchTableOrders(selectedTable.value.table_id);
+  }
+};
+
+const openCreateOrderDialog = async () => {
+  menuItemsForOrder.value = [];
+  orderQuantities.value = {};
+  menuItemsLoading.value = true;
+  showCreateOrderDialog.value = true;
+  try {
+    const res = await axios.get(`${API_BASE}/api/menu-items`, {
+      params: { page: 1, limit: 500 },
+    });
+    const items = res.data?.items || res.data || [];
+    menuItemsForOrder.value = items;
+    items.forEach((item) => {
+      orderQuantities.value[item.item_id] = 0;
+    });
+  } catch (err) {
+    console.error("Lỗi lấy thực đơn:", err);
+    ElMessage.error("Không thể tải thực đơn");
+  } finally {
+    menuItemsLoading.value = false;
+  }
+};
+
+const submitCreateOrder = async () => {
+  if (!selectedTable.value?.table_id) return;
+  const items = Object.entries(orderQuantities.value)
+    .filter(([, qty]) => qty > 0)
+    .map(([item_id, quantity]) => ({ item_id: Number(item_id), quantity }));
+  if (!items.length) {
+    ElMessage.warning("Chọn ít nhất một món");
+    return;
+  }
+  try {
+    const token = localStorage.getItem("token");
+    await axios.post(
+      `${WAITER_API}/orders`,
+      { table_id: selectedTable.value.table_id, items },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    ElMessage.success("Tạo đơn thành công");
+    showCreateOrderDialog.value = false;
+    fetchTableOrders(selectedTable.value.table_id);
+    fetchTables();
+    fetchSummary();
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || "Tạo đơn thất bại");
+  }
+};
+
+const markItemServed = async (orderItemId) => {
+  try {
+    const token = localStorage.getItem("token");
+    await axios.patch(
+      `${WAITER_API}/order-items/${orderItemId}/served`,
+      {},
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    ElMessage.success("Đã đánh dấu đã phục vụ");
+    if (selectedTable.value?.table_id) {
+      fetchTableOrders(selectedTable.value.table_id);
+    }
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || "Cập nhật thất bại");
+  }
+};
+
 // Thêm bàn
 const addTable = async () => {
   try {
     const token = localStorage.getItem("token");
-    await axios.post("http://localhost:3000/api/admin/table", newTable.value, {
+    await axios.post(TABLE_API, newTable.value, {
       headers: { Authorization: `Bearer ${token}` },
     });
     ElMessage.success("Thêm bàn thành công");
@@ -299,7 +471,7 @@ const updateTable = async () => {
     const oldTableNumber = selectedTable.value.table_number;
 
     await axios.put(
-      `http://localhost:3000/api/admin/table/${oldTableNumber}`,
+      `${TABLE_API}/${oldTableNumber}`,
       editTableForm.value,
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -330,7 +502,7 @@ const deleteTable = async (table) => {
     );
 
     const token = localStorage.getItem("token");
-    await axios.delete(`http://localhost:3000/api/admin/table/${table.table_number}`, {
+    await axios.delete(`${TABLE_API}/${table.table_number}`, {
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -619,5 +791,86 @@ onMounted(() => {
   display: flex;
   gap: 12px;
   justify-content: flex-end;
+}
+
+.orders-section {
+  margin-top: 20px;
+  padding-top: 16px;
+  border-top: 1px solid #e2e8f0;
+}
+
+.orders-section-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.orders-section-header h4 {
+  margin: 0;
+  font-size: 16px;
+  color: #1e293b;
+}
+
+.orders-list {
+  min-height: 60px;
+  max-height: 240px;
+  overflow-y: auto;
+}
+
+.text-muted {
+  color: #64748b;
+  font-size: 14px;
+  margin: 0;
+}
+
+.order-block {
+  margin-bottom: 12px;
+  padding: 10px;
+  background: #f8fafc;
+  border-radius: 8px;
+}
+
+.order-meta {
+  font-size: 12px;
+  color: #64748b;
+  margin-bottom: 8px;
+}
+
+.order-item-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 4px 0;
+  font-size: 14px;
+}
+
+.create-order-form .table-info {
+  margin-bottom: 12px;
+  font-weight: 600;
+  color: #78350f;
+}
+
+.create-order-form .menu-list {
+  padding-right: 8px;
+}
+
+.menu-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.menu-row .menu-name {
+  flex: 1;
+  margin-right: 12px;
+}
+
+.create-order-form .hint {
+  margin-top: 12px;
+  color: #64748b;
+  font-size: 13px;
 }
 </style>

@@ -31,6 +31,7 @@
 import { ref } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
+import { getDefaultStaffPath, isStaffRole } from "@/utils/auth.js";
 
 const username = ref("");
 const password = ref("");
@@ -56,8 +57,8 @@ const handleLogin = async () => {
     const role = res.data.user?.role;
 
     setTimeout(() => {
-      if (role === "admin") {
-        router.push("./admin");
+      if (isStaffRole(role)) {
+        router.push(getDefaultStaffPath(role));
       } else {
         router.push("/dashboard");
       }
