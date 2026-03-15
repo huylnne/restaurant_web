@@ -10,12 +10,19 @@ const { Sequelize } = require("sequelize");
 
 const DEFAULT_BRANCH_ID = 1;
 
+/** Số phút sau giờ đặt mà khách chưa tới thì tự chuyển bàn thành trống */
+const OVERDUE_MINUTES = 15;
+
 /**
- * Cập nhật status bàn có reservation đã qua thành 'available' (chạy trước khi đếm để số liệu nhất quán).
+ * Cập nhật status bàn đặt trước thành 'available' khi đã quá OVERDUE_MINUTES so với giờ đặt mà khách chưa tới.
+ * Gọi trước khi đếm/lấy danh sách bàn để số liệu nhất quán.
  * @param {number} branchId
- * @param {Date} now
+ * @param {Date} [cutoff] - Thời điểm cắt: reservation_time <= cutoff thì coi là quá hạn. Mặc định = now - 15 phút.
  */
-async function expireReservationsForBranch(branchId, now) {
+async function expireReservationsForBranch(branchId, cutoff) {
+  const now = new Date();
+  const deadline = cutoff || new Date(now.getTime() - OVERDUE_MINUTES * 60 * 1000);
+
   const expiredReservationsQuery = `
     UPDATE tables t
     SET status = 'available'
@@ -25,11 +32,11 @@ async function expireReservationsForBranch(branchId, now) {
         SELECT r.table_id
         FROM reservations r
         WHERE r.status = 'confirmed'
-          AND r.reservation_time <= :now
+          AND r.reservation_time <= :deadline
       )
   `;
   await db.sequelize.query(expiredReservationsQuery, {
-    replacements: { branchId, now: now.toISOString() },
+    replacements: { branchId, deadline: deadline.toISOString() },
     type: Sequelize.QueryTypes.UPDATE,
   });
 }
@@ -40,8 +47,7 @@ async function expireReservationsForBranch(branchId, now) {
  * @returns {Promise<{ totalTables: number, availableTables: number, servingTables: number, reservedTables: number }>}
  */
 async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
-  const now = new Date();
-  await expireReservationsForBranch(branchId, now);
+  await expireReservationsForBranch(branchId);
 
   const baseWhere = { branch_id: branchId };
   // Sau này nếu có soft delete / active: baseWhere.is_deleted = false; baseWhere.is_active = true;

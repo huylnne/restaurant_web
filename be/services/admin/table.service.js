@@ -12,8 +12,11 @@ const tableSummaryService = require("./tableSummary.service");
 const DEFAULT_BRANCH_ID = tableSummaryService.DEFAULT_BRANCH_ID;
 
 const tableService = {
-  // Lấy danh sách bàn (cùng branch với getTableSummary để số liệu khớp)
+  // Lấy danh sách bàn (cùng branch với getTableSummary để số liệu khớp).
+  // Trước khi trả về: tự chuyển bàn đặt trước quá 15 phút (khách chưa tới) thành trống.
   async getTables(branchId = DEFAULT_BRANCH_ID) {
+    await tableSummaryService.expireReservationsForBranch(branchId);
+
     const tables = await Table.findAll({
       where: { branch_id: branchId },
       include: [

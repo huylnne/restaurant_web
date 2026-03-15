@@ -197,20 +197,20 @@ const dashboardService = {
     return weeklyData;
   },
 
-  // 🍽 3. Top 5 món ăn bán chạy
+  // 🍽 3. Top 5 món ăn bán chạy (số món đã bán = tổng quantity, không phải số dòng order_item)
   async getTopDishes() {
     const query = `
       SELECT 
         mi.name AS dish_name,
         mi.category,
-        COUNT(oi.order_item_id) AS times_sold,
-        SUM(mi.price * oi.quantity) AS revenue
+        COALESCE(SUM(oi.quantity), 0) AS total_quantity,
+        COALESCE(SUM(mi.price * oi.quantity), 0) AS revenue
       FROM order_items oi
       JOIN menu_items mi ON oi.item_id = mi.item_id
       JOIN orders o ON oi.order_id = o.order_id
       WHERE o.status = 'COMPLETED'
       GROUP BY mi.item_id, mi.name, mi.category
-      ORDER BY times_sold DESC
+      ORDER BY total_quantity DESC
       LIMIT 5
     `;
 
@@ -221,8 +221,8 @@ const dashboardService = {
     return results.map((r) => ({
       name: r.dish_name,
       category: r.category,
-      soldCount: parseInt(r.times_sold),
-      revenue: parseFloat(r.revenue),
+      soldCount: parseInt(r.total_quantity, 10) || 0,
+      revenue: parseFloat(r.revenue) || 0,
     }));
   },
 
