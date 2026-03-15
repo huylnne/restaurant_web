@@ -97,3 +97,97 @@ exports.getReservationsWithOrders = async (userId) => {
     throw new Error('Không thể lấy lịch sử đặt bàn');
   }
 };
+
+//  Lấy phiên bàn hiện tại của user (bàn gần nhất đang confirmed / pre-ordered)
+exports.getCurrentTableSession = async (userId) => {
+  try {
+    const reservation = await Reservation.findOne({
+      where: {
+        user_id: userId,
+        status: ['confirmed', 'pre-ordered', 'waiting_payment'],
+      },
+      attributes: [
+        'reservation_id',
+        'reservation_time',
+        'number_of_guests',
+        'status',
+        'table_id',
+        'branch_id',
+        'created_at',
+      ],
+      include: [
+        {
+          model: Table,
+          as: 'Table',
+          attributes: ['table_number', 'capacity', 'status'],
+        },
+        {
+          model: Order,
+          as: 'Orders',
+          required: false,
+          include: [
+            {
+              model: OrderItem,
+              as: 'OrderItems',
+              required: false,
+              include: [
+                {
+                  model: MenuItem,
+                  as: 'MenuItem',
+                  attributes: ['name', 'price'],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+      order: [['reservation_time', 'DESC']],
+    });
+
+    // Nếu bàn đã ở trạng thái trống thì coi như không còn phiên đang phục vụ
+    if (!reservation) return null;
+    if (reservation.Table && reservation.Table.status === 'available') {
+      return null;
+    }
+
+    // Lấy thêm các order do nhân viên tạo trực tiếp theo bàn (không gắn reservation_id)
+    if (reservation.table_id) {
+      const waiterOrders = await Order.findAll({
+        where: {
+          table_id: reservation.table_id,
+        },
+        include: [
+          {
+            model: OrderItem,
+            as: 'OrderItems',
+            required: false,
+            include: [
+              {
+                model: MenuItem,
+                as: 'MenuItem',
+                attributes: ['name', 'price'],
+              },
+            ],
+          },
+        ],
+        order: [['created_at', 'DESC']],
+      });
+
+      const existingOrders = Array.isArray(reservation.Orders) ? reservation.Orders : [];
+      const merged = [
+        ...existingOrders,
+        // loại bỏ những order đã có trong existingOrders (theo order_id) để tránh trùng
+        ...waiterOrders.filter(
+          (wo) => !existingOrders.some((eo) => eo.order_id === wo.order_id)
+        ),
+      ];
+
+      reservation.Orders = merged;
+    }
+
+    return reservation;
+  } catch (error) {
+    console.error('Lỗi getCurrentTableSession:', error);
+    throw new Error('Không thể lấy thông tin bàn hiện tại');
+  }
+};

@@ -1,4 +1,5 @@
 const { Order, OrderItem, Table, MenuItem, Reservation, sequelize } = require('../../models');
+const { Op } = require('sequelize');
 
 const waiterService = {
   // Tạo order mới (items = [{ item_id, quantity }])
@@ -36,8 +37,27 @@ const waiterService = {
 
   // Lấy orders theo bàn (kèm order items)
   async getOrdersByTable(table_id) {
+    // Lấy cả:
+    // - Đơn waiter tạo theo table_id
+    // - Đơn khách đặt trước gắn reservation_id thuộc bàn này
+    const activeReservations = await Reservation.findAll({
+      where: {
+        table_id,
+        status: ['confirmed', 'pre-ordered', 'waiting_payment'],
+      },
+      attributes: ['reservation_id'],
+    });
+    const reservationIds = activeReservations.map((r) => r.reservation_id);
+
+    const whereClause =
+      reservationIds.length > 0
+        ? {
+            [Op.or]: [{ table_id }, { reservation_id: { [Op.in]: reservationIds } }],
+          }
+        : { table_id };
+
     return Order.findAll({
-      where: { table_id },
+      where: whereClause,
       include: [
         {
           model: OrderItem,

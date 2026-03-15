@@ -152,10 +152,51 @@ const cancelReservation = async (req, res) => {
   }
 };
 
+//  API: User gửi yêu cầu thanh toán cho reservation hiện tại
+const requestBill = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const { reservation_id } = req.body;
+
+    if (!reservation_id) {
+      return res.status(400).json({ message: "Thiếu reservation_id" });
+    }
+
+    const reservation = await Reservation.findOne({
+      where: {
+        reservation_id,
+        user_id: userId,
+      },
+    });
+
+    if (!reservation) {
+      return res.status(404).json({ message: "Không tìm thấy đặt bàn" });
+    }
+
+    if (!["confirmed", "pre-ordered", "waiting_payment"].includes(reservation.status)) {
+      return res
+        .status(400)
+        .json({ message: "Đặt bàn này không thể yêu cầu thanh toán" });
+    }
+
+    reservation.status = "waiting_payment";
+    await reservation.save();
+
+    return res.json({
+      message: "Đã gửi yêu cầu thanh toán, vui lòng chờ nhân viên.",
+      reservation,
+    });
+  } catch (error) {
+    console.error("❌ Error requestBill:", error);
+    return res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
 //  Export tất cả hàm
 module.exports = {
   createReservation,
   getAvailableTables,
   getUserReservations,
   cancelReservation,
+  requestBill,
 };

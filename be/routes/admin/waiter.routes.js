@@ -10,5 +10,6 @@ router.post('/orders', waiterController.createOrder);
 router.get('/orders', waiterController.listOrdersByTable);
 router.patch('/order-items/:id/served', waiterController.serveOrderItem);
 router.patch('/tables/:id/status', waiterController.updateTableStatus);
+router.get('/tables/:id/bill', waiterController.getTableBill);
 
 module.exports = router;

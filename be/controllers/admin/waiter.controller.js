@@ -1,4 +1,5 @@
 const waiterService = require('../../services/admin/waiter.service');
+const billService = require('../../services/bill.service');
 
 const waiterController = {
   // POST /api/admin/waiter/orders
@@ -52,6 +53,20 @@ const waiterController = {
       return res.json(table);
     } catch (err) {
       console.error('waiter.updateTableStatus', err);
+      return res.status(500).json({ message: err.message || 'Server error' });
+    }
+  },
+
+  // GET /api/admin/waiter/tables/:id/bill
+  async getTableBill(req, res) {
+    try {
+      const tableId = req.params.id;
+      if (!tableId) return res.status(400).json({ message: 'table_id is required' });
+      const bill = await billService.getBillByTable(tableId);
+      if (!bill) return res.status(404).json({ message: 'Không tìm thấy bill cho bàn này' });
+      return res.json(bill);
+    } catch (err) {
+      console.error('waiter.getTableBill', err);
       return res.status(500).json({ message: err.message || 'Server error' });
     }
   },

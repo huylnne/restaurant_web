@@ -1,4 +1,5 @@
 const userService = require("../../services/user.service");
+const billService = require("../../services/bill.service");
 
 //  Lấy profile
 exports.getProfile = async (req, res) => {
@@ -46,5 +47,35 @@ exports.getReservationsWithOrders = async (req, res) => {
   } catch (err) {
     console.error("❌ Lỗi khi lấy đặt bàn:", err);
     res.status(500).json({ message: "Không thể lấy lịch sử đặt bàn" });
+  }
+};
+
+//  Lấy bàn/đơn hiện tại của user (phiên đang dùng)
+exports.getCurrentTableSession = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const session = await userService.getCurrentTableSession(userId);
+    if (!session) {
+      return res.status(404).json({ message: "Hiện tại bạn chưa có bàn đang sử dụng" });
+    }
+    res.status(200).json(session);
+  } catch (err) {
+    console.error("❌ Lỗi khi lấy bàn hiện tại:", err);
+    res.status(500).json({ message: "Không thể lấy thông tin bàn hiện tại" });
+  }
+};
+
+//  Hóa đơn tạm tính hiện tại của user (bao gồm mọi món từ user & waiter)
+exports.getCurrentBill = async (req, res) => {
+  try {
+    const userId = req.userId;
+    const bill = await billService.getBillForUser(userId);
+    if (!bill) {
+      return res.status(404).json({ message: "Hiện tại bạn chưa có bàn đang sử dụng" });
+    }
+    res.status(200).json(bill);
+  } catch (err) {
+    console.error("❌ Lỗi khi lấy bill hiện tại:", err);
+    res.status(500).json({ message: "Không thể lấy hóa đơn tạm tính" });
   }
 };
