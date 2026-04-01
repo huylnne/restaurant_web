@@ -502,6 +502,11 @@ const scrollRight = () => scrollByCard("right");
 
 .dish-info {
   padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
 }
 
 .dish-info h3 {
@@ -513,10 +518,12 @@ const scrollRight = () => scrollByCard("right");
 .dish-info p {
   font-size: 14px;
   color: var(--hl-text-muted);
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .dish-info button {
+  margin-top: auto;
+  width: 100%;
   background-color: var(--hl-primary);
   color: white;
   border: none;
@@ -532,7 +539,6 @@ const scrollRight = () => scrollByCard("right");
 }
 
 .desc {
-  min-height: 48px; /* Hoặc tuỳ độ cao cần đồng bộ */
   overflow: hidden;
 }
 </style>

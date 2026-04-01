@@ -16,6 +16,7 @@ const UserDashboard = () => import('@/views/UserDashboard.vue');
 const UserProfile = () => import('@/views/UserProfile.vue');
 const OrderMenu = () => import('@/views/Ordermenu.vue');
 const Booking = () => import('@/views/Booking.vue');
+const MyTable = () => import('@/views/MyTable.vue');
 
 const routes = [
   {
@@ -38,6 +39,7 @@ const routes = [
       { path: 'order-menu', name: 'OrderMenu', component: OrderMenu },
       { path: 'dashboard', name: 'UserDashboard', component: UserDashboard, meta: { requiresAuth: true } },
       { path: 'profile', name: 'UserProfile', component: UserProfile },
+      { path: 'my-table', name: 'MyTable', component: MyTable, meta: { requiresAuth: true } },
       // Routes quản lý: meta.allowedRoles – kitchen chỉ được vào /admin/kitchen
       { path: 'admin', name: 'AdminDashboard', component: AdminDashboard, meta: { allowedRoles: ['admin', 'waiter'] } },
       { path: 'admin/tables', name: 'AdminTables', component: AdminTables, meta: { allowedRoles: ['admin', 'waiter'] } },
@@ -75,8 +77,12 @@ router.beforeEach((to, from, next) => {
     return;
   }
 
-  // Staff vào /dashboard thì chuyển sang trang quản lý mặc định
+  // Staff vào /dashboard hoặc /my-table thì chuyển sang trang quản lý mặc định
   if (to.path === '/dashboard' && isStaff) {
+    next(getDefaultStaffPath(role));
+    return;
+  }
+  if (to.path === '/my-table' && isStaff) {
     next(getDefaultStaffPath(role));
     return;
   }

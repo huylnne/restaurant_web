@@ -614,6 +614,11 @@ const handleOrderClick = () => {
 
 .dish-info {
   padding: 16px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 0;
 }
 
 .dish-info h3 {
@@ -625,7 +630,7 @@ const handleOrderClick = () => {
 .dish-info p {
   font-size: 14px;
   color: var(--hl-text-muted);
-  margin-bottom: 16px;
+  margin-bottom: 0;
 }
 
 .dish-info button {
@@ -808,12 +813,15 @@ const handleOrderClick = () => {
   font-size: 18px;
   margin-bottom: 6px;
   color: var(--hl-text);
+  min-height: 44px;
 }
 
-.all-dishes .dish-info p {
+.all-dishes .dish-info p,
+.all-dishes .dish-info .desc {
   font-size: 14px;
   color: var(--hl-text-muted);
   margin-bottom: 8px;
+  flex-grow: 1;
 }
 
 .pagination {
@@ -843,8 +851,7 @@ const handleOrderClick = () => {
 .pagination button:hover:not(:disabled) {
   background: var(--hl-primary-hover);
 }
-.desc {
-  min-height: 48px; /* Hoặc tuỳ độ cao cần đồng bộ */
+.all-dishes .desc {
   overflow: hidden;
 }
 
@@ -878,20 +885,6 @@ const handleOrderClick = () => {
   flex-direction: column;
   justify-content: space-between;
   min-height: 100px;
-}
-
-.dish-info h3 {
-  font-size: 18px;
-  margin-bottom: 6px;
-  color: var(--hl-text);
-  min-height: 44px;
-}
-
-.dish-info .desc {
-  font-size: 14px;
-  color: var(--hl-text-muted);
-  margin-bottom: 8px;
-  flex-grow: 1;
 }
 
 .dish-price {

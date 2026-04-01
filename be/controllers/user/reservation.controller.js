@@ -7,24 +7,69 @@ const { Op } = db.Sequelize;
 const createReservation = async (req, res) => {
   try {
     const user_id = req.userId;
-    const { reservation_time, number_of_guests } = req.body;
+    const { reservation_time, number_of_guests, table_id } = req.body;
 
-    // 1. Tìm bàn phù hợp còn trống
-    const table = await Table.findOne({
-      where: {
-        capacity: { [Op.gte]: number_of_guests },
-        status: "available",
-      },
-      order: [["capacity", "ASC"]],
-    });
-
-    if (!table) {
-      return res
-        .status(400)
-        .json({ message: "Hết bàn, vui lòng chọn thời gian khác." });
+    // Từ chối đặt bàn với thời gian đã qua hoặc quá gần hiện tại (< 15 phút)
+    const MIN_ADVANCE_MS = 15 * 60 * 1000;
+    if (!reservation_time || new Date(reservation_time).getTime() < Date.now() + MIN_ADVANCE_MS) {
+      return res.status(400).json({
+        message: "Thời gian đặt bàn phải cách hiện tại ít nhất 15 phút.",
+      });
     }
 
-    // 2. Tạo reservation
+    let table = null;
+
+    // Khoảng thời gian coi là conflict: ±1 giờ quanh giờ đặt
+    const resTime = new Date(reservation_time);
+    const windowStart = new Date(resTime.getTime() - 60 * 60 * 1000);
+    const windowEnd   = new Date(resTime.getTime() + 60 * 60 * 1000);
+
+    // Helper: lấy danh sách table_id đang có reservation trùng khung giờ
+    const conflictingReservations = await Reservation.findAll({
+      where: {
+        reservation_time: { [Op.between]: [windowStart, windowEnd] },
+        status: { [Op.notIn]: ["cancelled", "completed"] },
+      },
+      attributes: ["table_id"],
+    });
+    const conflictIds = conflictingReservations.map((r) => r.table_id).filter(Boolean);
+
+    // 1a. Nếu user chọn bàn cụ thể → kiểm tra còn trống và không trùng lịch
+    if (table_id) {
+      table = await Table.findOne({
+        where: {
+          status: "available",
+          capacity: { [Op.gte]: number_of_guests },
+          [Op.and]: [
+            { table_id },
+            ...(conflictIds.length > 0 ? [{ table_id: { [Op.notIn]: conflictIds } }] : []),
+          ],
+        },
+      });
+      if (!table) {
+        return res.status(400).json({
+          message: "Bàn đã được đặt trong khung giờ này hoặc không đủ chỗ. Vui lòng chọn bàn khác.",
+        });
+      }
+    } else {
+      // 1b. Auto-pick: bàn nhỏ nhất còn trống và không trùng lịch
+      table = await Table.findOne({
+        where: {
+          capacity: { [Op.gte]: number_of_guests },
+          status: "available",
+          ...(conflictIds.length > 0 ? { table_id: { [Op.notIn]: conflictIds } } : {}),
+        },
+        order: [["capacity", "ASC"]],
+      });
+      if (!table) {
+        return res
+          .status(400)
+          .json({ message: "Hết bàn trong khung giờ này, vui lòng chọn thời gian khác." });
+      }
+    }
+
+    // 2. Tạo reservation — KHÔNG đổi table sang pre-ordered ngay,
+    //    hàm syncTableStatuses sẽ tự chuyển khi còn 15 phút trước giờ đặt
     const reservation = await Reservation.create({
       user_id,
       branch_id: 1,
@@ -35,10 +80,7 @@ const createReservation = async (req, res) => {
       created_at: new Date(),
     });
 
-    // 3. Cập nhật bàn thành 'pre-ordered' (đã đặt trước) – đồng bộ với admin/tableSummary
-    await table.update({ status: "pre-ordered" });
-
-    res.status(201).json({ message: "Đặt bàn thành công", reservation });
+    return res.status(201).json({ message: "Đặt bàn thành công", reservation });
   } catch (err) {
     console.error("Lỗi đặt bàn:", err);
     res.status(500).json({ message: "Lỗi server" });

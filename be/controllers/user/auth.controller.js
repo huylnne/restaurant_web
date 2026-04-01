@@ -3,11 +3,14 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const db = require("../../models/db");
 const User = db.User;
+const DEFAULT_AVATAR_URL = "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
+const PHONE_REGEX = /^0\d{9}$/;
 
 //  ĐĂNG KÝ
 const register = async (req, res) => {
   try {
     const { username, password, full_name, phone, branch_id, role } = req.body;
+    const normalizedPhone = String(phone || "").trim();
 
     // Chuẩn hóa username
     const normalizedUsername = username.trim().toLowerCase();
@@ -21,6 +24,18 @@ const register = async (req, res) => {
       return res.status(400).json({ message: 'Tên đăng nhập đã tồn tại' });
     }
 
+    if (!PHONE_REGEX.test(normalizedPhone)) {
+      return res.status(400).json({
+        message: "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0",
+      });
+    }
+
+    // Kiểm tra SĐT đã được đăng ký bởi tài khoản khác chưa
+    const existingPhone = await User.findOne({ where: { phone: normalizedPhone } });
+    if (existingPhone) {
+      return res.status(400).json({ message: "Số điện thoại này đã được đăng ký" });
+    }
+
     // Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -29,7 +44,8 @@ const register = async (req, res) => {
       username: normalizedUsername,
       password_hash: hashedPassword,
       full_name,
-      phone,
+      phone: normalizedPhone,
+      avatar_url: DEFAULT_AVATAR_URL,
       branch_id: branch_id || 1,
       role: role || 'user'
     });
@@ -96,4 +112,20 @@ const login = async (req, res) => {
   }
 };
 
-module.exports = { register, login };
+// Kiểm tra SĐT đã tồn tại chưa — dùng cho realtime check ở frontend
+const checkPhone = async (req, res) => {
+  try {
+    const phone = String(req.query.phone || "").trim();
+    if (!phone) return res.status(400).json({ message: "Thiếu số điện thoại" });
+    const existing = await User.findOne({ where: { phone } });
+    if (existing) {
+      return res.status(409).json({ message: "Số điện thoại này đã được đăng ký" });
+    }
+    return res.status(200).json({ available: true });
+  } catch (error) {
+    console.error("❌ Lỗi check-phone:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+module.exports = { register, login, checkPhone };

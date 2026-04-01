@@ -5,10 +5,15 @@
         <h2>Quản lý bàn ăn</h2>
         <p>Quản lý và theo dõi tình trạng bàn ăn trong nhà hàng</p>
       </div>
-      <el-button v-if="userRole === 'admin'" type="warning" @click="showAddDialog = true">
-        <el-icon><Plus /></el-icon>
-        Đặt bàn mới
-      </el-button>
+      <div style="display:flex;gap:8px">
+        <el-button :icon="Refresh" @click="() => { fetchTables(); fetchSummary(); }" title="Làm mới">
+          Làm mới
+        </el-button>
+        <el-button v-if="userRole === 'admin'" type="warning" @click="showAddDialog = true">
+          <el-icon><Plus /></el-icon>
+          Đặt bàn mới
+        </el-button>
+      </div>
     </div>
 
     <!-- Thống kê tổng quan -->
@@ -43,7 +48,7 @@
         </div>
       </div>
 
-      <div class="summary-card yellow-border">
+      <div v-if="userRole !== 'waiter'" class="summary-card yellow-border">
         <div class="card-content">
           <h3>Doanh thu hiện tại</h3>
           <p class="value yellow">{{ formatCurrency(summary.currentRevenue) }}</p>
@@ -74,7 +79,7 @@
     <!-- Danh sách bàn -->
     <div class="tables-grid">
       <div
-        v-for="table in filteredTables"
+        v-for="table in displayedTables"
         :key="table.table_id"
         :class="['table-card', getStatusClass(table.status)]"
         @click="viewTableDetail(table)"
@@ -89,7 +94,7 @@
         <div class="table-info">
           <p class="capacity">{{ table.capacity }} chỗ</p>
 
-          <!-- CHỈ hiển thị nếu CÓ activeReservation -->
+          <!-- Bàn đang phục vụ / đã đặt trước → hiện info reservation -->
           <div v-if="table.activeReservation" class="reservation-info">
             <p class="guests">
               <el-icon><User /></el-icon>
@@ -102,13 +107,44 @@
             <p class="revenue">{{ formatCurrency(table.totalRevenue) }}</p>
           </div>
 
-          <!-- Nếu KHÔNG có activeReservation (bàn trống thật sự) -->
-          <div v-else class="empty-info">
+          <!-- Bàn Trống nhưng có đặt trước tương lai → cảnh báo nhân viên -->
+          <div v-else-if="table.upcomingReservation" class="upcoming-reservation-info">
             <p class="status-ready-text">Sẵn sàng phục vụ</p>
+            <p class="upcoming-badge">
+              <el-icon><Clock /></el-icon>
+              Đặt trước lúc {{ formatTime(table.upcomingReservation.reservation_time) }}
+              · {{ table.upcomingReservation.number_of_guests }} khách
+            </p>
+          </div>
+
+          <!-- Trống hoàn toàn -->
+          <div v-else class="empty-info">
+            <p
+              :class="{
+                'status-ready-text': normalizeTableStatus(table.status) === 'available',
+                'status-reserved-text': normalizeTableStatus(table.status) === 'pre-ordered',
+                'status-occupied-text': normalizeTableStatus(table.status) === 'occupied',
+              }"
+            >
+              {{
+                normalizeTableStatus(table.status) === 'available'
+                  ? 'Sẵn sàng phục vụ'
+                  : normalizeTableStatus(table.status) === 'pre-ordered'
+                    ? 'Đã đặt trước'
+                    : 'Đang phục vụ'
+              }}
+            </p>
           </div>
         </div>
       </div>
     </div>
+
+    <PaginationBar
+      v-if="tablePaginationTotalPages > 1"
+      :current-page="tableCurrentPage"
+      :total-pages="tablePaginationTotalPages"
+      @update:current-page="tableCurrentPage = $event"
+    />
 
     <!-- Dialog thêm bàn -->
     <el-dialog v-model="showAddDialog" title="Thêm bàn mới" width="500px">
@@ -154,21 +190,54 @@
           }}</el-descriptions-item>
         </el-descriptions>
 
-        <!-- Đơn hàng của bàn (API nhân viên phục vụ) -->
+        <!-- Cảnh báo: bàn Trống nhưng có đặt trước tương lai -->
+        <div v-if="selectedTable?.upcomingReservation && normalizeTableStatus(selectedTable?.status) === 'available'"
+             class="orders-section upcoming-section">
+          <div class="orders-section-header">
+            <h4>⏰ Đặt trước sắp tới</h4>
+            <el-tag type="warning" size="small">Chưa tới giờ</el-tag>
+          </div>
+          <div class="upcoming-detail">
+            <p>
+              <strong>Giờ đặt:</strong>
+              {{ new Date(selectedTable.upcomingReservation.reservation_time).toLocaleString('vi-VN') }}
+            </p>
+            <p>
+              <strong>Số khách:</strong>
+              {{ selectedTable.upcomingReservation.number_of_guests }} người
+            </p>
+            <p class="upcoming-note">
+              Bàn này có đặt trước, không nên xếp khách vãng lai vào trong khoảng thời gian trên.
+            </p>
+          </div>
+          <!-- Pre-order items nếu có -->
+          <div v-if="preOrders.length" style="margin-top:10px">
+            <p style="font-size:13px;color:var(--hl-text-muted);margin-bottom:6px">Món đặt trước:</p>
+            <div v-for="order in preOrders" :key="order.order_id" class="order-block">
+              <div class="order-meta">Đơn #{{ order.order_id }} · Đặt trước</div>
+              <div v-for="oi in order.OrderItems || []" :key="oi.order_item_id" class="order-item-row">
+                <span>{{ oi.MenuItem?.name }} x {{ oi.quantity }}</span>
+                <el-tag type="info" size="small">Chưa chế biến</el-tag>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- Đơn hàng của bàn (phiên hiện tại - không bao gồm pre-order) -->
         <div class="orders-section">
           <div class="orders-section-header">
-            <h4>Đơn hàng bàn</h4>
+            <h4>Đơn hàng hiện tại</h4>
             <el-button type="primary" size="small" @click="openCreateOrderDialog">
               <el-icon><Plus /></el-icon>
               Tạo đơn
             </el-button>
           </div>
           <div v-loading="tableOrdersLoading" class="orders-list">
-            <template v-if="tableOrders.length === 0 && !tableOrdersLoading">
-              <p class="text-muted">Chưa có đơn nào. Nhấn "Tạo đơn" để thêm món.</p>
+            <template v-if="activeOrders.length === 0 && !tableOrdersLoading">
+              <p class="text-muted">Chưa có đơn nào trong phiên này.</p>
             </template>
             <template v-else>
-              <div v-for="order in tableOrders" :key="order.order_id" class="order-block">
+              <div v-for="order in activeOrders" :key="order.order_id" class="order-block">
                 <div class="order-meta">Đơn #{{ order.order_id }}</div>
                 <div
                   v-for="oi in order.OrderItems || []"
@@ -186,6 +255,34 @@
                   >
                     Đánh dấu đã phục vụ
                   </el-button>
+                </div>
+              </div>
+            </template>
+          </div>
+        </div>
+
+        <!-- Hóa đơn tạm tính (đồng bộ với phía user) -->
+        <div class="orders-section" v-if="tableBill">
+          <div class="orders-section-header">
+            <h4>Hóa đơn tạm tính</h4>
+          </div>
+          <div v-loading="tableBillLoading" class="orders-list">
+            <template v-if="!tableBill?.items?.length && !tableBillLoading">
+              <p class="text-muted">Chưa có món nào để tính tiền.</p>
+            </template>
+            <template v-else>
+              <div
+                v-for="item in tableBill.items"
+                :key="item.item_id"
+                class="order-item-row"
+              >
+                <span>{{ item.name }} x {{ item.quantity }}</span>
+                <span>{{ formatCurrency(item.line_total) }}</span>
+              </div>
+              <div class="order-summary">
+                <div class="order-summary__row">
+                  <span>Tổng cộng</span>
+                  <strong>{{ formatCurrency(tableBill.total_amount) }}</strong>
                 </div>
               </div>
             </template>
@@ -263,7 +360,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Plus,
@@ -273,6 +370,7 @@ import {
   Money,
   Search,
   User,
+  Refresh,
 } from "@element-plus/icons-vue";
 import axios from "axios";
 import {
@@ -281,8 +379,10 @@ import {
   getTableStatusClass,
   getTableTagType,
 } from "@/constants/tableStatus";
+import PaginationBar from "@/components/PaginationBar.vue";
 
 const API_BASE = "http://localhost:3000";
+const TABLE_PAGE_SIZE = 12;
 const WAITER_API = `${API_BASE}/api/admin/waiter`;
 const TABLE_API = `${API_BASE}/api/admin/table`;
 
@@ -299,6 +399,7 @@ const summary = ref({
 
 const searchQuery = ref("");
 const filterStatus = ref("");
+const tableCurrentPage = ref(1);
 const showAddDialog = ref(false);
 const showDetailDialog = ref(false);
 const showEditDialogVisible = ref(false);
@@ -312,8 +413,20 @@ const menuItemsForOrder = ref([]);
 const menuItemsLoading = ref(false);
 const orderQuantities = ref({});
 
+// Bill tạm tính cho bàn (dùng chung với phía user)
+const tableBill = ref(null);
+const tableBillLoading = ref(false);
+
 const hasOrderItemsSelected = computed(() =>
   Object.values(orderQuantities.value).some((qty) => qty > 0)
+);
+
+// Tách đơn hiện tại (PENDING/IN_PROGRESS) vs đơn đặt trước chưa tới giờ (pre-ordered)
+const activeOrders = computed(() =>
+  tableOrders.value.filter((o) => o.status !== "pre-ordered")
+);
+const preOrders = computed(() =>
+  tableOrders.value.filter((o) => o.status === "pre-ordered")
 );
 
 const newTable = ref({
@@ -373,9 +486,27 @@ const fetchTableOrders = async (table_id) => {
   }
 };
 
+const fetchTableBill = async (table_id) => {
+  if (!table_id) return;
+  tableBillLoading.value = true;
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.get(`${WAITER_API}/tables/${table_id}/bill`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    tableBill.value = res.data || null;
+  } catch (err) {
+    console.error("Lỗi lấy bill bàn:", err);
+    tableBill.value = null;
+  } finally {
+    tableBillLoading.value = false;
+  }
+};
+
 const onDetailDialogOpen = () => {
   if (selectedTable.value?.table_id) {
     fetchTableOrders(selectedTable.value.table_id);
+    fetchTableBill(selectedTable.value.table_id);
   }
 };
 
@@ -554,7 +685,17 @@ const filterTables = () => {
   }
 
   filteredTables.value = result;
+  tableCurrentPage.value = 1;
 };
+
+const tablePaginationTotalPages = computed(() =>
+  Math.max(1, Math.ceil((filteredTables.value?.length || 0) / TABLE_PAGE_SIZE))
+);
+const displayedTables = computed(() => {
+  const list = filteredTables.value || [];
+  const start = (tableCurrentPage.value - 1) * TABLE_PAGE_SIZE;
+  return list.slice(start, start + TABLE_PAGE_SIZE);
+});
 
 // Dùng chung constants/tableStatus
 const getStatusClass = getTableStatusClass;
@@ -575,11 +716,29 @@ const formatTime = (datetime) => {
   });
 };
 
+// Tự động làm mới danh sách bàn mỗi 15 giây để đồng bộ khi user đặt bàn
+let refreshTimer = null;
+
+function startPolling() {
+  refreshTimer = setInterval(() => {
+    // Không refresh khi đang mở dialog chi tiết để tránh giật UI
+    if (!showDetailDialog.value) {
+      fetchTables();
+      fetchSummary();
+    }
+  }, 15000);
+}
+
 onMounted(() => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   userRole.value = user?.role || "";
   fetchTables();
   fetchSummary();
+  startPolling();
+});
+
+onUnmounted(() => {
+  if (refreshTimer) clearInterval(refreshTimer);
 });
 </script>
 
@@ -875,5 +1034,75 @@ onMounted(() => {
 .status-ready-text {
   color: var(--hl-admin-success);
   font-weight: 600;
+}
+
+.status-occupied-text {
+  color: var(--hl-primary);
+  font-weight: 600;
+}
+
+.status-reserved-text {
+  color: var(--hl-admin-warning);
+  font-weight: 600;
+}
+
+.order-summary {
+  margin-top: var(--hl-space-sm);
+  padding-top: var(--hl-space-sm);
+  border-top: 2px solid var(--hl-admin-border);
+}
+
+.order-summary__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: var(--hl-space-xs) 0;
+  font-size: 15px;
+}
+
+.order-summary__row span {
+  color: var(--hl-text-muted);
+  font-weight: 500;
+}
+
+.order-summary__row strong {
+  color: var(--hl-admin-success);
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+
+/* Badge đặt trước trên card bàn Trống */
+.upcoming-reservation-info .upcoming-badge {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin: 6px 0 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: #b45309;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 6px;
+  padding: 4px 8px;
+}
+
+/* Section đặt trước trong dialog */
+.upcoming-section {
+  background: #fffbeb;
+  border: 1px solid #fcd34d;
+  border-radius: var(--hl-radius-md);
+  padding: var(--hl-space-md);
+}
+
+.upcoming-detail p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.upcoming-note {
+  margin-top: 8px !important;
+  color: #b45309;
+  font-style: italic;
+  font-size: 13px !important;
 }
 </style>

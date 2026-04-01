@@ -30,7 +30,12 @@ async function buildBill({ reservation, tableId }) {
   if (!table_id) return null;
 
   const table = await Table.findByPk(table_id);
-  if (!table || table.status === "available") {
+  if (!table) return null;
+
+  // Cho phép build bill khi table còn 'available' nhưng có reservation tương lai
+  // (bàn chưa đổi sang pre-ordered vì chưa tới 15 phút trước giờ đặt).
+  // Chỉ block khi không có reservation nào được truyền vào VÀ bàn trống.
+  if (table.status === "available" && !reservation) {
     return null;
   }
 
@@ -40,8 +45,12 @@ async function buildBill({ reservation, tableId }) {
   }
   whereOrders.push({ table_id });
 
+  // Chỉ lấy đơn của PHIÊN HIỆN TẠI (loại trừ COMPLETED / CANCELLED)
   const orders = await Order.findAll({
-    where: { [Op.or]: whereOrders },
+    where: {
+      [Op.or]: whereOrders,
+      status: { [Op.notIn]: ["COMPLETED", "CANCELLED"] },
+    },
     include: [
       {
         model: OrderItem,

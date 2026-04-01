@@ -5,10 +5,15 @@
         <h2 class="title">Đặt bàn nhanh</h2>
         <el-form :model="form" label-position="top" @submit.prevent="submitForm">
           <el-form-item label="Ngày đặt">
-            <el-date-picker v-model="form.date" type="date" placeholder="Chọn ngày" />
+            <el-date-picker
+              v-model="form.date"
+              type="date"
+              placeholder="Chọn ngày"
+              :disabled-date="disablePastDates"
+            />
           </el-form-item>
 
-          <el-form-item label="Giờ">
+          <el-form-item label="Giờ" :error="timeError">
             <el-time-picker v-model="form.time" placeholder="Chọn giờ" />
           </el-form-item>
 
@@ -46,7 +51,7 @@
 
 <script setup>
 import Header from "../components/UserNavbar.vue";
-import { ref, watch } from "vue";
+import { ref, computed, watch } from "vue";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter } from "vue-router";
@@ -59,6 +64,37 @@ const form = ref({
   table_id: null,
 });
 
+/** Disable dates before today */
+const disablePastDates = (date) => {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return date < today;
+};
+
+/** Tạo Date từ form.date + form.time; trả null nếu chưa chọn */
+const buildReservationDate = () => {
+  if (!form.value.date || !form.value.time) return null;
+  const d = new Date(form.value.date);
+  const t = new Date(form.value.time);
+  d.setHours(t.getHours(), t.getMinutes(), 0, 0);
+  return d;
+};
+
+/** Thời gian tối thiểu phải cách hiện tại ít nhất N phút */
+const MIN_ADVANCE_MINUTES = 30;
+const isTimeValid = (dt) => {
+  if (!dt) return false;
+  return dt.getTime() >= Date.now() + MIN_ADVANCE_MINUTES * 60 * 1000;
+};
+
+const timeError = computed(() => {
+  if (!form.value.date || !form.value.time) return "";
+  const dt = buildReservationDate();
+  if (!dt) return "";
+  if (!isTimeValid(dt)) return `Vui lòng chọn giờ cách hiện tại ít nhất ${MIN_ADVANCE_MINUTES} phút`;
+  return "";
+});
+
 const availableTables = ref([]);
 
 watch(
@@ -66,10 +102,11 @@ watch(
   async () => {
     if (!form.value.date || !form.value.time || !form.value.guests) return;
 
-    const date = new Date(form.value.date);
-    const time = new Date(form.value.time);
-    date.setHours(time.getHours());
-    date.setMinutes(time.getMinutes());
+    const date = buildReservationDate();
+    if (!isTimeValid(date)) {
+      availableTables.value = [];
+      return;
+    }
 
     try {
       const res = await axios.get("/api/reservations/available", {
@@ -92,10 +129,11 @@ const submitForm = async () => {
     return;
   }
 
-  const date = new Date(form.value.date);
-  const time = new Date(form.value.time);
-  date.setHours(time.getHours());
-  date.setMinutes(time.getMinutes());
+  const date = buildReservationDate();
+  if (!isTimeValid(date)) {
+    ElMessage.error(`Giờ đặt bàn phải cách hiện tại ít nhất ${MIN_ADVANCE_MINUTES} phút`);
+    return;
+  }
 
   const payload = {
     reservation_time: date.toISOString(),

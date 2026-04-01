@@ -1,12 +1,15 @@
 <template>
-  <div class="menu-page" :class="{ 'menu-page--admin': isAdmin }">
-    <!-- Header khi vào từ admin -->
-    <div v-if="isAdmin" class="page-header">
+  <div class="menu-page" :class="{ 'menu-page--admin': isAdminView }">
+    <!-- Header khi vào từ admin (admin + waiter) -->
+    <div v-if="isAdminView" class="page-header">
       <div class="page-header__text">
         <h1 class="page-header__title">Quản lý món ăn</h1>
-        <p class="page-header__desc">Xem, thêm, sửa và xóa món trong thực đơn</p>
+        <p class="page-header__desc">
+          {{ canManage ? 'Xem, thêm, sửa và xóa món trong thực đơn' : 'Xem danh sách món ăn' }}
+        </p>
       </div>
-      <button class="add-dish-btn" @click="openAddModal">
+      <!-- Chỉ admin mới thêm món -->
+      <button v-if="canManage" class="add-dish-btn" @click="openAddModal">
         <el-icon><Plus /></el-icon>
         Thêm món
       </button>
@@ -46,9 +49,9 @@
                   </strong>
                 </p>
               </div>
-              <!-- Chỉ hiện nút đặt món khi KHÔNG phải admin -->
+              <!-- Hiện nút đặt món khi KHÔNG phải admin view (trang công khai) -->
               <el-button
-                v-if="!isAdmin"
+                v-if="!isAdminView"
                 class="order-button"
                 type="primary"
                 @click="handleOrderClick(dish)"
@@ -70,19 +73,12 @@
           </div>
         </div>
 
-        <div class="pagination">
-          <button class="pagination__btn" @click="prevPage" :disabled="currentPage === 1">
-            ← Trang trước
-          </button>
-          <span class="pagination__info">Trang {{ currentPage }} / {{ totalPages }}</span>
-          <button
-            class="pagination__btn"
-            @click="nextPage"
-            :disabled="currentPage === totalPages"
-          >
-            Trang sau →
-          </button>
-        </div>
+        <PaginationBar
+          :current-page="currentPage"
+          :total-pages="Math.max(1, totalPages)"
+          :show-when-single-page="true"
+          @update:current-page="(p) => (currentPage = p)"
+        />
       </div>
     </div>
 
@@ -156,12 +152,14 @@
 
 <script setup>
 import { ref, reactive, onMounted, computed } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { CoffeeCup, KnifeFork, IceCream, GobletFull, Plus, Edit, Delete } from "@element-plus/icons-vue";
+import PaginationBar from "@/components/PaginationBar.vue";
 
 const router = useRouter();
+const route  = useRoute();
 
 const categoryOptions = [
   { value: "", label: "Tất cả", icon: null },
@@ -171,8 +169,13 @@ const categoryOptions = [
   { value: "Đồ uống", label: "Đồ uống", icon: GobletFull },
 ];
 
-// Chỉ admin mới CRUD món; waiter/kitchen chỉ xem và "Đặt món"
-const isAdmin = ref(false);
+// isAdminView: true khi vào qua /admin/menu (admin + waiter) → hiển thị giao diện quản lý
+// canManage  : chỉ admin → được Thêm / Sửa / Xóa món
+const isAdminView = ref(false);
+const canManage   = ref(false);
+
+// giữ alias để không phá các v-if dùng isAdmin bên dưới
+const isAdmin = canManage;
 
 // Thêm biến filter
 const selectedCategory = ref("");
@@ -198,8 +201,12 @@ const formState = reactive({
 
 onMounted(() => {
   const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
-  isAdmin.value = !!token && user && user.role === "admin";
+  const user  = JSON.parse(localStorage.getItem("user") || "{}");
+  const role  = user?.role;
+  const onAdminRoute = route.path.startsWith("/admin");
+
+  isAdminView.value = !!token && onAdminRoute && ["admin", "waiter"].includes(role);
+  canManage.value   = !!token && onAdminRoute && role === "admin";
   fetchAllMenuItems();
 });
 
@@ -511,8 +518,15 @@ const handleSubmit = async () => {
   flex: 1;
   display: flex;
   flex-direction: column;
-  justify-content: space-between;
-  min-height: 140px;
+  gap: var(--hl-space-md);
+  min-height: 0;
+}
+
+.dish-content {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
 }
 
 .dish-content h3 {
@@ -548,7 +562,7 @@ const handleSubmit = async () => {
 }
 
 .order-button {
-  margin-top: var(--hl-space-md);
+  margin-top: auto;
   width: 100%;
   padding: var(--hl-space-sm) var(--hl-space-md);
   background: var(--hl-primary);
@@ -569,7 +583,7 @@ const handleSubmit = async () => {
 .admin-actions {
   display: flex;
   gap: var(--hl-space-sm);
-  margin-top: var(--hl-space-md);
+  margin-top: auto;
 }
 
 .admin-actions__btn {
@@ -609,44 +623,6 @@ const handleSubmit = async () => {
 .admin-actions__btn--delete:hover {
   background: #9b2c2c;
   transform: translateY(-1px);
-}
-
-/* Phân trang */
-.pagination {
-  margin-top: var(--hl-space-xl);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--hl-space-lg);
-  flex-wrap: wrap;
-}
-
-.pagination__btn {
-  padding: var(--hl-space-sm) var(--hl-space-lg);
-  background: var(--hl-primary);
-  color: #fff;
-  border: none;
-  border-radius: var(--hl-radius-md);
-  font-weight: 600;
-  font-size: 0.9375rem;
-  cursor: pointer;
-  transition: background 0.2s ease;
-}
-
-.pagination__btn:disabled {
-  background: var(--hl-border);
-  color: var(--hl-text-muted);
-  cursor: not-allowed;
-}
-
-.pagination__btn:hover:not(:disabled) {
-  background: var(--hl-primary-hover);
-}
-
-.pagination__info {
-  font-size: 0.9375rem;
-  color: var(--hl-text-secondary);
-  font-weight: 500;
 }
 
 /* ----- Modal Thêm/Sửa món ----- */

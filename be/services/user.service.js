@@ -1,6 +1,7 @@
 const db = require("../models/db");
 const User = db.User;
 const { Reservation, Order, OrderItem, MenuItem, Table } = require('../models');
+const DEFAULT_AVATAR_URL = "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
 
 // ✅ Lấy profile
 exports.getProfile = async (userId) => {
@@ -10,7 +11,7 @@ exports.getProfile = async (userId) => {
   if (!user) throw new Error('User không tồn tại');
   return {
     name: user.full_name,
-    avatar: user.avatar_url,
+    avatar: user.avatar_url || DEFAULT_AVATAR_URL,
     phone: user.phone
   };
 };
@@ -144,10 +145,14 @@ exports.getCurrentTableSession = async (userId) => {
       order: [['reservation_time', 'DESC']],
     });
 
-    // Nếu bàn đã ở trạng thái trống thì coi như không còn phiên đang phục vụ
     if (!reservation) return null;
+
+    // Nếu bàn trống: chỉ return null khi reservation đã hoàn tất hoặc giờ đặt đã qua hẳn.
+    // Trường hợp bàn còn 'available' nhưng reservation là tương lai (chưa tới giờ) → vẫn hiển thị.
     if (reservation.Table && reservation.Table.status === 'available') {
-      return null;
+      const resTime = new Date(reservation.reservation_time);
+      const isFuture = resTime > new Date();
+      if (!isFuture) return null; // đã quá giờ mà bàn vẫn trống → phiên kết thúc
     }
 
     // Lấy thêm các order do nhân viên tạo trực tiếp theo bàn (không gắn reservation_id)

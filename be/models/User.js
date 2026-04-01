@@ -20,7 +20,10 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.ENUM('admin', 'waiter', 'kitchen', 'manager', 'user'),
       allowNull: false
     },
-    avatar_url: DataTypes.TEXT,
+    avatar_url: {
+      type: DataTypes.TEXT,
+      defaultValue: 'https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180'
+    },
     full_name: DataTypes.STRING,
     phone: DataTypes.STRING,
     created_at: {

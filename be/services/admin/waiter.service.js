@@ -35,11 +35,11 @@ const waiterService = {
     });
   },
 
-  // Lấy orders theo bàn (kèm order items)
+  // Lấy orders ĐANG HOẠT ĐỘNG theo bàn (kèm order items)
+  // Chỉ lấy đơn chưa hoàn thành/hủy để tránh hiện data cũ khi bàn đã trống
   async getOrdersByTable(table_id) {
-    // Lấy cả:
-    // - Đơn waiter tạo theo table_id
-    // - Đơn khách đặt trước gắn reservation_id thuộc bàn này
+    const ACTIVE_ORDER_STATUSES = ['PENDING', 'IN_PROGRESS', 'pre-ordered'];
+
     const activeReservations = await Reservation.findAll({
       where: {
         table_id,
@@ -49,12 +49,12 @@ const waiterService = {
     });
     const reservationIds = activeReservations.map((r) => r.reservation_id);
 
-    const whereClause =
-      reservationIds.length > 0
-        ? {
-            [Op.or]: [{ table_id }, { reservation_id: { [Op.in]: reservationIds } }],
-          }
-        : { table_id };
+    const whereClause = {
+      status: { [Op.in]: ACTIVE_ORDER_STATUSES },
+      ...(reservationIds.length > 0
+        ? { [Op.or]: [{ table_id }, { reservation_id: { [Op.in]: reservationIds } }] }
+        : { table_id }),
+    };
 
     return Order.findAll({
       where: whereClause,
@@ -82,25 +82,45 @@ const waiterService = {
     await Table.update({ status }, { where: { table_id } });
 
     if (status === 'available') {
-      await Reservation.update(
-        { status: 'completed' },
-        { where: { table_id, status: 'confirmed' } }
-      );
+      // 1. Hoàn tất tất cả đơn gắn trực tiếp với bàn
       await Order.update(
         { status: 'COMPLETED' },
-        { where: { table_id } }
+        { where: { table_id, status: { [Op.notIn]: ['COMPLETED', 'CANCELLED'] } } }
       );
+
+      // 2. Lấy mọi reservation của bàn (kể cả pre-ordered, confirmed, waiting_payment)
       const reservations = await Reservation.findAll({
-        where: { table_id },
+        where: {
+          table_id,
+          status: { [Op.notIn]: ['completed', 'cancelled'] },
+        },
         attributes: ['reservation_id'],
       });
       const reservationIds = reservations.map((r) => r.reservation_id);
+
+      // 3. Hoàn tất đơn gắn với reservation
       if (reservationIds.length > 0) {
         await Order.update(
           { status: 'COMPLETED' },
-          { where: { reservation_id: reservationIds } }
+          {
+            where: {
+              reservation_id: { [Op.in]: reservationIds },
+              status: { [Op.notIn]: ['COMPLETED', 'CANCELLED'] },
+            },
+          }
         );
       }
+
+      // 4. Đóng tất cả reservation active của bàn
+      await Reservation.update(
+        { status: 'completed' },
+        {
+          where: {
+            table_id,
+            status: { [Op.notIn]: ['completed', 'cancelled'] },
+          },
+        }
+      );
     }
 
     return Table.findByPk(table_id);

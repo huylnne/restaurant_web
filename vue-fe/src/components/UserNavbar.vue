@@ -16,6 +16,14 @@
                 <el-avatar :size="28" :src="getAvatarUrl(user.avatar || user.avatar_url)" />
                 <span class="username">{{ user.name || user.full_name }}</span>
               </router-link>
+              <router-link
+                v-if="!isStaff"
+                to="/my-table"
+                class="nav-link nav-link--small"
+                active-class="active"
+              >
+                Bàn của tôi
+              </router-link>
               <el-button type="text" @click="logout" class="logout-button">
                 <el-icon><SwitchButton /></el-icon>
                 <span>Đăng xuất</span>
@@ -51,9 +59,9 @@
       <!-- Navigation Menu -->
       <nav class="nav-menu">
         <router-link
-          :to="isStaff ? staffHomePath : (isLoggedIn ? '/dashboard' : '/')"
+          :to="isLoggedIn && !isStaff ? '/dashboard' : '/'"
           class="nav-link"
-          active-class="active"
+          exact-active-class="active"
           >TRANG CHỦ</router-link
         >
         <router-link to="/about" class="nav-link" active-class="active"
@@ -94,13 +102,21 @@ import { useRouter } from "vue-router";
 import { Search, ShoppingCart, SwitchButton } from "@element-plus/icons-vue";
 import axios from "axios";
 import { isStaffRole as checkStaffRole, getDefaultStaffPath } from "@/utils/auth.js";
-import { ElMessageBox } from "element-plus";
+import { ElMessage, ElMessageBox } from "element-plus";
 
 const router = useRouter();
 const user = ref(null);
 const isLoggedIn = ref(false);
-const isStaff = computed(() => !!user.value && checkStaffRole(user.value.role));
-const staffHomePath = computed(() => getDefaultStaffPath(user.value?.role) || "/admin");
+
+// Lưu role từ localStorage (vì API /users/me có thể không trả về role)
+const storedUserRole = ref(null);
+
+const isStaff = computed(() => {
+  const role = user.value?.role || storedUserRole.value;
+  return !!role && checkStaffRole(role);
+});
+
+const staffHomePath = computed(() => getDefaultStaffPath(user.value?.role || storedUserRole.value) || "/admin");
 
 const logout = async () => {
   try {
@@ -113,13 +129,19 @@ const logout = async () => {
     return;
   }
   localStorage.removeItem("token");
+  localStorage.removeItem("user");
   isLoggedIn.value = false;
   user.value = null;
+  ElMessage.success("Đã đăng xuất");
   router.push("/").then(() => location.reload());
 };
 
 onMounted(async () => {
   const token = localStorage.getItem("token");
+  const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+  if (storedUser && storedUser.role) {
+    storedUserRole.value = storedUser.role;
+  }
   if (token) {
     try {
       const res = await axios.get("http://localhost:3000/api/users/me", {
@@ -130,6 +152,9 @@ onMounted(async () => {
       console.log("User info:", user.value);
     } catch (err) {
       console.error("Token lỗi hoặc hết hạn:", err);
+      ElMessage.warning("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
     }
   }
 });

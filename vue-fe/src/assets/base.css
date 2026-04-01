@@ -157,3 +157,15 @@ a:hover {
 .hl-btn-primary:hover {
   background-color: var(--hl-primary-hover);
 }
+
+/* Đồng bộ El-Pagination với theme (trang quản lý nhân viên, v.v.) */
+.el-pagination.is-background .el-pager li:not(.is-disabled).is-active {
+  background-color: var(--hl-primary);
+}
+.el-pagination .btn-prev:not(:disabled):hover,
+.el-pagination .btn-next:not(:disabled):hover {
+  color: var(--hl-primary);
+}
+.el-pagination .el-pager li:not(.is-disabled):hover {
+  color: var(--hl-primary);
+}

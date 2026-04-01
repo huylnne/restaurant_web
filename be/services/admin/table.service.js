@@ -6,7 +6,7 @@ const {
   OrderItem,
   MenuItem,
 } = require("../../models");
-const { Sequelize } = require("sequelize");
+const { Sequelize, Op } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
 
 const DEFAULT_BRANCH_ID = tableSummaryService.DEFAULT_BRANCH_ID;
@@ -17,17 +17,23 @@ const tableService = {
   async getTables(branchId = DEFAULT_BRANCH_ID) {
     await tableSummaryService.expireReservationsForBranch(branchId);
 
+    // Chỉ load reservation ĐANG HOẠT ĐỘNG để tránh join toàn bộ lịch sử
+    const ACTIVE_RESERVATION_STATUSES = ["confirmed", "pre-ordered", "waiting_payment"];
+    const ACTIVE_ORDER_STATUSES       = { [Op.notIn]: ["COMPLETED", "CANCELLED"] };
+
     const tables = await Table.findAll({
       where: { branch_id: branchId },
       include: [
         {
           model: Reservation,
           required: false,
+          where: { status: { [Op.in]: ACTIVE_RESERVATION_STATUSES } },
           include: [
             {
               model: Order,
               as: "Orders",
               required: false,
+              where: { status: ACTIVE_ORDER_STATUSES },
               include: [
                 {
                   model: OrderItem,
@@ -49,11 +55,12 @@ const tableService = {
             },
           ],
         },
-        // Đơn waiter tạo trực tiếp cho bàn (order.table_id = table.table_id)
+        // Đơn waiter tạo trực tiếp cho bàn — chỉ đơn đang hoạt động
         {
           model: Order,
           as: "TableOrders",
           required: false,
+          where: { status: ACTIVE_ORDER_STATUSES },
           include: [
             {
               model: OrderItem,
@@ -77,12 +84,27 @@ const tableService = {
       const tableData = table.toJSON();
       const now = new Date();
 
-      // Tìm reservation đang ACTIVE (confirmed và đang diễn ra HOẶC sắp tới trong vòng 2 giờ)
-      const activeReservation = tableData.Reservations?.find((r) => {
-        const reservationTime = new Date(r.reservation_time);
-        const timeDiff = (reservationTime - now) / (1000 * 60 * 60); // giờ
-        return r.status === "confirmed" && timeDiff >= -2 && timeDiff <= 2;
-      });
+      // Bàn đang dùng (pre-ordered / occupied) → lấy reservation trong cửa sổ ±2 giờ
+      // Bàn trống → không set activeReservation (tránh lộ data cũ)
+      const activeReservation =
+        tableData.status !== "available"
+          ? (tableData.Reservations?.find((r) => {
+              const reservationTime = new Date(r.reservation_time);
+              const timeDiff = (reservationTime - now) / (1000 * 60 * 60);
+              return timeDiff >= -2 && timeDiff <= 2;
+            }) ?? null)
+          : null;
+
+      // Bàn đang Trống nhưng có reservation tương lai (trong 24h tới) → cảnh báo cho nhân viên
+      const upcomingReservation =
+        tableData.status === "available"
+          ? (tableData.Reservations?.find((r) => {
+              if (r.status !== "confirmed") return false;
+              const resTime = new Date(r.reservation_time);
+              const diffHours = (resTime - now) / (1000 * 60 * 60);
+              return diffHours > 0 && diffHours <= 24;
+            }) ?? null)
+          : null;
 
       // Hóa đơn tạm tính = tổng (price * quantity) của tất cả order items gắn với bàn:
       // 1) Đơn user qua reservation (order.reservation_id → reservation.table_id)
@@ -108,6 +130,7 @@ const tableService = {
       return {
         ...tableData,
         activeReservation: activeReservation || null,
+        upcomingReservation: upcomingReservation || null,
         totalRevenue,
       };
     });
@@ -151,18 +174,54 @@ const tableService = {
       status: status || table.status,
     });
 
-    // Nếu chuyển trạng thái về "available", xóa reservation hiện tại (nếu có)
+    // Nếu chuyển trạng thái về "available" → hoàn tất toàn bộ phiên hiện tại
     if (status === "available") {
+      const { Op } = require("sequelize");
+
+      // Hoàn tất đơn gắn trực tiếp với bàn
+      await Order.update(
+        { status: "COMPLETED" },
+        {
+          where: {
+            table_id: table.table_id,
+            status: { [Op.notIn]: ["COMPLETED", "CANCELLED"] },
+          },
+        }
+      );
+
+      // Lấy reservation active của bàn
+      const reservations = await Reservation.findAll({
+        where: {
+          table_id: table.table_id,
+          status: { [Op.notIn]: ["completed", "cancelled"] },
+        },
+        attributes: ["reservation_id"],
+      });
+      const reservationIds = reservations.map((r) => r.reservation_id);
+
+      // Hoàn tất đơn qua reservation
+      if (reservationIds.length > 0) {
+        await Order.update(
+          { status: "COMPLETED" },
+          {
+            where: {
+              reservation_id: { [Op.in]: reservationIds },
+              status: { [Op.notIn]: ["COMPLETED", "CANCELLED"] },
+            },
+          }
+        );
+      }
+
+      // Đóng tất cả reservation active
       await Reservation.update(
         { status: "completed" },
         {
           where: {
             table_id: table.table_id,
-            status: "confirmed",
+            status: { [Op.notIn]: ["completed", "cancelled"] },
           },
         }
       );
-      // Có thể xóa hoặc cập nhật thêm các trường khác nếu cần
     }
 
     return table;

@@ -31,6 +31,7 @@
 import { ref } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
+import { ElMessage } from "element-plus";
 import { getDefaultStaffPath, isStaffRole } from "@/utils/auth.js";
 
 const username = ref("");
@@ -55,6 +56,8 @@ const handleLogin = async () => {
     localStorage.setItem("user", JSON.stringify(res.data.user));
 
     const role = res.data.user?.role;
+    isSuccess.value = true;
+    ElMessage.success("Đăng nhập thành công!");
 
     setTimeout(() => {
       if (isStaffRole(role)) {
@@ -62,7 +65,7 @@ const handleLogin = async () => {
       } else {
         router.push("/dashboard");
       }
-    }, 1000);
+    }, 800);
   } catch (err) {
     setTimeout(() => {
       isLoading.value = false;

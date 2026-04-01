@@ -9,7 +9,11 @@
       </el-table-column>
 
       <el-table-column prop="number_of_guests" label="Số khách" width="100" />
-      <el-table-column prop="Table.table_number" label="Bàn số" />
+      <el-table-column label="Bàn số" width="120">
+        <template #default="{ row }">
+          {{ formatTableNumber(row) }}
+        </template>
+      </el-table-column>
       <el-table-column prop="Table.capacity" label="Sức chứa" />
       <el-table-column label="Trạng thái" width="140">
         <template #default="{ row }">
@@ -146,14 +150,23 @@ function getDiningStatusLabel(row) {
   const tableStatus = normalizeTableStatus(row.Table?.status);
 
   if (resStatus === "cancelled") return "Đã hủy";
+  if (resStatus === "completed") return "Đã xong";
   if (resStatus === "pending") return "Chờ xác nhận";
+  if (resStatus === "waiting_payment") return "Chờ thanh toán";
 
   if (tableStatus === "occupied") return "Đang phục vụ";
-  if (tableStatus === "available" && resStatus === "confirmed") return "Đã xong";
   if (tableStatus === "pre-ordered") return "Đã đặt trước";
-
   if (resStatus === "confirmed") return "Đã xác nhận";
+
   return getTableStatusLabel(row.Table?.status) || row.status || "-";
+}
+
+function formatTableNumber(row) {
+  const tableNumber = row?.Table?.table_number;
+  if (tableNumber === null || tableNumber === undefined || tableNumber === "") {
+    return "-";
+  }
+  return `B${tableNumber}`;
 }
 
 onMounted(fetchReservations);

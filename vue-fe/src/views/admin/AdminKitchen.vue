@@ -20,7 +20,7 @@
       <el-empty v-if="!loading && orderItems.length === 0" description="Không có món nào" />
       <div v-else class="items-grid">
         <div
-          v-for="item in orderItems"
+          v-for="item in displayedOrderItems"
           :key="item.order_item_id"
           :class="['item-card', `status-${item.status}`]"
         >
@@ -54,20 +54,39 @@
         </div>
       </div>
     </div>
+
+    <PaginationBar
+      v-if="kitchenPaginationTotalPages > 1"
+      :current-page="kitchenCurrentPage"
+      :total-pages="kitchenPaginationTotalPages"
+      @update:current-page="kitchenCurrentPage = $event"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import { ElMessage } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
 import axios from "axios";
+import PaginationBar from "@/components/PaginationBar.vue";
 
 const API_BASE = "http://localhost:3000/api/admin/kitchen";
+const KITCHEN_PAGE_SIZE = 12;
 
 const currentStatus = ref("pending");
 const orderItems = ref([]);
+const kitchenCurrentPage = ref(1);
 const loading = ref(false);
+
+const kitchenPaginationTotalPages = computed(() =>
+  Math.max(1, Math.ceil((orderItems.value?.length || 0) / KITCHEN_PAGE_SIZE))
+);
+const displayedOrderItems = computed(() => {
+  const list = orderItems.value || [];
+  const start = (kitchenCurrentPage.value - 1) * KITCHEN_PAGE_SIZE;
+  return list.slice(start, start + KITCHEN_PAGE_SIZE);
+});
 
 const fetchOrderItems = async () => {
   loading.value = true;
@@ -78,6 +97,7 @@ const fetchOrderItems = async () => {
       headers: { Authorization: `Bearer ${token}` },
     });
     orderItems.value = Array.isArray(res.data) ? res.data : res.data.items || [];
+    kitchenCurrentPage.value = 1;
   } catch (err) {
     console.error("Lỗi lấy order items:", err);
     ElMessage.error(err.response?.data?.message || "Không thể tải danh sách món");

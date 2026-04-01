@@ -14,13 +14,6 @@ export const SIDEBAR_MENU = [
     roles: ["admin"],
   },
   {
-    key: "overview",
-    label: "Tổng quan",
-    icon: "Grid",
-    route: null,
-    roles: ["admin"],
-  },
-  {
     key: "reports",
     label: "Báo cáo & Thống kê",
     icon: "DataLine",
