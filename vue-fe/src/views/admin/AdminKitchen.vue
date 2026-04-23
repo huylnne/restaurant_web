@@ -32,6 +32,9 @@
           </div>
           <div class="item-meta">
             <span>SL: {{ item.quantity }}</span>
+            <span class="table-info">
+              Bàn: {{ getTableLabel(item) }}
+            </span>
             <span v-if="item.MenuItem?.price" class="price">
               {{ formatCurrency(item.MenuItem.price * item.quantity) }}
             </span>
@@ -141,6 +144,12 @@ const formatCurrency = (amount) => {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
     amount || 0
   );
+};
+
+const getTableLabel = (item) => {
+  if (item?.table_number !== null && item?.table_number !== undefined) return item.table_number;
+  if (item?.table_id !== null && item?.table_id !== undefined) return `#${item.table_id}`;
+  return "Chưa gán bàn";
 };
 
 onMounted(() => {

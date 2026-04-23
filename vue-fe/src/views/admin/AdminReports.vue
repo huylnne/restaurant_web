@@ -20,6 +20,26 @@
           <el-icon><Refresh /></el-icon>
           Làm mới
         </el-button>
+        <el-button
+          type="success"
+          plain
+          :loading="exportLoading === 'xlsx'"
+          :disabled="!!exportLoading && exportLoading !== 'xlsx'"
+          @click="downloadReport('xlsx')"
+        >
+          <el-icon><Download /></el-icon>
+          Xuất Excel
+        </el-button>
+        <el-button
+          type="danger"
+          plain
+          :loading="exportLoading === 'pdf'"
+          :disabled="!!exportLoading && exportLoading !== 'pdf'"
+          @click="downloadReport('pdf')"
+        >
+          <el-icon><Document /></el-icon>
+          Xuất PDF
+        </el-button>
       </div>
     </div>
 
@@ -162,10 +182,21 @@
 import { ref, onMounted } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
-import { Money, ShoppingCart, Clock, User, Refresh } from "@element-plus/icons-vue";
+import {
+  Money,
+  ShoppingCart,
+  Clock,
+  User,
+  Refresh,
+  Download,
+  Document,
+} from "@element-plus/icons-vue";
 import * as echarts from "echarts";
 
+const API_BASE = "http://localhost:3000";
+
 const dateRange = ref(null);
+const exportLoading = ref(null);
 const overview = ref({
   totalRevenue: 0,
   totalOrders: 0,
@@ -227,35 +258,35 @@ const fetchAllData = async () => {
       tableStatsRes,
       monthlyRes,
     ] = await Promise.all([
-      axios.get("http://localhost:3000/api/admin/reports/overview", {
+      axios.get(`${API_BASE}/api/admin/reports/overview`, {
         headers,
         params,
       }),
-      axios.get("http://localhost:3000/api/admin/reports/revenue-by-day", {
+      axios.get(`${API_BASE}/api/admin/reports/revenue-by-day`, {
         headers,
         params: { branchId: 1, days: 7 },
       }),
-      axios.get("http://localhost:3000/api/admin/reports/top-selling", {
+      axios.get(`${API_BASE}/api/admin/reports/top-selling`, {
         headers,
         params: { branchId: 1, limit: 10 },
       }),
-      axios.get("http://localhost:3000/api/admin/reports/revenue-by-category", {
+      axios.get(`${API_BASE}/api/admin/reports/revenue-by-category`, {
         headers,
         params: { branchId: 1 },
       }),
-      axios.get("http://localhost:3000/api/admin/reports/orders-by-hour", {
+      axios.get(`${API_BASE}/api/admin/reports/orders-by-hour`, {
         headers,
         params: { branchId: 1 },
       }),
-      axios.get("http://localhost:3000/api/admin/reports/top-customers", {
+      axios.get(`${API_BASE}/api/admin/reports/top-customers`, {
         headers,
         params: { branchId: 1, limit: 10 },
       }),
-      axios.get("http://localhost:3000/api/admin/reports/table-stats", {
+      axios.get(`${API_BASE}/api/admin/reports/table-stats`, {
         headers,
         params: { branchId: 1 },
       }),
-      axios.get("http://localhost:3000/api/admin/reports/monthly-revenue", {
+      axios.get(`${API_BASE}/api/admin/reports/monthly-revenue`, {
         headers,
         params: { branchId: 1, months: 6 },
       }),
@@ -275,6 +306,57 @@ const fetchAllData = async () => {
   } catch (error) {
     console.error("Lỗi lấy dữ liệu báo cáo:", error);
     ElMessage.error("Không thể lấy dữ liệu báo cáo");
+  }
+};
+
+const downloadReport = async (format) => {
+  try {
+    exportLoading.value = format;
+    const token = getToken();
+    const params = {
+      format,
+      branchId: 1,
+      days: 7,
+      months: 6,
+      limit: 10,
+    };
+    if (dateRange.value && dateRange.value.length === 2) {
+      params.startDate = dateRange.value[0];
+      params.endDate = dateRange.value[1];
+    }
+    const res = await axios.get(`${API_BASE}/api/admin/reports/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params,
+      responseType: "blob",
+    });
+    const mime =
+      format === "pdf"
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const ext = format === "pdf" ? "pdf" : "xlsx";
+    const blob = new Blob([res.data], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bao-cao-chi-nhanh-1-${Date.now()}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    ElMessage.success("Đã tải báo cáo");
+  } catch (error) {
+    const data = error.response?.data;
+    if (data instanceof Blob) {
+      try {
+        const text = await data.text();
+        const j = JSON.parse(text);
+        ElMessage.error(j.message || "Không thể xuất báo cáo");
+      } catch {
+        ElMessage.error("Không thể xuất báo cáo");
+      }
+    } else {
+      ElMessage.error(error.response?.data?.message || "Không thể xuất báo cáo");
+    }
+  } finally {
+    exportLoading.value = null;
   }
 };
 

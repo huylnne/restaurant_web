@@ -48,6 +48,16 @@
         </div>
       </div>
 
+      <div class="summary-card reserved-border">
+        <div class="card-content">
+          <h3>Đã đặt trước</h3>
+          <p class="value reserved">{{ summary.reservedTables }} bàn</p>
+        </div>
+        <div class="card-icon reserved">
+          <el-icon><Calendar /></el-icon>
+        </div>
+      </div>
+
       <div v-if="userRole !== 'waiter'" class="summary-card yellow-border">
         <div class="card-content">
           <h3>Doanh thu hiện tại</h3>
@@ -367,6 +377,7 @@ import {
   Grid,
   CircleCheck,
   Clock,
+  Calendar,
   Money,
   Search,
   User,
@@ -798,6 +809,9 @@ onUnmounted(() => {
 .summary-card.yellow-border {
   border-color: #fde047;
 }
+.summary-card.reserved-border {
+  border-color: #93c5fd;
+}
 
 .card-content h3 {
   margin: 0 0 var(--hl-space-md);
@@ -822,6 +836,9 @@ onUnmounted(() => {
 .value.yellow {
   color: var(--hl-admin-warning);
 }
+.value.reserved {
+  color: #2563eb;
+}
 
 .card-icon {
   width: 64px;
@@ -842,6 +859,9 @@ onUnmounted(() => {
 }
 .card-icon.yellow {
   background: linear-gradient(135deg, var(--hl-admin-warning), #fbbf24);
+}
+.card-icon.reserved {
+  background: linear-gradient(135deg, #3b82f6, #60a5fa);
 }
 
 /* Filter section */

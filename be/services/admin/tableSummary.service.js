@@ -95,18 +95,56 @@ async function expireReservationsForBranch(branchId, cutoff) {
  * @param {number} [branchId=1] - branch hiện tại (mặc định 1)
  * @returns {Promise<{ totalTables: number, availableTables: number, servingTables: number, reservedTables: number }>}
  */
+/**
+ * Đếm bàn theo nghiệp vụ hiện tại:
+ * - "Trống" = available VÀ không có reservation tương lai (khách chưa tới giờ vẫn coi là đã đặt trước)
+ * - "Đã đặt trước" = pre-ordered HOẶC available nhưng đã có reservation active với giờ đặt > now
+ * - "Đang phục vụ" = occupied
+ */
 async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
   await expireReservationsForBranch(branchId);
 
   const baseWhere = { branch_id: branchId };
-  // Sau này nếu có soft delete / active: baseWhere.is_deleted = false; baseWhere.is_active = true;
+  const nowIso = new Date().toISOString();
 
-  const [totalTables, availableTables, servingTables, reservedTables] = await Promise.all([
+  const [totalTables, servingTables] = await Promise.all([
     Table.count({ where: baseWhere }),
-    Table.count({ where: { ...baseWhere, status: "available" } }),
     Table.count({ where: { ...baseWhere, status: "occupied" } }),
-    Table.count({ where: { ...baseWhere, status: "pre-ordered" } }),
   ]);
+
+  const [reservedRow] = await db.sequelize.query(
+    `SELECT COUNT(*)::int AS c FROM tables t
+     WHERE t.branch_id = :branchId
+       AND (
+         t.status = 'pre-ordered'
+         OR (
+           t.status = 'available'
+           AND EXISTS (
+             SELECT 1 FROM reservations r
+             WHERE r.table_id = t.table_id
+               AND r.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
+               AND r.reservation_time > :now
+           )
+         )
+       )`,
+    { replacements: { branchId, now: nowIso }, type: Sequelize.QueryTypes.SELECT }
+  );
+
+  const [availableRow] = await db.sequelize.query(
+    `SELECT COUNT(*)::int AS c FROM tables t
+     WHERE t.branch_id = :branchId
+       AND t.status = 'available'
+       AND NOT EXISTS (
+         SELECT 1 FROM reservations r
+         WHERE r.table_id = t.table_id
+           AND r.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
+           AND r.reservation_time > :now
+       )`,
+    { replacements: { branchId, now: nowIso }, type: Sequelize.QueryTypes.SELECT }
+  );
+
+  const reservedTables = Number(reservedRow?.c ?? 0);
+  const availableTables = Number(availableRow?.c ?? 0);
 
   return {
     totalTables,

@@ -6,6 +6,9 @@ const { verifyToken, isAdmin } = require('../../middlewares/auth');
 // Báo cáo tài chính: chỉ admin
 router.use(verifyToken, isAdmin);
 
+// Xuất Excel / PDF (cùng quyền admin)
+router.get('/export', reportController.exportReport);
+
 // Thống kê tổng quan
 router.get('/overview', reportController.getOverviewStats);
 

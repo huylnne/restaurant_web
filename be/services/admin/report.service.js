@@ -1,6 +1,7 @@
 const { Order, OrderItem, MenuItem, Reservation, Table, User, Payment } = require('../../models');
 const { Sequelize, Op } = require('sequelize');
 const db = require('../../models/db');
+const tableSummaryService = require('./tableSummary.service');
 
 const reportService = {
   // Thống kê tổng quan
@@ -217,25 +218,20 @@ const reportService = {
     return result;
   },
 
-  // Thống kê bàn ăn
+  // Thống kê bàn ăn — cùng nguồn với Dashboard / Quản lý bàn
   async getTableStats(branchId = 1) {
-    const totalTables = await Table.count({ where: { branch_id: branchId } });
-    const availableTables = await Table.count({ 
-      where: { branch_id: branchId, status: 'available' } 
-    });
-    const occupiedTables = await Table.count({ 
-      where: { branch_id: branchId, status: 'occupied' } 
-    });
-    const reservedTables = await Table.count({ 
-      where: { branch_id: branchId, status: 'pre-ordered' } 
-    });
+    const summary = await tableSummaryService.getTableSummary(branchId);
+    const occupiedTables = summary.servingTables;
 
     return {
-      totalTables,
-      availableTables,
+      totalTables: summary.totalTables,
+      availableTables: summary.availableTables,
       occupiedTables,
-      reservedTables,
-      occupancyRate: totalTables > 0 ? ((occupiedTables / totalTables) * 100).toFixed(2) : 0
+      reservedTables: summary.reservedTables,
+      occupancyRate:
+        summary.totalTables > 0
+          ? ((occupiedTables / summary.totalTables) * 100).toFixed(2)
+          : 0,
     };
   },
 

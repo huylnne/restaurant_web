@@ -1,4 +1,5 @@
 const reportService = require('../../services/admin/report.service');
+const reportExportService = require('../../services/admin/reportExport.service');
 
 exports.getOverviewStats = async (req, res) => {
   try {
@@ -85,5 +86,54 @@ exports.getMonthlyRevenue = async (req, res) => {
   } catch (error) {
     console.error('Lỗi getMonthlyRevenue:', error);
     res.status(500).json({ message: 'Lỗi lấy doanh thu theo tháng', error: error.message });
+  }
+};
+
+/** GET /export?format=xlsx|pdf&branchId=&startDate=&endDate=&days=&months=&limit= */
+exports.exportReport = async (req, res) => {
+  try {
+    const format = String(req.query.format || 'xlsx').toLowerCase();
+    const branchId = parseInt(req.query.branchId, 10) || 1;
+    const startDate = req.query.startDate || null;
+    const endDate = req.query.endDate || null;
+    const days = parseInt(req.query.days, 10) || 7;
+    const months = parseInt(req.query.months, 10) || 6;
+    const limit = parseInt(req.query.limit, 10) || 10;
+
+    const data = await reportExportService.gatherReportData({
+      branchId,
+      startDate,
+      endDate,
+      days,
+      months,
+      limit,
+    });
+
+    const stamp = new Date().toISOString().replace(/[:.]/g, '-');
+    if (format === 'xlsx') {
+      const buffer = await reportExportService.buildExcel(data);
+      res.setHeader(
+        'Content-Type',
+        'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+      );
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="bao-cao-chi-nhanh-${branchId}-${stamp}.xlsx"`
+      );
+      return res.send(buffer);
+    }
+    if (format === 'pdf') {
+      const buffer = await reportExportService.buildPdf(data);
+      res.setHeader('Content-Type', 'application/pdf');
+      res.setHeader(
+        'Content-Disposition',
+        `attachment; filename="bao-cao-chi-nhanh-${branchId}-${stamp}.pdf"`
+      );
+      return res.send(buffer);
+    }
+    return res.status(400).json({ message: 'Tham số format phải là xlsx hoặc pdf' });
+  } catch (error) {
+    console.error('Lỗi exportReport:', error);
+    res.status(500).json({ message: 'Không thể xuất báo cáo', error: error.message });
   }
 };
