@@ -12,7 +12,7 @@ module.exports = {
       { type: Sequelize.QueryTypes.SELECT }
     );
     const users = await queryInterface.sequelize.query(
-      `SELECT user_id FROM users WHERE username NOT IN ('admin','admin2','manager1','kitchen1','waiter1') ORDER BY user_id`,
+      `SELECT user_id FROM users WHERE username NOT IN ('admin','admin_b1','admin_b2','manager1','kitchen1','waiter1') ORDER BY user_id`,
       { type: Sequelize.QueryTypes.SELECT }
     );
     const tables = await queryInterface.sequelize.query(
@@ -46,13 +46,13 @@ module.exports = {
     }
 
     // ── Lịch tạo đơn hàng ───────────────────────────────────────────────────
-    // today = 31/03/2026 (Tuesday)
-    const TODAY = new Date('2026-03-31');
+    // Dùng mốc ngày hiện tại để biểu đồ "7 ngày gần nhất" luôn có dữ liệu
+    const TODAY = new Date();
     TODAY.setHours(0, 0, 0, 0);
 
     /**
      * ordersPerDay: mảng {date, count} – số đơn COMPLETED mỗi ngày
-     * Trải từ 01/10/2025 đến 31/03/2026 (~6 tháng)
+     * Trải 6 tháng gần đây tính theo TODAY
      */
     const schedule = [];
 
@@ -68,12 +68,12 @@ module.exports = {
       }
     }
 
-    addRange(new Date('2025-10-01'), 31, 3, 8);   // Tháng 10
-    addRange(new Date('2025-11-01'), 30, 4, 9);   // Tháng 11
-    addRange(new Date('2025-12-01'), 31, 6, 14);  // Tháng 12 (cao điểm)
-    addRange(new Date('2026-01-01'), 31, 5, 12);  // Tháng 1 (Tết)
-    addRange(new Date('2026-02-01'), 28, 4, 10);  // Tháng 2
-    addRange(new Date('2026-03-01'), 31, 5, 12);  // Tháng 3 (tháng hiện tại)
+    const sixMonthsAgo = new Date(TODAY);
+    sixMonthsAgo.setMonth(sixMonthsAgo.getMonth() - 6);
+    sixMonthsAgo.setDate(1);
+
+    const diffDays = Math.floor((TODAY - sixMonthsAgo) / (24 * 60 * 60 * 1000)) + 1;
+    addRange(sixMonthsAgo, diffDays, 4, 10);
 
     // ── Build reservations & orders ─────────────────────────────────────────
     const reservations = [];

@@ -1,14 +1,12 @@
 const employeeService = require('../../services/admin/employee.service');
+const { resolveBranchId } = require('../../utils/branchScope');
 
 class EmployeeController {
   // GET /api/admin/employees?branch_id=1&page=1&limit=10&search=
   async getEmployees(req, res) {
     try {
-      const { branch_id, page = 1, limit = 10, search = '' } = req.query;
-
-      if (!branch_id) {
-        return res.status(400).json({ message: 'branch_id là bắt buộc' });
-      }
+      const { page = 1, limit = 10, search = '' } = req.query;
+      const branch_id = resolveBranchId(req, req.query.branch_id, 1);
 
       const result = await employeeService.getEmployeesByBranch(
         branch_id,
@@ -39,7 +37,11 @@ class EmployeeController {
   // POST /api/admin/employees
   async createEmployee(req, res) {
     try {
-      const employee = await employeeService.createEmployee(req.body);
+      const payload = {
+        ...req.body,
+        branch_id: resolveBranchId(req, req.body.branch_id, 1),
+      };
+      const employee = await employeeService.createEmployee(payload);
       res.status(201).json(employee);
     } catch (error) {
       console.error('Error in createEmployee:', error);
@@ -51,7 +53,11 @@ class EmployeeController {
   async updateEmployee(req, res) {
     try {
       const { id } = req.params;
-      const employee = await employeeService.updateEmployee(id, req.body);
+      const payload = {
+        ...req.body,
+        branch_id: resolveBranchId(req, req.body.branch_id, 1),
+      };
+      const employee = await employeeService.updateEmployee(id, payload);
       res.json(employee);
     } catch (error) {
       console.error('Error in updateEmployee:', error);
@@ -74,7 +80,7 @@ class EmployeeController {
   // GET /api/admin/employees/stats/:branch_id
   async getEmployeeStats(req, res) {
     try {
-      const { branch_id } = req.params;
+      const branch_id = resolveBranchId(req, req.params.branch_id, 1);
       const stats = await employeeService.getEmployeeStats(branch_id);
       res.json(stats);
     } catch (error) {

@@ -14,6 +14,22 @@
         Thêm món
       </button>
     </div>
+    <div v-if="isAdminView" class="branch-selector">
+      <el-select
+        v-model="selectedBranchId"
+        placeholder="Chọn chi nhánh"
+        style="width: 220px"
+        :disabled="!isSuperAdmin"
+        @change="fetchAllMenuItems"
+      >
+        <el-option
+          v-for="branch in branches"
+          :key="branch.branch_id"
+          :label="branch.name"
+          :value="branch.branch_id"
+        />
+      </el-select>
+    </div>
 
     <div class="menu-content" ref="allDishesSection">
       <!-- Thanh lọc danh mục -->
@@ -157,6 +173,7 @@ import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { CoffeeCup, KnifeFork, IceCream, GobletFull, Plus, Edit, Delete } from "@element-plus/icons-vue";
 import PaginationBar from "@/components/PaginationBar.vue";
+import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
 
 const router = useRouter();
 const route  = useRoute();
@@ -173,6 +190,10 @@ const categoryOptions = [
 // canManage  : chỉ admin → được Thêm / Sửa / Xóa món
 const isAdminView = ref(false);
 const canManage   = ref(false);
+const user = getCurrentUser();
+const isSuperAdmin = isSuperAdminUser(user);
+const branches = ref([]);
+const selectedBranchId = ref(getDefaultBranchIdForUser(user));
 
 // giữ alias để không phá các v-if dùng isAdmin bên dưới
 const isAdmin = canManage;
@@ -207,13 +228,29 @@ onMounted(() => {
 
   isAdminView.value = !!token && onAdminRoute && ["admin", "waiter"].includes(role);
   canManage.value   = !!token && onAdminRoute && role === "admin";
-  fetchAllMenuItems();
+  fetchBranches().then(fetchAllMenuItems);
 });
+
+const fetchBranches = async () => {
+  try {
+    const res = await axios.get("http://localhost:3000/api/home/branches");
+    branches.value = Array.isArray(res.data) ? res.data : [];
+    if (!isSuperAdmin) {
+      selectedBranchId.value = getDefaultBranchIdForUser(user);
+    } else if (branches.value.length && !branches.value.some((b) => b.branch_id === selectedBranchId.value)) {
+      selectedBranchId.value = branches.value[0].branch_id;
+    }
+  } catch {
+    branches.value = [];
+  }
+};
 
 // Lấy toàn bộ menu từ API
 const fetchAllMenuItems = async () => {
   try {
-    const res = await axios.get("http://localhost:3000/api/menu-items?limit=1000");
+    const res = await axios.get("http://localhost:3000/api/menu-items?limit=1000", {
+      params: { branchId: selectedBranchId.value },
+    });
     allMenuItems.value = res.data.items || [];
   } catch (err) {
     console.error("Lỗi khi lấy menu:", err);
@@ -276,7 +313,7 @@ const openAddModal = () => {
     price: 0,
     category: "Món chính",
     image_url: "",
-    branch_id: 1,
+    branch_id: selectedBranchId.value,
   });
   showModal.value = true;
 };
@@ -290,7 +327,7 @@ const openEditModal = (dish) => {
     price: dish.price,
     category: dish.category,
     image_url: dish.image_url,
-    branch_id: dish.branch_id || 1,
+    branch_id: dish.branch_id || selectedBranchId.value,
   });
   showModal.value = true;
 };
@@ -313,6 +350,7 @@ const confirmDelete = async (dish) => {
   try {
     const token = localStorage.getItem("token");
     await axios.delete(`http://localhost:3000/api/admin/menu/${dishId}`, {
+      params: { branchId: selectedBranchId.value },
       headers: { Authorization: `Bearer ${token}` },
     });
     ElMessage.success("Xóa món ăn thành công!");
@@ -332,7 +370,7 @@ const handleSubmit = async () => {
       price: formState.price,
       category: formState.category,
       image_url: formState.image_url,
-      branch_id: formState.branch_id,
+      branch_id: selectedBranchId.value,
     };
     if (modalMode.value === "edit") {
       await axios.put(`http://localhost:3000/api/admin/menu/${formState.id}`, payload, {
@@ -419,6 +457,10 @@ const handleSubmit = async () => {
 .menu-content {
   max-width: 1280px;
   margin: 0 auto;
+}
+
+.branch-selector {
+  margin-bottom: var(--hl-space-md);
 }
 
 .filter-bar {

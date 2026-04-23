@@ -33,7 +33,7 @@
 <script setup>
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { KnifeFork, Grid, DataLine, User, Dish, Setting } from "@element-plus/icons-vue";
+import { KnifeFork, Grid, DataLine, User, Dish, Setting, OfficeBuilding } from "@element-plus/icons-vue";
 import { getMenuByRole } from "@/config/sidebarMenu.js";
 import { getCurrentRole } from "@/utils/auth.js";
 
@@ -49,6 +49,7 @@ const iconMap = {
   User,
   Dish,
   Setting,
+  OfficeBuilding,
 };
 function iconComponent(name) {
   return iconMap[name] || Grid;

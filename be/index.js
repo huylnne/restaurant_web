@@ -89,6 +89,9 @@ app.use('/api/admin/employees',adminEmployeeRoutes)
 const adminReportRoutes = require('./routes/admin/report.routes')
 app.use('/api/admin/reports',adminReportRoutes)
 
+const adminBranchRoutes = require('./routes/admin/branch.routes');
+app.use('/api/admin/branches', adminBranchRoutes);
+
 // ========== BỔ SUNG 2 ROUTE MỚI ==========
 const kitchenRoutes = require('./routes/admin/kitchen.routes');
 app.use('/api/admin/kitchen', kitchenRoutes);

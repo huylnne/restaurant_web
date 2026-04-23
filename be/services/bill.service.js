@@ -4,13 +4,31 @@ const { Op } = require("sequelize");
 const ACTIVE_RESERVATION_STATUSES = ["confirmed", "pre-ordered", "waiting_payment"];
 
 async function findActiveReservationByUser(userId) {
-  return Reservation.findOne({
+  const reservations = await Reservation.findAll({
     where: {
       user_id: userId,
       status: ACTIVE_RESERVATION_STATUSES,
     },
+    include: [
+      {
+        model: Table,
+        required: false,
+        attributes: ["table_id", "status", "table_number", "capacity"],
+      },
+    ],
     order: [["reservation_time", "DESC"]],
   });
+
+  if (!reservations.length) return null;
+
+  // Ưu tiên phiên đang phục vụ thực tế (bàn không còn trạng thái trống)
+  const servingReservation = reservations.find(
+    (r) => r.Table && r.Table.status && r.Table.status !== "available"
+  );
+  if (servingReservation) return servingReservation;
+
+  // Nếu chưa có bàn đang phục vụ, lấy reservation gần nhất (thường là đặt trước)
+  return reservations[0];
 }
 
 async function findActiveReservationByTable(tableId) {

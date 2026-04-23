@@ -1,11 +1,13 @@
 const kitchenService = require('../../services/admin/kitchen.service');
+const { resolveBranchId } = require('../../utils/branchScope');
 
 const kitchenController = {
   // GET /api/admin/kitchen/order-items?status=pending
   async listOrderItems(req, res) {
     try {
       const status = req.query.status || 'pending';
-      const items = await kitchenService.getOrderItemsByStatus(status);
+      const branchId = resolveBranchId(req, req.query.branchId, 1);
+      const items = await kitchenService.getOrderItemsByStatus(status, branchId);
       return res.json(items);
     } catch (err) {
       console.error('kitchen.listOrderItems', err);
@@ -19,8 +21,9 @@ const kitchenController = {
       const id = req.params.id;
       const { status } = req.body;
       if (!status) return res.status(400).json({ message: 'status is required' });
+      const branchId = resolveBranchId(req, req.body.branchId || req.query.branchId, 1);
 
-      const updated = await kitchenService.updateOrderItemStatus(id, status);
+      const updated = await kitchenService.updateOrderItemStatus(id, status, branchId);
       return res.json(updated);
     } catch (err) {
       console.error('kitchen.changeOrderItemStatus', err);

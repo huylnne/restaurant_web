@@ -8,6 +8,20 @@
     </div>
 
     <div class="filter-section">
+      <el-select
+        v-model="selectedBranchId"
+        placeholder="Chọn chi nhánh"
+        style="width: 220px"
+        :disabled="!isSuperAdmin"
+        @change="fetchOrderItems"
+      >
+        <el-option
+          v-for="branch in branches"
+          :key="branch.branch_id"
+          :label="branch.name"
+          :value="branch.branch_id"
+        />
+      </el-select>
       <el-radio-group v-model="currentStatus" @change="fetchOrderItems">
         <el-radio-button value="pending">Chờ chế biến</el-radio-button>
         <el-radio-button value="processing">Đang chế biến</el-radio-button>
@@ -73,12 +87,17 @@ import { ElMessage } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
 import axios from "axios";
 import PaginationBar from "@/components/PaginationBar.vue";
+import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
 
 const API_BASE = "http://localhost:3000/api/admin/kitchen";
 const KITCHEN_PAGE_SIZE = 12;
 
 const currentStatus = ref("pending");
 const orderItems = ref([]);
+const branches = ref([]);
+const currentUser = getCurrentUser();
+const isSuperAdmin = isSuperAdminUser(currentUser);
+const selectedBranchId = ref(getDefaultBranchIdForUser(currentUser));
 const kitchenCurrentPage = ref(1);
 const loading = ref(false);
 
@@ -96,7 +115,7 @@ const fetchOrderItems = async () => {
   try {
     const token = localStorage.getItem("token");
     const res = await axios.get(`${API_BASE}/order-items`, {
-      params: { status: currentStatus.value },
+      params: { status: currentStatus.value, branchId: selectedBranchId.value },
       headers: { Authorization: `Bearer ${token}` },
     });
     orderItems.value = Array.isArray(res.data) ? res.data : res.data.items || [];
@@ -115,7 +134,7 @@ const changeStatus = async (item, status) => {
     const token = localStorage.getItem("token");
     await axios.patch(
       `${API_BASE}/order-items/${item.order_item_id}/status`,
-      { status },
+      { status, branchId: selectedBranchId.value },
       { headers: { Authorization: `Bearer ${token}` } }
     );
     ElMessage.success("Đã cập nhật trạng thái");
@@ -152,8 +171,20 @@ const getTableLabel = (item) => {
   return "Chưa gán bàn";
 };
 
+const fetchBranches = async () => {
+  try {
+    const res = await axios.get("http://localhost:3000/api/home/branches");
+    branches.value = Array.isArray(res.data) ? res.data : [];
+    if (!isSuperAdmin && currentUser?.branch_id) {
+      selectedBranchId.value = Number(currentUser.branch_id);
+    }
+  } catch {
+    branches.value = [];
+  }
+};
+
 onMounted(() => {
-  fetchOrderItems();
+  fetchBranches().then(fetchOrderItems);
 });
 </script>
 

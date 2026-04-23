@@ -1,8 +1,8 @@
 'use strict';
 
 /**
- * Seeder: Thêm đơn hàng COMPLETED cho HÔM NAY (31/03/2026)
- * để thống kê "Hôm nay" trên Dashboard có dữ liệu
+ * Seeder: Thêm đơn hàng COMPLETED cho HÔM NAY (động theo current date)
+ * để thống kê "Hôm nay" trên Dashboard luôn có dữ liệu.
  */
 module.exports = {
   async up(queryInterface, Sequelize) {
@@ -11,7 +11,7 @@ module.exports = {
       { type: Sequelize.QueryTypes.SELECT }
     );
     const users = await queryInterface.sequelize.query(
-      `SELECT user_id FROM users WHERE username NOT IN ('admin','admin2','manager1','kitchen1','waiter1') ORDER BY user_id`,
+      `SELECT user_id FROM users WHERE username NOT IN ('admin','admin_b1','admin_b2','manager1','kitchen1','waiter1') ORDER BY user_id`,
       { type: Sequelize.QueryTypes.SELECT }
     );
     const tables = await queryInterface.sequelize.query(
@@ -27,13 +27,17 @@ module.exports = {
     const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
     // Tạo thời gian trong ngày hôm nay (theo UTC) cho giờ ăn trưa & tối
+    const now = new Date();
+    const utcYear = now.getUTCFullYear();
+    const utcMonth = now.getUTCMonth();
+    const utcDate = now.getUTCDate();
+
     function todayMealTimeUTC(hour) {
-      // Ngày 31/03/2026 UTC, tại giờ `hour`
-      const d = new Date(Date.UTC(2026, 2, 31, hour, rand(0, 59), rand(0, 59)));
+      const d = new Date(Date.UTC(utcYear, utcMonth, utcDate, hour, rand(0, 59), rand(0, 59)));
       return d;
     }
 
-    // 8 đơn hôm nay: 3 trưa (7h-9h UTC = 14h-16h UTC+7), 5 tối (10h-13h UTC = 17h-20h UTC+7)
+    // 8 đơn hôm nay: 3 trưa (UTC+7) và 5 tối
     const todaySlots = [7, 7, 8, 10, 10, 11, 12, 13];
 
     const reservations = [];
@@ -108,26 +112,35 @@ module.exports = {
 
     await queryInterface.bulkInsert('order_items', oiToInsert, {});
 
-    console.log(`✅ Seeded ${orders.length} orders TODAY (31/03/2026 UTC)`);
+    console.log(`✅ Seeded ${orders.length} orders TODAY (UTC date: ${utcYear}-${utcMonth + 1}-${utcDate})`);
   },
 
   async down(queryInterface) {
+    const now = new Date();
+    const y = now.getUTCFullYear();
+    const m = now.getUTCMonth();
+    const d = now.getUTCDate();
+    const start = new Date(Date.UTC(y, m, d, 0, 0, 0));
+    const end = new Date(Date.UTC(y, m, d + 1, 0, 0, 0));
+    const startIso = start.toISOString();
+    const endIso = end.toISOString();
+
     await queryInterface.sequelize.query(
       `DELETE FROM order_items WHERE order_id IN (
          SELECT order_id FROM orders WHERE status='COMPLETED'
-           AND created_at >= '2026-03-31 00:00:00+00'
-           AND created_at  < '2026-04-01 00:00:00+00'
+           AND created_at >= '${startIso}'
+           AND created_at < '${endIso}'
        )`
     );
     await queryInterface.sequelize.query(
       `DELETE FROM orders WHERE status='COMPLETED'
-         AND created_at >= '2026-03-31 00:00:00+00'
-         AND created_at  < '2026-04-01 00:00:00+00'`
+         AND created_at >= '${startIso}'
+         AND created_at < '${endIso}'`
     );
     await queryInterface.sequelize.query(
       `DELETE FROM reservations
-         WHERE created_at >= '2026-03-31 00:00:00+00'
-           AND created_at  < '2026-04-01 00:00:00+00'`
+         WHERE created_at >= '${startIso}'
+           AND created_at < '${endIso}'`
     );
   }
 };

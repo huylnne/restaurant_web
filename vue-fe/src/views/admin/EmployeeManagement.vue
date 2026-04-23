@@ -29,11 +29,15 @@
           <el-select
             v-model="filterBranch"
             placeholder="Chi nhánh"
-            clearable
+            :disabled="!isSuperAdmin"
             @change="fetchEmployees"
           >
-            <el-option label="Chi nhánh 1" :value="1" />
-            <el-option label="Chi nhánh 2" :value="2" />
+            <el-option
+              v-for="branch in branches"
+              :key="branch.branch_id"
+              :label="branch.name"
+              :value="branch.branch_id"
+            />
           </el-select>
         </el-col>
       </el-row>
@@ -123,9 +127,13 @@
         </el-form-item>
 
         <el-form-item label="Chi nhánh" prop="branch_id">
-          <el-select v-model="formData.branch_id" placeholder="Chọn chi nhánh">
-            <el-option label="Chi nhánh 1" :value="1" />
-            <el-option label="Chi nhánh 2" :value="2" />
+          <el-select v-model="formData.branch_id" placeholder="Chọn chi nhánh" :disabled="!isSuperAdmin">
+            <el-option
+              v-for="branch in branches"
+              :key="branch.branch_id"
+              :label="branch.name"
+              :value="branch.branch_id"
+            />
           </el-select>
         </el-form-item>
 
@@ -182,6 +190,7 @@ import { ref, onMounted, reactive } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Search, Edit, Delete } from "@element-plus/icons-vue";
 import axios from "axios";
+import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
 
 const API_URL = "http://localhost:3000/api/admin/employees";
 
@@ -199,18 +208,37 @@ const total = ref(0);
 
 // Filter
 const searchQuery = ref("");
-const filterBranch = ref(1);
+const branches = ref([]);
+const currentUser = getCurrentUser();
+const isSuperAdmin = isSuperAdminUser(currentUser);
+const filterBranch = ref(getDefaultBranchIdForUser(currentUser));
 
 // Form
 const formRef = ref(null);
 const formData = reactive({
   user_id: "",
-  branch_id: 1,
+  branch_id: getDefaultBranchIdForUser(currentUser),
   position: "",
   salary: "",
   hire_date: "",
   status: "active",
 });
+
+const fetchBranches = async () => {
+  try {
+    const res = await axios.get("http://localhost:3000/api/home/branches");
+    branches.value = Array.isArray(res.data) ? res.data : [];
+    if (!isSuperAdmin) {
+      filterBranch.value = getDefaultBranchIdForUser(currentUser);
+      formData.branch_id = filterBranch.value;
+    } else if (branches.value.length && !branches.value.some((b) => b.branch_id === filterBranch.value)) {
+      filterBranch.value = branches.value[0].branch_id;
+      formData.branch_id = filterBranch.value;
+    }
+  } catch (error) {
+    console.error("Không thể tải chi nhánh", error);
+  }
+};
 
 const rules = {
   user_id: [{ required: true, message: "Vui lòng nhập user_id", trigger: "blur" }],
@@ -269,6 +297,7 @@ const handleSizeChange = (size) => {
 const openAddDialog = () => {
   isEdit.value = false;
   resetForm();
+  formData.branch_id = filterBranch.value;
   dialogVisible.value = true;
 };
 
@@ -342,7 +371,7 @@ const confirmDelete = (row) => {
 const resetForm = () => {
   Object.assign(formData, {
     user_id: "",
-    branch_id: 1,
+    branch_id: filterBranch.value,
     position: "",
     salary: "",
     hire_date: "",
@@ -404,7 +433,7 @@ const formatDate = (date) => {
 };
 
 onMounted(() => {
-  fetchEmployees();
+  fetchBranches().then(fetchEmployees);
 });
 </script>
 

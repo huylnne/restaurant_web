@@ -2,13 +2,14 @@ const { OrderItem, MenuItem, Order, Table, Reservation } = require('../../models
 
 const kitchenService = {
   // Lấy danh sách order items theo trạng thái (pending, processing, done)
-  async getOrderItemsByStatus(status = 'pending') {
+  async getOrderItemsByStatus(status = 'pending', branchId = 1) {
     const items = await OrderItem.findAll({
       where: { status },
       include: [
         {
           model: MenuItem,
           attributes: ['item_id', 'name', 'price', 'category'],
+          where: { branch_id: branchId },
         },
         {
           model: Order,
@@ -50,9 +51,15 @@ const kitchenService = {
   },
 
   // Cập nhật trạng thái 1 order_item
-  async updateOrderItemStatus(orderItemId, newStatus) {
-    const item = await OrderItem.findByPk(orderItemId);
+  async updateOrderItemStatus(orderItemId, newStatus, branchId = 1) {
+    const item = await OrderItem.findOne({
+      where: { order_item_id: orderItemId },
+      include: [{ model: MenuItem, attributes: ["branch_id"] }],
+    });
     if (!item) throw new Error('OrderItem not found');
+    if (item.MenuItem?.branch_id !== Number(branchId)) {
+      throw new Error('Không có quyền cập nhật món của chi nhánh khác');
+    }
     item.status = newStatus;
     await item.save();
     return item;

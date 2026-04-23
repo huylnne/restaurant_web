@@ -4,6 +4,21 @@ const db = require('./db');
 db.User.hasMany(db.Order, { foreignKey: 'user_id' });
 db.Order.belongsTo(db.User, { foreignKey: 'user_id' });
 
+db.Branch.hasMany(db.User, { foreignKey: 'branch_id' });
+db.User.belongsTo(db.Branch, { foreignKey: 'branch_id' });
+
+db.Branch.hasMany(db.Table, { foreignKey: 'branch_id' });
+db.Table.belongsTo(db.Branch, { foreignKey: 'branch_id' });
+
+db.Branch.hasMany(db.MenuItem, { foreignKey: 'branch_id' });
+db.MenuItem.belongsTo(db.Branch, { foreignKey: 'branch_id' });
+
+db.Branch.hasMany(db.Reservation, { foreignKey: 'branch_id' });
+db.Reservation.belongsTo(db.Branch, { foreignKey: 'branch_id' });
+
+db.Branch.hasMany(db.Employee, { foreignKey: 'branch_id' });
+db.Employee.belongsTo(db.Branch, { foreignKey: 'branch_id' });
+
 db.Order.hasMany(db.OrderItem, { foreignKey: 'order_id' });
 db.OrderItem.belongsTo(db.Order, { foreignKey: 'order_id' });
 

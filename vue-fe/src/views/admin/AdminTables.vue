@@ -6,6 +6,20 @@
         <p>Quản lý và theo dõi tình trạng bàn ăn trong nhà hàng</p>
       </div>
       <div style="display:flex;gap:8px">
+        <el-select
+          v-model="selectedBranchId"
+          placeholder="Chọn chi nhánh"
+          style="width: 220px"
+          :disabled="userRole !== 'admin'"
+          @change="handleBranchChange"
+        >
+          <el-option
+            v-for="branch in branches"
+            :key="branch.branch_id"
+            :label="branch.name"
+            :value="branch.branch_id"
+          />
+        </el-select>
         <el-button :icon="Refresh" @click="() => { fetchTables(); fetchSummary(); }" title="Làm mới">
           Làm mới
         </el-button>
@@ -396,8 +410,11 @@ const API_BASE = "http://localhost:3000";
 const TABLE_PAGE_SIZE = 12;
 const WAITER_API = `${API_BASE}/api/admin/waiter`;
 const TABLE_API = `${API_BASE}/api/admin/table`;
+const BRANCH_API = `${API_BASE}/api/home/branches`;
 
 const userRole = ref("");
+const branches = ref([]);
+const selectedBranchId = ref(1);
 const tables = ref([]);
 const filteredTables = ref([]);
 const summary = ref({
@@ -451,11 +468,26 @@ const editTableForm = ref({
   status: "",
 });
 
+const fetchBranches = async () => {
+  try {
+    const response = await axios.get(BRANCH_API);
+    branches.value = Array.isArray(response.data) ? response.data : [];
+    if (branches.value.length > 0) {
+      const hasSelected = branches.value.some((b) => b.branch_id === selectedBranchId.value);
+      if (!hasSelected) selectedBranchId.value = branches.value[0].branch_id;
+    }
+  } catch (error) {
+    console.error("Lỗi lấy danh sách chi nhánh:", error);
+    ElMessage.error("Không thể tải danh sách chi nhánh");
+  }
+};
+
 // Lấy dữ liệu
 const fetchTables = async () => {
   try {
     const token = localStorage.getItem("token");
     const response = await axios.get(TABLE_API, {
+      params: { branchId: selectedBranchId.value },
       headers: { Authorization: `Bearer ${token}` },
     });
     tables.value = response.data;
@@ -470,6 +502,7 @@ const fetchSummary = async () => {
   try {
     const token = localStorage.getItem("token");
     const response = await axios.get(`${TABLE_API}/summary`, {
+      params: { branchId: selectedBranchId.value },
       headers: { Authorization: `Bearer ${token}` },
     });
     summary.value = response.data;
@@ -528,7 +561,7 @@ const openCreateOrderDialog = async () => {
   showCreateOrderDialog.value = true;
   try {
     const res = await axios.get(`${API_BASE}/api/menu-items`, {
-      params: { page: 1, limit: 500 },
+      params: { page: 1, limit: 500, branch_id: selectedBranchId.value },
     });
     const items = res.data?.items || res.data || [];
     menuItemsForOrder.value = items;
@@ -590,7 +623,8 @@ const markItemServed = async (orderItemId) => {
 const addTable = async () => {
   try {
     const token = localStorage.getItem("token");
-    await axios.post(TABLE_API, newTable.value, {
+    await axios.post(TABLE_API, { ...newTable.value, branch_id: selectedBranchId.value }, {
+      params: { branchId: selectedBranchId.value },
       headers: { Authorization: `Bearer ${token}` },
     });
     ElMessage.success("Thêm bàn thành công");
@@ -631,8 +665,11 @@ const updateTable = async () => {
       const oldTableNumber = selectedTable.value.table_number;
       await axios.put(
         `${TABLE_API}/${oldTableNumber}`,
-        editTableForm.value,
-        { headers: { Authorization: `Bearer ${token}` } }
+        { ...editTableForm.value, branch_id: selectedBranchId.value },
+        {
+          params: { branchId: selectedBranchId.value },
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
     }
 
@@ -661,6 +698,7 @@ const deleteTable = async (table) => {
 
     const token = localStorage.getItem("token");
     await axios.delete(`${TABLE_API}/${table.table_number}`, {
+      params: { branchId: selectedBranchId.value },
       headers: { Authorization: `Bearer ${token}` },
     });
 
@@ -727,6 +765,16 @@ const formatTime = (datetime) => {
   });
 };
 
+const handleBranchChange = () => {
+  tableCurrentPage.value = 1;
+  filterStatus.value = "";
+  searchQuery.value = "";
+  selectedTable.value = null;
+  showDetailDialog.value = false;
+  fetchTables();
+  fetchSummary();
+};
+
 // Tự động làm mới danh sách bàn mỗi 15 giây để đồng bộ khi user đặt bàn
 let refreshTimer = null;
 
@@ -743,8 +791,13 @@ function startPolling() {
 onMounted(() => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   userRole.value = user?.role || "";
-  fetchTables();
-  fetchSummary();
+  if (user?.role !== "admin" && user?.branch_id) {
+    selectedBranchId.value = Number(user.branch_id) || 1;
+  }
+  fetchBranches().then(() => {
+    fetchTables();
+    fetchSummary();
+  });
   startPolling();
 });
 

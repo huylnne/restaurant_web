@@ -1,6 +1,22 @@
 <template>
   <div class="dashboard">
-    <h2>Tổng quan</h2>
+    <div class="dashboard-header">
+      <h2>Tổng quan</h2>
+      <el-select
+        v-model="selectedBranchId"
+        placeholder="Chọn chi nhánh"
+        style="width: 220px"
+        :disabled="!isSuperAdmin"
+        @change="fetchDashboardData"
+      >
+        <el-option
+          v-for="branch in branches"
+          :key="branch.branch_id"
+          :label="branch.name"
+          :value="branch.branch_id"
+        />
+      </el-select>
+    </div>
     <div class="stats">
       <div v-if="showFinancials" class="stat-card">
         <div class="icon-box green">
@@ -112,7 +128,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick, computed } from "vue";
+import { ref, onMounted, onBeforeUnmount, nextTick, computed } from "vue";
 import { Money, TrendCharts, User, KnifeFork } from "@element-plus/icons-vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
@@ -127,7 +143,14 @@ import {
   ArcElement,
 } from "chart.js";
 import { Bar } from "vue-chartjs";
+import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
 Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, ArcElement);
+const API_BASE = "http://localhost:3000";
+const branches = ref([]);
+const currentUser = getCurrentUser();
+const isSuperAdmin = isSuperAdminUser(currentUser);
+const selectedBranchId = ref(getDefaultBranchIdForUser(currentUser));
+const tableStatusChartInstance = ref(null);
 
 const weeklyLabels = ref([]);
 const weeklyData = ref([]);
@@ -181,13 +204,28 @@ const tableStatus = ref({
   reserved: 0,
 });
 
-onMounted(async () => {
+const fetchBranches = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/api/home/branches`);
+    branches.value = Array.isArray(res.data) ? res.data : [];
+    if (!isSuperAdmin && currentUser?.branch_id) {
+      selectedBranchId.value = Number(currentUser.branch_id) || 1;
+    } else if (branches.value.length && !branches.value.some((b) => b.branch_id === selectedBranchId.value)) {
+      selectedBranchId.value = branches.value[0].branch_id;
+    }
+  } catch {
+    branches.value = [];
+  }
+};
+
+const fetchDashboardData = async () => {
   try {
     const token = localStorage.getItem("token");
 
     const response = await axios.get(
-      "http://localhost:3000/api/admin/dashboard/summary",
+      `${API_BASE}/api/admin/dashboard/summary`,
       {
+        params: { branchId: selectedBranchId.value },
         headers: { Authorization: `Bearer ${token}` },
       }
     );
@@ -219,23 +257,23 @@ onMounted(async () => {
     );
 
     const weeklyRes = await axios.get(
-      "http://localhost:3000/api/admin/dashboard/weekly-revenue",
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_BASE}/api/admin/dashboard/weekly-revenue`,
+      { params: { branchId: selectedBranchId.value }, headers: { Authorization: `Bearer ${token}` } }
     );
     const weeklyList = Array.isArray(weeklyRes.data) ? weeklyRes.data : [];
     weeklyLabels.value = weeklyList.map((item) => item.day);
     weeklyData.value = weeklyList.map((item) => item.revenue);
 
     const topDishesRes = await axios.get(
-      "http://localhost:3000/api/admin/dashboard/top-dishes",
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_BASE}/api/admin/dashboard/top-dishes`,
+      { params: { branchId: selectedBranchId.value }, headers: { Authorization: `Bearer ${token}` } }
     );
     topDishes.value = topDishesRes.data;
 
     // Lấy đúng trường từ backend
     const tableStatusRes = await axios.get(
-      "http://localhost:3000/api/admin/dashboard/table-status",
-      { headers: { Authorization: `Bearer ${token}` } }
+      `${API_BASE}/api/admin/dashboard/table-status`,
+      { params: { branchId: selectedBranchId.value }, headers: { Authorization: `Bearer ${token}` } }
     );
     const data = tableStatusRes.data;
     tableStatus.value = {
@@ -248,7 +286,10 @@ onMounted(async () => {
 
     const ctx = document.getElementById("tableStatusChart")?.getContext("2d");
     if (ctx) {
-      new Chart(ctx, {
+      if (tableStatusChartInstance.value) {
+        tableStatusChartInstance.value.destroy();
+      }
+      tableStatusChartInstance.value = new Chart(ctx, {
         type: "doughnut",
         data: {
           labels: ["Bàn trống", "Đang phục vụ", "Đã đặt trước"],
@@ -284,6 +325,18 @@ onMounted(async () => {
     console.error("Không thể lấy dữ liệu dashboard:", error);
     ElMessage.error("Không thể lấy dữ liệu thống kê");
   }
+};
+
+onMounted(async () => {
+  await fetchBranches();
+  await fetchDashboardData();
+});
+
+onBeforeUnmount(() => {
+  if (tableStatusChartInstance.value) {
+    tableStatusChartInstance.value.destroy();
+    tableStatusChartInstance.value = null;
+  }
 });
 
 const chartOptions = {
@@ -315,6 +368,12 @@ const chartOptions = {
   gap: var(--hl-space-xl);
   background: var(--hl-admin-bg);
   min-height: 100%;
+}
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: var(--hl-space-md);
 }
 .two_charts {
   display: flex;

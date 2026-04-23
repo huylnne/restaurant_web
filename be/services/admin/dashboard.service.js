@@ -11,7 +11,7 @@ const tableSummaryService = require("./tableSummary.service");
 
 const dashboardService = {
   //  1. Tổng quan
-  async getSummary() {
+  async getSummary(branchId = 1) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
@@ -32,9 +32,10 @@ const dashboardService = {
       WHERE o.status = 'COMPLETED'
         AND o.created_at >= :today
         AND o.created_at < :tomorrow
+        AND mi.branch_id = :branchId
     `;
     const [todayRevenueResult] = await db.sequelize.query(todayRevenueQuery, {
-      replacements: { today, tomorrow },
+      replacements: { today, tomorrow, branchId },
       type: Sequelize.QueryTypes.SELECT,
     });
     const todayRevenue = parseFloat(todayRevenueResult.total) || 0;
@@ -48,53 +49,62 @@ const dashboardService = {
       WHERE o.status = 'COMPLETED'
         AND o.created_at >= :yesterday
         AND o.created_at <= :yesterdayEnd
+        AND mi.branch_id = :branchId
     `;
     const [yesterdayRevenueResult] = await db.sequelize.query(
       yesterdayRevenueQuery,
       {
-        replacements: { yesterday, yesterdayEnd },
+        replacements: { yesterday, yesterdayEnd, branchId },
         type: Sequelize.QueryTypes.SELECT,
       }
     );
     const yesterdayRevenue = parseFloat(yesterdayRevenueResult.total) || 0;
 
-    // Tổng đơn hàng hôm nay
-    const totalOrders = await Order.count({
-      where: {
-        status: "COMPLETED",
-        created_at: { [Op.gte]: today, [Op.lt]: tomorrow },
-      },
-    });
+    const [todayOrdersResult] = await db.sequelize.query(
+      `SELECT COUNT(1)::int AS total
+       FROM orders o
+       WHERE o.status = 'COMPLETED'
+         AND o.created_at >= :today
+         AND o.created_at < :tomorrow
+         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
+      { replacements: { today, tomorrow, branchId }, type: Sequelize.QueryTypes.SELECT }
+    );
+    const totalOrders = parseInt(todayOrdersResult.total, 10) || 0;
 
-    // Tổng đơn hàng hôm qua
-    const yesterdayOrders = await Order.count({
-      where: {
-        status: "COMPLETED",
-        created_at: { [Op.gte]: yesterday, [Op.lte]: yesterdayEnd },
-      },
-    });
+    const [yesterdayOrdersResult] = await db.sequelize.query(
+      `SELECT COUNT(1)::int AS total
+       FROM orders o
+       WHERE o.status = 'COMPLETED'
+         AND o.created_at >= :yesterday
+         AND o.created_at <= :yesterdayEnd
+         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
+      { replacements: { yesterday, yesterdayEnd, branchId }, type: Sequelize.QueryTypes.SELECT }
+    );
+    const yesterdayOrders = parseInt(yesterdayOrdersResult.total, 10) || 0;
 
-    // Số khách hôm nay
-    const totalCustomers = await Order.count({
-      distinct: true,
-      col: "reservation_id",
-      where: {
-        status: "COMPLETED",
-        created_at: { [Op.gte]: today, [Op.lt]: tomorrow },
-        reservation_id: { [Op.ne]: null },
-      },
-    });
+    const [todayCustomersResult] = await db.sequelize.query(
+      `SELECT COUNT(DISTINCT o.reservation_id)::int AS total
+       FROM orders o
+       WHERE o.status = 'COMPLETED'
+         AND o.created_at >= :today
+         AND o.created_at < :tomorrow
+         AND o.reservation_id IS NOT NULL
+         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
+      { replacements: { today, tomorrow, branchId }, type: Sequelize.QueryTypes.SELECT }
+    );
+    const totalCustomers = parseInt(todayCustomersResult.total, 10) || 0;
 
-    // Số khách hôm qua
-    const yesterdayCustomers = await Order.count({
-      distinct: true,
-      col: "reservation_id",
-      where: {
-        status: "COMPLETED",
-        created_at: { [Op.gte]: yesterday, [Op.lte]: yesterdayEnd },
-        reservation_id: { [Op.ne]: null },
-      },
-    });
+    const [yesterdayCustomersResult] = await db.sequelize.query(
+      `SELECT COUNT(DISTINCT o.reservation_id)::int AS total
+       FROM orders o
+       WHERE o.status = 'COMPLETED'
+         AND o.created_at >= :yesterday
+         AND o.created_at <= :yesterdayEnd
+         AND o.reservation_id IS NOT NULL
+         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
+      { replacements: { yesterday, yesterdayEnd, branchId }, type: Sequelize.QueryTypes.SELECT }
+    );
+    const yesterdayCustomers = parseInt(yesterdayCustomersResult.total, 10) || 0;
 
     // Tổng món hôm nay
     const totalItemsQuery = `
@@ -104,9 +114,10 @@ const dashboardService = {
       WHERE o.status = 'COMPLETED'
         AND o.created_at >= :today
         AND o.created_at < :tomorrow
+        AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)
     `;
     const [totalItemsResult] = await db.sequelize.query(totalItemsQuery, {
-      replacements: { today, tomorrow },
+      replacements: { today, tomorrow, branchId },
       type: Sequelize.QueryTypes.SELECT,
     });
     const totalItems = parseInt(totalItemsResult.total) || 0;
@@ -119,11 +130,12 @@ const dashboardService = {
       WHERE o.status = 'COMPLETED'
         AND o.created_at >= :yesterday
         AND o.created_at <= :yesterdayEnd
+        AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)
     `;
     const [yesterdayItemsResult] = await db.sequelize.query(
       yesterdayItemsQuery,
       {
-        replacements: { yesterday, yesterdayEnd },
+        replacements: { yesterday, yesterdayEnd, branchId },
         type: Sequelize.QueryTypes.SELECT,
       }
     );
@@ -142,7 +154,7 @@ const dashboardService = {
   },
 
   //  2. Doanh thu theo tuần (T2-CN)
-  async getWeeklyRevenue() {
+  async getWeeklyRevenue(branchId = 1) {
     // ✅ Tính ngày đầu tuần (Thứ Hai) và cuối tuần (Chủ Nhật)
     const today = new Date();
     const dayOfWeek = today.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
@@ -168,6 +180,7 @@ const dashboardService = {
       WHERE o.status = 'COMPLETED'
         AND o.created_at >= :startOfWeek
         AND o.created_at <= :endOfWeek
+        AND mi.branch_id = :branchId
       GROUP BY day_of_week
       ORDER BY day_of_week
     `;
@@ -177,6 +190,7 @@ const dashboardService = {
       replacements: {
         startOfWeek: startOfWeek.toISOString(),
         endOfWeek: endOfWeek.toISOString(),
+        branchId,
       },
     });
 
@@ -198,7 +212,7 @@ const dashboardService = {
   },
 
   // 🍽 3. Top 5 món ăn bán chạy (số món đã bán = tổng quantity, không phải số dòng order_item)
-  async getTopDishes() {
+  async getTopDishes(branchId = 1) {
     const query = `
       SELECT 
         mi.name AS dish_name,
@@ -209,6 +223,7 @@ const dashboardService = {
       JOIN menu_items mi ON oi.item_id = mi.item_id
       JOIN orders o ON oi.order_id = o.order_id
       WHERE o.status = 'COMPLETED'
+        AND mi.branch_id = :branchId
       GROUP BY mi.item_id, mi.name, mi.category
       ORDER BY total_quantity DESC
       LIMIT 5
@@ -216,6 +231,7 @@ const dashboardService = {
 
     const results = await db.sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT,
+      replacements: { branchId },
     });
 
     return results.map((r) => ({
@@ -243,7 +259,7 @@ const dashboardService = {
   },
 
   //  5. Thời gian phục vụ cao điểm
-  async getPeakHours() {
+  async getPeakHours(branchId = 1) {
     const query = `
       SELECT 
         EXTRACT(HOUR FROM r.reservation_time) AS hour,
@@ -251,12 +267,14 @@ const dashboardService = {
       FROM reservations r
       WHERE r.status = 'confirmed'
         AND r.reservation_time >= NOW() - INTERVAL '30 days'
+        AND r.branch_id = :branchId
       GROUP BY hour
       ORDER BY hour
     `;
 
     const results = await db.sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT,
+      replacements: { branchId },
     });
 
     // Tìm giờ cao điểm nhất

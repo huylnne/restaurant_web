@@ -8,6 +8,7 @@ const createReservation = async (req, res) => {
   try {
     const user_id = req.userId;
     const { reservation_time, number_of_guests, table_id } = req.body;
+    const branch_id = parseInt(req.body.branch_id, 10) || 1;
 
     // Từ chối đặt bàn với thời gian đã qua hoặc quá gần hiện tại (< 15 phút)
     const MIN_ADVANCE_MS = 15 * 60 * 1000;
@@ -15,6 +16,9 @@ const createReservation = async (req, res) => {
       return res.status(400).json({
         message: "Thời gian đặt bàn phải cách hiện tại ít nhất 15 phút.",
       });
+    }
+    if (!number_of_guests || Number(number_of_guests) < 1) {
+      return res.status(400).json({ message: "Số lượng khách không hợp lệ." });
     }
 
     let table = null;
@@ -27,6 +31,7 @@ const createReservation = async (req, res) => {
     // Helper: lấy danh sách table_id đang có reservation trùng khung giờ
     const conflictingReservations = await Reservation.findAll({
       where: {
+        branch_id,
         reservation_time: { [Op.between]: [windowStart, windowEnd] },
         status: { [Op.notIn]: ["cancelled", "completed"] },
       },
@@ -39,6 +44,7 @@ const createReservation = async (req, res) => {
       table = await Table.findOne({
         where: {
           status: "available",
+          branch_id,
           capacity: { [Op.gte]: number_of_guests },
           [Op.and]: [
             { table_id },
@@ -55,6 +61,7 @@ const createReservation = async (req, res) => {
       // 1b. Auto-pick: bàn nhỏ nhất còn trống và không trùng lịch
       table = await Table.findOne({
         where: {
+          branch_id,
           capacity: { [Op.gte]: number_of_guests },
           status: "available",
           ...(conflictIds.length > 0 ? { table_id: { [Op.notIn]: conflictIds } } : {}),
@@ -72,7 +79,7 @@ const createReservation = async (req, res) => {
     //    hàm syncTableStatuses sẽ tự chuyển khi còn 15 phút trước giờ đặt
     const reservation = await Reservation.create({
       user_id,
-      branch_id: 1,
+      branch_id,
       table_id: table.table_id,
       reservation_time,
       number_of_guests,
@@ -91,6 +98,7 @@ const createReservation = async (req, res) => {
 const getAvailableTables = async (req, res) => {
   try {
     const { reservation_time, guests } = req.query;
+    const branch_id = parseInt(req.query.branch_id, 10) || 1;
 
     if (!reservation_time || !guests) {
       return res.status(400).json({ message: "Thiếu thông tin yêu cầu" });
@@ -102,6 +110,7 @@ const getAvailableTables = async (req, res) => {
 
     const reservedTableIds = await Reservation.findAll({
       where: {
+        branch_id,
         reservation_time: {
           [Op.between]: [startTime, endTime],
         },
@@ -114,6 +123,7 @@ const getAvailableTables = async (req, res) => {
 
     const tables = await Table.findAll({
       where: {
+        branch_id,
         capacity: { [Op.gte]: guests },
         table_id: { [Op.notIn]: usedIds },
         status: "available",

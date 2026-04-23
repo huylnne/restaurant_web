@@ -18,7 +18,7 @@ module.exports = {
 
     await queryInterface.bulkInsert('employees', [
       {
-        user_id: userMap['admin'], // admin
+        user_id: userMap['admin_b1'], // branch admin 1
         branch_id: 1,
         position: 'admin',
         salary: 20000000.00,
@@ -28,8 +28,8 @@ module.exports = {
         updated_at: now
       },
       {
-        user_id: userMap['admin2'], // admin2
-        branch_id: 1,
+        user_id: userMap['admin_b2'], // branch admin 2
+        branch_id: 2,
         position: 'admin',
         salary: 18000000.00,
         hire_date: new Date('2024-01-10'),
@@ -80,7 +80,7 @@ module.exports = {
       // Thêm nhân viên cho branch 2
       {
         user_id: userMap['manager1'], // manager1
-        branch_id: 1,
+        branch_id: 2,
         position: 'manager',
         salary: 14000000.00,
         hire_date: new Date('2024-07-01'),
@@ -90,7 +90,7 @@ module.exports = {
       },
       {
         user_id: userMap['kitchen1'], // kitchen1
-        branch_id: 1,
+        branch_id: 2,
         position: 'kitchen',
         salary: 11000000.00,
         hire_date: new Date('2024-07-15'),

@@ -139,17 +139,18 @@ const tableService = {
   // Thêm bàn mới
   async createTable(data) {
     const { table_number, capacity } = data;
+    const branch_id = parseInt(data.branch_id, 10) || 1;
 
-    const existingTable = await Table.findOne({ where: { table_number } });
+    const existingTable = await Table.findOne({ where: { table_number, branch_id } });
     if (existingTable) {
-      throw new Error("Số bàn đã tồn tại");
+      throw new Error("Số bàn đã tồn tại trong chi nhánh này");
     }
 
     const table = await Table.create({
       table_number,
       capacity,
       status: "available",
-      branch_id: 1,
+      branch_id,
     });
 
     return table;
@@ -157,14 +158,15 @@ const tableService = {
 
   // Sửa bàn
   async updateTable(tableNumber, data) {
-    const table = await Table.findOne({ where: { table_number: tableNumber } });
+    const branch_id = parseInt(data.branch_id, 10) || 1;
+    const table = await Table.findOne({ where: { table_number: tableNumber, branch_id } });
     if (!table) throw new Error("Không tìm thấy bàn");
 
     const { table_number, capacity, status } = data;
 
     // Nếu đổi số bàn, kiểm tra số mới đã tồn tại chưa
     if (table_number && table_number !== table.table_number) {
-      const existingTable = await Table.findOne({ where: { table_number } });
+      const existingTable = await Table.findOne({ where: { table_number, branch_id } });
       if (existingTable) throw new Error("Số bàn mới đã tồn tại");
     }
 
@@ -228,8 +230,8 @@ const tableService = {
   },
 
   // Xóa bàn theo table_number
-  async deleteTable(tableNumber) {
-    const table = await Table.findOne({ where: { table_number: tableNumber } });
+  async deleteTable(tableNumber, branchId = DEFAULT_BRANCH_ID) {
+    const table = await Table.findOne({ where: { table_number: tableNumber, branch_id: branchId } });
     if (!table) {
       throw new Error("Không tìm thấy bàn");
     }
@@ -243,8 +245,9 @@ const tableService = {
   },
 
   // Lấy hoạt động gần đây
-  async getTableActivities() {
+  async getTableActivities(branchId = DEFAULT_BRANCH_ID) {
     const activities = await Reservation.findAll({
+      where: { branch_id: branchId },
       limit: 10,
       order: [["created_at", "DESC"]],
       include: [
@@ -292,9 +295,10 @@ const tableService = {
       JOIN menu_items mi ON oi.item_id = mi.item_id
       WHERE o.status = 'COMPLETED'
         AND o.created_at >= :today
+        AND mi.branch_id = :branchId
     `;
     const [revenueResult] = await db.sequelize.query(revenueQuery, {
-      replacements: { today },
+      replacements: { today, branchId },
       type: Sequelize.QueryTypes.SELECT,
     });
 

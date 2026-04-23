@@ -6,6 +6,7 @@ import AdminTables from "../views/admin/AdminTables.vue";
 import AdminKitchen from "../views/admin/AdminKitchen.vue";
 import EmployeeManagement from "../views/admin/EmployeeManagement.vue";
 import AdminReports from "../views/admin/AdminReports.vue";
+import BranchManagement from "../views/admin/BranchManagement.vue";
 import { getDefaultStaffPath, canAccessRoute, isStaffRole } from '@/utils/auth.js';
 
 // Import các view khác nếu cần
@@ -47,6 +48,8 @@ const routes = [
       { path: 'admin/menu', name: 'AdminMenu', component: MenuView, meta: { allowedRoles: ['admin', 'waiter'] } },
       { path: 'admin/employees', name: 'EmployeeManagement', component: EmployeeManagement, meta: { allowedRoles: ['admin'] } },
       { path: 'admin/reports', name: 'AdminReports', component: AdminReports, meta: { allowedRoles: ['admin'] } },
+      { path: 'admin/branches', name: 'AdminBranches', component: BranchManagement, meta: { allowedRoles: ['admin'] } },
+      { path: 'admin/my-branch', name: 'MyBranchManagement', component: BranchManagement, meta: { allowedRoles: ['manager', 'admin'] } },
     ],
   },
 ];

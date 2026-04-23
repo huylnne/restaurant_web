@@ -1,12 +1,12 @@
 /**
- * Helper phân quyền: admin, waiter, kitchen (staff) vs user thường.
+ * Helper phân quyền: admin, manager, waiter, kitchen (staff) vs user thường.
  */
 
 /** Roles được vào layout quản lý (có sidebar) */
-const STAFF_ROLES = ["admin", "waiter", "kitchen"];
+const STAFF_ROLES = ["admin", "manager", "waiter", "kitchen"];
 
 /**
- * User có phải staff (admin / waiter / kitchen) không.
+ * User có phải staff (admin / manager / waiter / kitchen) không.
  * @param {string} role
  * @returns {boolean}
  */
@@ -17,11 +17,13 @@ export function isStaffRole(role) {
 /**
  * Lấy đường dẫn mặc định sau khi đăng nhập theo role.
  * - admin => /admin
+ * - manager => /admin/my-branch
  * - waiter => /admin/tables (phục vụ)
  * - kitchen => /admin/kitchen (chỉ tab Bếp)
  */
 export function getDefaultStaffPath(role) {
   if (role === "admin") return "/admin";
+  if (role === "manager") return "/admin/my-branch";
   if (role === "waiter") return "/admin/tables";
   if (role === "kitchen") return "/admin/kitchen";
   return "/dashboard";
@@ -52,7 +54,7 @@ export function getCurrentRole() {
 }
 
 /**
- * Route nào yêu cầu staff (admin/waiter/kitchen) – dùng trong guard.
+ * Route nào yêu cầu staff (admin/manager/waiter/kitchen) – dùng trong guard.
  * Kiểm tra route.meta.allowedRoles có giao với STAFF_ROLES không.
  */
 export function isStaffOnlyRoute(route) {

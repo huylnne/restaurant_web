@@ -93,6 +93,7 @@ const login = async (req, res) => {
         user_id: user.user_id,
         username: user.username,
         role: user.role,
+        branch_id: user.branch_id || null,
       },
       process.env.JWT_SECRET || "default_secret",
       { expiresIn: "7d" }
@@ -101,9 +102,11 @@ const login = async (req, res) => {
     return res.json({
       token,
       user: {
+        user_id: user.user_id,
         username: user.username,
         role: user.role,
         full_name: user.full_name,
+        branch_id: user.branch_id || null,
       },
     });
   } catch (error) {

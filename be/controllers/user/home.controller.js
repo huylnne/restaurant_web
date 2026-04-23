@@ -1,3 +1,8 @@
+const db = require("../../models/db");
+const { Sequelize } = require("sequelize");
+
+const Branch = db.Branch;
+
 // Ví dụ dữ liệu mock
 exports.getFeaturedDishes = async (req, res) => {
     res.json([
@@ -22,9 +27,42 @@ exports.getFeaturedDishes = async (req, res) => {
   };
   
   exports.getBranches = async (req, res) => {
-    res.json([
-      { id: 1, name: "Chi nhánh Hà Nội", address: "123 Trần Duy Hưng, Cầu Giấy, Hà Nội" },
-      { id: 2, name: "Chi nhánh TP.HCM", address: "456 Nguyễn Trãi, Quận 5, TP.HCM" },
-    ]);
+    try {
+      const branches = await Branch.findAll({
+        attributes: [
+          "branch_id",
+          "name",
+          "address",
+          "phone",
+          "open_time",
+          "close_time",
+          "image_url",
+          "is_active",
+          [
+            Sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM tables t
+              WHERE t.branch_id = "Branch"."branch_id"
+            )`),
+            "total_tables",
+          ],
+          [
+            Sequelize.literal(`(
+              SELECT COUNT(*)
+              FROM tables t
+              WHERE t.branch_id = "Branch"."branch_id"
+                AND t.status = 'available'
+            )`),
+            "available_tables",
+          ],
+        ],
+        order: [["branch_id", "ASC"]],
+      });
+
+      res.json(branches);
+    } catch (error) {
+      console.error("Lỗi getBranches:", error);
+      res.status(500).json({ message: "Không thể tải danh sách chi nhánh" });
+    }
   };
   

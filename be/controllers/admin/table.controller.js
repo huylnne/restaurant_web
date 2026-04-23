@@ -1,5 +1,6 @@
 const tableService = require('../../services/admin/table.service');
 const { filterTableListForRole, filterTableSummaryForRole } = require('../../utils/roleResponse');
+const { resolveBranchId } = require('../../utils/branchScope');
 
 function getRole(req) {
   return req.userRole || req.user?.role;
@@ -7,7 +8,8 @@ function getRole(req) {
 
 exports.getTables = async (req, res) => {
   try {
-    const tables = await tableService.getTables();
+    const branchId = resolveBranchId(req, req.query.branchId, 1);
+    const tables = await tableService.getTables(branchId);
     const filtered = filterTableListForRole(getRole(req), tables);
     res.json(filtered);
   } catch (error) {
@@ -18,7 +20,8 @@ exports.getTables = async (req, res) => {
 
 exports.createTable = async (req, res) => {
   try {
-    const table = await tableService.createTable(req.body);
+    const payload = { ...req.body, branch_id: resolveBranchId(req, req.body.branch_id || req.query.branchId, 1) };
+    const table = await tableService.createTable(payload);
     res.status(201).json(table);
   } catch (error) {
     console.error('Lỗi createTable:', error);
@@ -28,7 +31,8 @@ exports.createTable = async (req, res) => {
 
 exports.updateTable = async (req, res) => {
   try {
-    const table = await tableService.updateTable(req.params.id, req.body);
+    const payload = { ...req.body, branch_id: resolveBranchId(req, req.body.branch_id || req.query.branchId, 1) };
+    const table = await tableService.updateTable(req.params.id, payload);
     res.json(table);
   } catch (error) {
     console.error('Lỗi updateTable:', error);
@@ -38,7 +42,8 @@ exports.updateTable = async (req, res) => {
 
 exports.deleteTable = async (req, res) => {
   try {
-    const result = await tableService.deleteTable(req.params.id);
+    const branchId = resolveBranchId(req, req.query.branchId, 1);
+    const result = await tableService.deleteTable(req.params.id, branchId);
     res.json(result);
   } catch (error) {
     console.error('Lỗi deleteTable:', error);
@@ -48,7 +53,8 @@ exports.deleteTable = async (req, res) => {
 
 exports.getTableActivities = async (req, res) => {
   try {
-    const activities = await tableService.getTableActivities();
+    const branchId = resolveBranchId(req, req.query.branchId, 1);
+    const activities = await tableService.getTableActivities(branchId);
     res.json(activities);
   } catch (error) {
     console.error('Lỗi getTableActivities:', error);
@@ -58,7 +64,8 @@ exports.getTableActivities = async (req, res) => {
 
 exports.getTableSummary = async (req, res) => {
   try {
-    const summary = await tableService.getTableSummary();
+    const branchId = resolveBranchId(req, req.query.branchId, 1);
+    const summary = await tableService.getTableSummary(branchId);
     const filtered = filterTableSummaryForRole(getRole(req), summary);
     res.json(filtered);
   } catch (error) {

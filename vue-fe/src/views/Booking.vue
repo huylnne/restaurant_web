@@ -4,6 +4,17 @@
       <el-card class="booking-card">
         <h2 class="title">Đặt bàn nhanh</h2>
         <el-form :model="form" label-position="top" @submit.prevent="submitForm">
+          <el-form-item label="Chi nhánh">
+            <el-select v-model="form.branch_id" placeholder="Chọn chi nhánh">
+              <el-option
+                v-for="branch in branches"
+                :key="branch.branch_id"
+                :label="branch.name"
+                :value="branch.branch_id"
+              />
+            </el-select>
+          </el-form-item>
+
           <el-form-item label="Ngày đặt">
             <el-date-picker
               v-model="form.date"
@@ -56,7 +67,9 @@ import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter } from "vue-router";
 const router = useRouter();
+const branches = ref([]);
 const form = ref({
+  branch_id: 1,
   date: "",
   time: "",
   guests: 1,
@@ -97,10 +110,24 @@ const timeError = computed(() => {
 
 const availableTables = ref([]);
 
+const fetchBranches = async () => {
+  try {
+    const res = await axios.get("http://localhost:3000/api/home/branches");
+    branches.value = Array.isArray(res.data) ? res.data : [];
+    if (branches.value.length && !branches.value.some((b) => b.branch_id === form.value.branch_id)) {
+      form.value.branch_id = branches.value[0].branch_id;
+    }
+  } catch (error) {
+    console.error("Lỗi tải chi nhánh:", error);
+  }
+};
+
+fetchBranches();
+
 watch(
-  [() => form.value.date, () => form.value.time, () => form.value.guests],
+  [() => form.value.branch_id, () => form.value.date, () => form.value.time, () => form.value.guests],
   async () => {
-    if (!form.value.date || !form.value.time || !form.value.guests) return;
+    if (!form.value.branch_id || !form.value.date || !form.value.time || !form.value.guests) return;
 
     const date = buildReservationDate();
     if (!isTimeValid(date)) {
@@ -111,6 +138,7 @@ watch(
     try {
       const res = await axios.get("/api/reservations/available", {
         params: {
+          branch_id: form.value.branch_id,
           reservation_time: date.toISOString(),
           guests: form.value.guests,
         },
@@ -124,7 +152,7 @@ watch(
 );
 
 const submitForm = async () => {
-  if (!form.value.date || !form.value.time || !form.value.table_id) {
+  if (!form.value.branch_id || !form.value.date || !form.value.time || !form.value.table_id) {
     ElMessage.error("Vui lòng điền đầy đủ thông tin và chọn bàn");
     return;
   }
@@ -136,6 +164,7 @@ const submitForm = async () => {
   }
 
   const payload = {
+    branch_id: form.value.branch_id,
     reservation_time: date.toISOString(),
     number_of_guests: form.value.guests,
     note: form.value.note,

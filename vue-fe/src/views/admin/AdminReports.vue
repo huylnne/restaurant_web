@@ -6,6 +6,20 @@
         <p>Theo dõi doanh thu và hiệu suất hoạt động của chi nhánh</p>
       </div>
       <div class="filter-section">
+        <el-select
+          v-model="selectedBranchId"
+          placeholder="Chọn chi nhánh"
+          style="width: 220px"
+          :disabled="!isSuperAdmin"
+          @change="fetchAllData"
+        >
+          <el-option
+            v-for="branch in branches"
+            :key="branch.branch_id"
+            :label="branch.name"
+            :value="branch.branch_id"
+          />
+        </el-select>
         <el-date-picker
           v-model="dateRange"
           type="daterange"
@@ -192,11 +206,16 @@ import {
   Document,
 } from "@element-plus/icons-vue";
 import * as echarts from "echarts";
+import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
 
 const API_BASE = "http://localhost:3000";
 
 const dateRange = ref(null);
 const exportLoading = ref(null);
+const branches = ref([]);
+const selectedBranchId = ref(1);
+const currentUser = getCurrentUser();
+const isSuperAdmin = isSuperAdminUser(currentUser);
 const overview = ref({
   totalRevenue: 0,
   totalOrders: 0,
@@ -223,6 +242,19 @@ const revenueChart = ref(null);
 const categoryChart = ref(null);
 const hourChart = ref(null);
 const monthlyChart = ref(null);
+const fetchBranches = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/api/home/branches`);
+    branches.value = Array.isArray(res.data) ? res.data : [];
+    if (!isSuperAdmin) {
+      selectedBranchId.value = getDefaultBranchIdForUser(currentUser);
+    } else if (branches.value.length && !branches.value.some((b) => b.branch_id === selectedBranchId.value)) {
+      selectedBranchId.value = branches.value[0].branch_id;
+    }
+  } catch {
+    branches.value = [];
+  }
+};
 
 // Format tiền
 const formatCurrency = (amount) => {
@@ -241,7 +273,7 @@ const fetchAllData = async () => {
     const token = getToken();
     const headers = { Authorization: `Bearer ${token}` };
 
-    let params = { branchId: 1 };
+    let params = { branchId: selectedBranchId.value };
     if (dateRange.value && dateRange.value.length === 2) {
       params.startDate = dateRange.value[0];
       params.endDate = dateRange.value[1];
@@ -264,31 +296,31 @@ const fetchAllData = async () => {
       }),
       axios.get(`${API_BASE}/api/admin/reports/revenue-by-day`, {
         headers,
-        params: { branchId: 1, days: 7 },
+        params: { branchId: selectedBranchId.value, days: 7 },
       }),
       axios.get(`${API_BASE}/api/admin/reports/top-selling`, {
         headers,
-        params: { branchId: 1, limit: 10 },
+        params: { branchId: selectedBranchId.value, limit: 10 },
       }),
       axios.get(`${API_BASE}/api/admin/reports/revenue-by-category`, {
         headers,
-        params: { branchId: 1 },
+        params: { branchId: selectedBranchId.value },
       }),
       axios.get(`${API_BASE}/api/admin/reports/orders-by-hour`, {
         headers,
-        params: { branchId: 1 },
+        params: { branchId: selectedBranchId.value },
       }),
       axios.get(`${API_BASE}/api/admin/reports/top-customers`, {
         headers,
-        params: { branchId: 1, limit: 10 },
+        params: { branchId: selectedBranchId.value, limit: 10 },
       }),
       axios.get(`${API_BASE}/api/admin/reports/table-stats`, {
         headers,
-        params: { branchId: 1 },
+        params: { branchId: selectedBranchId.value },
       }),
       axios.get(`${API_BASE}/api/admin/reports/monthly-revenue`, {
         headers,
-        params: { branchId: 1, months: 6 },
+        params: { branchId: selectedBranchId.value, months: 6 },
       }),
     ]);
 
@@ -315,7 +347,7 @@ const downloadReport = async (format) => {
     const token = getToken();
     const params = {
       format,
-      branchId: 1,
+      branchId: selectedBranchId.value,
       days: 7,
       months: 6,
       limit: 10,
@@ -338,7 +370,7 @@ const downloadReport = async (format) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
     a.href = url;
-    a.download = `bao-cao-chi-nhanh-1-${Date.now()}.${ext}`;
+    a.download = `bao-cao-chi-nhanh-${selectedBranchId.value}-${Date.now()}.${ext}`;
     a.click();
     URL.revokeObjectURL(url);
     ElMessage.success("Đã tải báo cáo");
@@ -497,7 +529,9 @@ const drawMonthlyChart = () => {
   chart.setOption(option);
 };
 
-onMounted(() => {
+onMounted(async () => {
+  selectedBranchId.value = getDefaultBranchIdForUser(currentUser);
+  await fetchBranches();
   fetchAllData();
 });
 </script>
