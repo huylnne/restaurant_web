@@ -212,6 +212,26 @@
           <el-descriptions-item label="Doanh thu">{{
             formatCurrency(selectedTable.totalRevenue)
           }}</el-descriptions-item>
+          <el-descriptions-item label="QR">
+            <div class="qr-token-row">
+              <el-tag type="info" size="small">{{ selectedTable.qr_token || "—" }}</el-tag>
+              <el-button
+                v-if="selectedTable.qr_token"
+                size="small"
+                @click="openQrDialog(selectedTable)"
+              >
+                Xem QR
+              </el-button>
+              <el-button
+                v-if="selectedTable.qr_token"
+                size="small"
+                type="primary"
+                @click="openPaymentQrDialog(selectedTable)"
+              >
+                QR thanh toán
+              </el-button>
+            </div>
+          </el-descriptions-item>
         </el-descriptions>
 
         <!-- Cảnh báo: bàn Trống nhưng có đặt trước tương lai -->
@@ -320,6 +340,31 @@
       </div>
     </el-dialog>
 
+    <!-- Dialog QR -->
+    <el-dialog v-model="showQrDialog" :title="qrMode === 'payment' ? 'QR thanh toán' : 'QR cho bàn'" width="420px">
+      <div v-if="qrSelectedTable" class="qr-dialog">
+        <div class="qr-title">
+          <strong>B{{ qrSelectedTable.table_number }}</strong>
+        </div>
+        <div class="qr-image-wrap">
+          <img v-if="qrDataUrl" :src="qrDataUrl" alt="QR code" class="qr-image" />
+          <div v-else class="text-muted">Đang tạo QR...</div>
+        </div>
+        <div v-if="qrMode === 'payment'" class="qr-payment-meta">
+          <div class="label">Số tiền</div>
+          <div class="value">{{ formatCurrency(qrPaymentAmount) }}</div>
+        </div>
+        <div v-else class="qr-link">
+          <div class="label">Link scan</div>
+          <el-input :model-value="qrLink" readonly />
+        </div>
+      </div>
+      <template #footer>
+        <el-button v-if="qrMode !== 'payment'" @click="copyQrLink" :disabled="!qrLink">Copy link</el-button>
+        <el-button type="primary" @click="showQrDialog = false">Đóng</el-button>
+      </template>
+    </el-dialog>
+
     <!-- Dialog tạo đơn (chọn món) -->
     <el-dialog v-model="showCreateOrderDialog" title="Tạo đơn hàng" width="560px">
       <div v-loading="menuItemsLoading" class="create-order-form">
@@ -374,6 +419,26 @@
             <el-option label="Đã đặt trước" value="pre-ordered" />
           </el-select>
         </el-form-item>
+        <el-form-item label="QR">
+          <div class="qr-token-row">
+            <el-tag type="info" size="small">{{ selectedTable?.qr_token || "—" }}</el-tag>
+            <el-button
+              v-if="selectedTable?.qr_token"
+              size="small"
+              @click="openQrDialog(selectedTable)"
+            >
+              Xem QR
+            </el-button>
+            <el-button
+              v-if="selectedTable?.qr_token"
+              size="small"
+              type="primary"
+              @click="openPaymentQrDialog(selectedTable)"
+            >
+              QR thanh toán
+            </el-button>
+          </div>
+        </el-form-item>
       </el-form>
       <template #footer>
         <el-button @click="showEditDialogVisible = false">Hủy</el-button>
@@ -405,6 +470,7 @@ import {
   getTableTagType,
 } from "@/constants/tableStatus";
 import PaginationBar from "@/components/PaginationBar.vue";
+import QRCode from "qrcode";
 
 const API_BASE = "http://localhost:3000";
 const TABLE_PAGE_SIZE = 12;
@@ -432,6 +498,14 @@ const showAddDialog = ref(false);
 const showDetailDialog = ref(false);
 const showEditDialogVisible = ref(false);
 const selectedTable = ref(null);
+
+// QR dialog state
+const showQrDialog = ref(false);
+const qrSelectedTable = ref(null);
+const qrDataUrl = ref("");
+const qrLink = ref("");
+const qrMode = ref("link"); // 'link' | 'payment'
+const qrPaymentAmount = ref(0);
 
 // Waiter: đơn hàng theo bàn
 const tableOrders = ref([]);
@@ -717,6 +791,51 @@ const deleteTable = async (table) => {
 const viewTableDetail = (table) => {
   selectedTable.value = table;
   showDetailDialog.value = true;
+};
+
+const openQrDialog = async (table) => {
+  qrSelectedTable.value = table;
+  qrDataUrl.value = "";
+  qrMode.value = "link";
+  qrPaymentAmount.value = 0;
+  qrLink.value = table?.qr_token ? `http://localhost:5173/t/${table.qr_token}` : "";
+  showQrDialog.value = true;
+  if (!qrLink.value) return;
+  try {
+    qrDataUrl.value = await QRCode.toDataURL(qrLink.value, { margin: 1, width: 260 });
+  } catch (e) {
+    console.error("QR gen error:", e);
+    ElMessage.error("Không thể tạo QR");
+  }
+};
+
+const openPaymentQrDialog = async (table) => {
+  qrSelectedTable.value = table;
+  qrDataUrl.value = "";
+  qrLink.value = "";
+  qrMode.value = "payment";
+  qrPaymentAmount.value = 0;
+  showQrDialog.value = true;
+  try {
+    const res = await axios.post(`${API_BASE}/api/payments/vietqr`, { tableToken: table.qr_token });
+    const raw = res.data?.vietqrRaw;
+    qrPaymentAmount.value = res.data?.amount || 0;
+    if (!raw) throw new Error("NO_QR");
+    qrDataUrl.value = await QRCode.toDataURL(raw, { margin: 1, width: 260 });
+  } catch (e) {
+    console.error("Payment QR error:", e);
+    ElMessage.error(e.response?.data?.error || "Không thể tạo QR thanh toán");
+  }
+};
+
+const copyQrLink = async () => {
+  try {
+    if (!qrLink.value) return;
+    await navigator.clipboard.writeText(qrLink.value);
+    ElMessage.success("Đã copy link");
+  } catch {
+    ElMessage.error("Copy thất bại");
+  }
 };
 
 // Lọc bàn (chuẩn hóa: reserved = pre-ordered)
@@ -1142,6 +1261,50 @@ onUnmounted(() => {
   color: var(--hl-admin-success);
   font-size: 1.1rem;
   font-weight: 700;
+}
+
+.qr-token-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.qr-dialog {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.qr-title {
+  font-size: 16px;
+}
+.qr-image-wrap {
+  display: flex;
+  justify-content: center;
+  padding: 12px;
+  background: #fff;
+  border: 1px solid var(--hl-admin-border);
+  border-radius: var(--hl-radius-md);
+}
+.qr-image {
+  width: 260px;
+  height: 260px;
+  object-fit: contain;
+}
+.qr-link .label {
+  font-size: 12px;
+  color: var(--hl-text-muted);
+  margin-bottom: 6px;
+}
+
+.qr-payment-meta .label {
+  font-size: 12px;
+  color: var(--hl-text-muted);
+  margin-top: 10px;
+}
+.qr-payment-meta .value {
+  font-weight: 800;
+  margin-top: 2px;
 }
 
 /* Badge đặt trước trên card bàn Trống */

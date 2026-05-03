@@ -205,7 +205,7 @@ const requestBill = async () => {
   try {
     const token = localStorage.getItem("token");
     await axios.post(
-      "http://localhost:3000/api/users/me/request-bill",
+      "http://localhost:3000/api/reservations/request-bill",
       {
         reservation_id: activeSession.value.reservation?.reservation_id,
       },

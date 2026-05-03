@@ -8,6 +8,12 @@ module.exports = (sequelize, DataTypes) => {
     table_number: DataTypes.INTEGER,
     capacity: DataTypes.INTEGER,
     status: DataTypes.STRING,
+    // Token in QR tĩnh của bàn (dùng để resolve bàn mà không lộ table_id)
+    qr_token: {
+      type: DataTypes.STRING,
+      allowNull: true,
+      unique: true,
+    },
     branch_id: DataTypes.INTEGER,
     created_at: DataTypes.DATE
   }, {

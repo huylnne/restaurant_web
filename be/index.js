@@ -19,11 +19,29 @@ db.sequelize.authenticate()
   })
   .then(() => {
     console.log('✅ Sequelize đã sync models');
+    // payments: cho phép order_id NULL và thêm reservation_id + unique index
+    return db.sequelize
+      .query('ALTER TABLE payments ALTER COLUMN order_id DROP NOT NULL;', { raw: true })
+      .catch(() => {});
+  })
+  .then(() => {
+    return db.sequelize
+      .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS reservation_id INTEGER;', { raw: true })
+      .catch(() => {});
+  })
+  .then(() => {
+    return db.sequelize
+      .query(
+        'CREATE UNIQUE INDEX IF NOT EXISTS payments_reservation_id_uq ON payments(reservation_id) WHERE reservation_id IS NOT NULL;',
+        { raw: true }
+      )
+      .catch(() => {});
+  })
+  .then(() => {
     // Cho phép reservation_id = NULL (đơn waiter tạo theo bàn không qua đặt bàn)
-    return db.sequelize.query(
-      'ALTER TABLE orders ALTER COLUMN reservation_id DROP NOT NULL;',
-      { raw: true }
-    ).catch(() => {});
+    return db.sequelize
+      .query('ALTER TABLE orders ALTER COLUMN reservation_id DROP NOT NULL;', { raw: true })
+      .catch(() => {});
   })
   .then(() => {
     // Chuẩn hóa trạng thái bàn: chỉ dùng available | occupied | pre-ordered
@@ -67,6 +85,10 @@ app.use('/api/orders', orderRoutes);
 // Payment routes
 const paymentRoutes = require('./routes/user/payments.routes');
 app.use('/api/payments', paymentRoutes);
+
+// Public QR table routes
+const publicTableRoutes = require("./routes/public/tables.routes");
+app.use("/api/public/tables", publicTableRoutes);
 
 // Upload routes
 const uploadRoutes = require('./routes/user/upload');

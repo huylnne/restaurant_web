@@ -18,6 +18,7 @@ const UserProfile = () => import('@/views/UserProfile.vue');
 const OrderMenu = () => import('@/views/Ordermenu.vue');
 const Booking = () => import('@/views/Booking.vue');
 const MyTable = () => import('@/views/MyTable.vue');
+const TableQr = () => import('@/views/TableQr.vue');
 
 const routes = [
   {
@@ -41,6 +42,7 @@ const routes = [
       { path: 'dashboard', name: 'UserDashboard', component: UserDashboard, meta: { requiresAuth: true } },
       { path: 'profile', name: 'UserProfile', component: UserProfile },
       { path: 'my-table', name: 'MyTable', component: MyTable, meta: { requiresAuth: true } },
+      { path: 't/:token', name: 'TableQr', component: TableQr },
       // Routes quản lý: meta.allowedRoles – kitchen chỉ được vào /admin/kitchen
       { path: 'admin', name: 'AdminDashboard', component: AdminDashboard, meta: { allowedRoles: ['admin', 'waiter'] } },
       { path: 'admin/tables', name: 'AdminTables', component: AdminTables, meta: { allowedRoles: ['admin', 'waiter'] } },

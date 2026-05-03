@@ -7,5 +7,7 @@ router.post('/session', ctrl.createSession);
 router.post('/webhook/momo', express.json({ type: '*/*' }), ctrl.momoWebhook);
 router.get('/return', ctrl.paymentReturn);
 router.get('/by-order/:id', ctrl.getPaymentByOrder);
+router.get('/by-reservation/:id', ctrl.getPaymentByReservation);
+router.post('/vietqr', ctrl.createVietQr);
 
 module.exports = router;

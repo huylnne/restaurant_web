@@ -8,10 +8,24 @@ const {
 } = require("../../models");
 const { Sequelize, Op } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
+const crypto = require("crypto");
 
 const DEFAULT_BRANCH_ID = tableSummaryService.DEFAULT_BRANCH_ID;
 
 const tableService = {
+  async ensureQrToken(table) {
+    if (table.qr_token) return table.qr_token;
+    // Best-effort tránh collision: generate và check tồn tại
+    for (let i = 0; i < 5; i++) {
+      const token = crypto.randomBytes(16).toString("hex");
+      const exists = await Table.findOne({ where: { qr_token: token }, attributes: ["table_id"] });
+      if (!exists) {
+        await table.update({ qr_token: token });
+        return token;
+      }
+    }
+    throw new Error("Không thể sinh QR token cho bàn");
+  },
   // Lấy danh sách bàn (cùng branch với getTableSummary để số liệu khớp).
   // Trước khi trả về: tự chuyển bàn đặt trước quá 15 phút (khách chưa tới) thành trống.
   async getTables(branchId = DEFAULT_BRANCH_ID) {
@@ -78,6 +92,13 @@ const tableService = {
       ],
       order: [["table_number", "ASC"]],
     });
+
+    // Lazy-backfill qr_token cho bàn cũ (để admin có thể in QR ngay)
+    await Promise.all(
+      tables
+        .filter((t) => !t.qr_token)
+        .map((t) => this.ensureQrToken(t).catch(() => null))
+    );
 
     // Tính toán thông tin bổ sung cho mỗi bàn
     return tables.map((table) => {
@@ -153,6 +174,7 @@ const tableService = {
       branch_id,
     });
 
+    await this.ensureQrToken(table);
     return table;
   },
 
