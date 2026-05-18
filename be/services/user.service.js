@@ -1,6 +1,6 @@
 const db = require("../models/db");
 const User = db.User;
-const { Reservation, Order, OrderItem, MenuItem, Table } = require('../models');
+const { Reservation, Order, OrderItem, MenuItem, Table, Payment, Review } = require('../models');
 const DEFAULT_AVATAR_URL = "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
 
 // ✅ Lấy profile
@@ -87,6 +87,17 @@ exports.getReservationsWithOrders = async (userId) => {
           model: Table,
           as: 'Table',
           attributes: ['table_number', 'capacity', 'status']
+        },
+        {
+          model: Review,
+          as: 'Review',
+          attributes: ['review_id', 'rating', 'comment', 'created_at'],
+          required: false,
+        },
+        {
+          model: Payment,
+          attributes: ['payment_id', 'status', 'method', 'paid_at'],
+          required: false,
         }
       ],
       order: [['reservation_time', 'DESC']]
@@ -96,6 +107,71 @@ exports.getReservationsWithOrders = async (userId) => {
   } catch (error) {
     console.error('Lỗi getReservationsWithOrders:', error);
     throw new Error('Không thể lấy lịch sử đặt bàn');
+  }
+};
+
+// UC13: Gửi đánh giá chất lượng dịch vụ
+exports.createReservationReview = async (userId, { reservation_id, rating, comment }) => {
+  const reservationId = Number(reservation_id);
+  const normalizedRating = Number(rating);
+  const normalizedComment = String(comment || "").trim();
+
+  if (!Number.isInteger(reservationId) || reservationId <= 0) {
+    throw new Error("RESERVATION_ID_INVALID");
+  }
+  if (!Number.isInteger(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
+    throw new Error("RATING_INVALID");
+  }
+  if (!normalizedComment || normalizedComment.length < 5) {
+    throw new Error("COMMENT_TOO_SHORT");
+  }
+  if (normalizedComment.length > 1000) {
+    throw new Error("COMMENT_TOO_LONG");
+  }
+
+  const reservation = await Reservation.findOne({
+    where: { reservation_id: reservationId, user_id: userId },
+    attributes: ["reservation_id", "user_id", "status"],
+  });
+  if (!reservation) {
+    throw new Error("RESERVATION_NOT_FOUND");
+  }
+
+  const existing = await Review.findOne({
+    where: { reservation_id: reservationId },
+    attributes: ["review_id"],
+  });
+  if (existing) {
+    throw new Error("REVIEW_ALREADY_EXISTS");
+  }
+
+  // Chỉ cho đánh giá khi đã hoàn tất dịch vụ hoặc đã thanh toán.
+  const isCompleted = String(reservation.status || "").toLowerCase() === "completed";
+  const payment = await Payment.findOne({
+    where: { reservation_id: reservationId, status: "succeeded" },
+    attributes: ["payment_id"],
+  });
+  const isPaid = !!payment;
+
+  if (!isCompleted && !isPaid) {
+    throw new Error("REVIEW_NOT_ALLOWED");
+  }
+
+  try {
+    const review = await Review.create({
+      reservation_id: reservationId,
+      user_id: userId,
+      rating: normalizedRating,
+      comment: normalizedComment,
+      created_at: new Date(),
+    });
+
+    return review;
+  } catch (error) {
+    if (error?.name === "SequelizeUniqueConstraintError") {
+      throw new Error("REVIEW_ALREADY_EXISTS");
+    }
+    throw error;
   }
 };
 

@@ -40,6 +40,9 @@ db.Order.belongsTo(db.Table, { foreignKey: 'table_id' });
 db.User.hasMany(db.Reservation, { foreignKey: 'user_id' });
 db.Reservation.belongsTo(db.User, { foreignKey: 'user_id' });
 
+db.User.hasMany(db.Review, { foreignKey: 'user_id' });
+db.Review.belongsTo(db.User, { foreignKey: 'user_id' });
+
 // Employee relationships
 db.User.hasOne(db.Employee, { foreignKey: 'user_id' });
 db.Employee.belongsTo(db.User, { foreignKey: 'user_id' });
@@ -47,5 +50,8 @@ db.Employee.belongsTo(db.User, { foreignKey: 'user_id' });
 // Reservation - Order (đúng alias)
 db.Reservation.hasMany(db.Order, { foreignKey: 'reservation_id', as: 'Orders' });
 db.Order.belongsTo(db.Reservation, { foreignKey: 'reservation_id' });
+
+db.Reservation.hasOne(db.Review, { foreignKey: 'reservation_id', as: 'Review' });
+db.Review.belongsTo(db.Reservation, { foreignKey: 'reservation_id' });
 
 module.exports = db;

@@ -19,7 +19,14 @@ export const SIDEBAR_MENU = [
     label: "Báo cáo & Thống kê",
     icon: "DataLine",
     route: "/admin/reports",
-    roles: ["admin"],
+    roles: ["admin", "manager"],
+  },
+  {
+    key: "reviews",
+    label: "Quản lý đánh giá",
+    icon: "DataLine",
+    route: "/admin/reviews",
+    roles: ["admin", "manager"],
   },
   {
     key: "employees",

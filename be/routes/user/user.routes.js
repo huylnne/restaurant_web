@@ -10,5 +10,6 @@ router.post('/change-password', verifyToken, userController.changePassword);
 router.get('/reservations', verifyToken, userController.getReservationsWithOrders);
 router.get('/me/current-table', verifyToken, userController.getCurrentTableSession);
 router.get('/me/current-bill', verifyToken, userController.getCurrentBill);
+router.post('/reviews', verifyToken, userController.createReview);
 
 module.exports = router;

@@ -14,10 +14,26 @@
         <form @submit.prevent="handleRegister">
           <input v-model="username" placeholder="Tên đăng nhập" required />
 
-          <input v-model="password" type="password" placeholder="Mật khẩu" required />
+          <input
+            v-model="password"
+            type="password"
+            placeholder="Mật khẩu (8–32 ký tự)"
+            minlength="8"
+            maxlength="32"
+            autocomplete="new-password"
+            required
+          />
           <p v-if="passwordWarning" class="field-warning">{{ passwordWarning }}</p>
 
-          <input v-model="confirmPassword" type="password" placeholder="Xác nhận mật khẩu" required />
+          <input
+            v-model="confirmPassword"
+            type="password"
+            placeholder="Xác nhận mật khẩu"
+            minlength="8"
+            maxlength="32"
+            autocomplete="new-password"
+            required
+          />
           <p v-if="confirmWarning" class="field-warning">{{ confirmWarning }}</p>
 
           <input v-model="fullName" placeholder="Họ và tên" required />
@@ -48,7 +64,6 @@ const password = ref("");
 const confirmPassword = ref("");
 const fullName = ref("");
 const phone = ref("");
-const branchId = ref(1);
 const errorMessage = ref("");
 const phoneTakenError = ref("");
 
@@ -62,7 +77,9 @@ const phoneWarning = computed(() => {
 const passwordWarning = computed(() => {
   const v = password.value;
   if (!v) return "";
-  return v.length >= 6 ? "" : "Mật khẩu phải có ít nhất 6 ký tự";
+  if (v.length > 32) return "Mật khẩu không được vượt quá 32 ký tự";
+  if (v.length < 8) return "Mật khẩu phải có từ 8 đến 32 ký tự";
+  return "";
 });
 
 const confirmWarning = computed(() => {
@@ -87,9 +104,9 @@ const checkPhoneTaken = async () => {
 const handleRegister = async () => {
   errorMessage.value = "";
 
-  // Validate trước khi gửi
-  if (password.value.length < 6) {
-    errorMessage.value = "Mật khẩu phải có ít nhất 6 ký tự";
+  // Validate trước khi gửi (khớp backend: 8–32 ký tự)
+  if (password.value.length < 8 || password.value.length > 32) {
+    errorMessage.value = "Mật khẩu phải có độ dài từ 8 đến 32 ký tự";
     return;
   }
   if (password.value !== confirmPassword.value) {
@@ -106,12 +123,10 @@ const handleRegister = async () => {
 
   try {
     await axios.post("http://localhost:3000/api/auth/register", {
-      username: username.value,
+      username: username.value.trim(),
       password: password.value,
-      full_name: fullName.value,
+      full_name: fullName.value.trim(),
       phone: normalizedPhone,
-      branch_id: branchId.value,
-      role: "user",
     });
     ElMessage.success("Đăng ký thành công!");
     router.push("/login");

@@ -6,6 +6,7 @@ import AdminTables from "../views/admin/AdminTables.vue";
 import AdminKitchen from "../views/admin/AdminKitchen.vue";
 import EmployeeManagement from "../views/admin/EmployeeManagement.vue";
 import AdminReports from "../views/admin/AdminReports.vue";
+import AdminReviews from "../views/admin/AdminReviews.vue";
 import BranchManagement from "../views/admin/BranchManagement.vue";
 import { getDefaultStaffPath, canAccessRoute, isStaffRole } from '@/utils/auth.js';
 
@@ -19,6 +20,10 @@ const OrderMenu = () => import('@/views/Ordermenu.vue');
 const Booking = () => import('@/views/Booking.vue');
 const MyTable = () => import('@/views/MyTable.vue');
 const TableQr = () => import('@/views/TableQr.vue');
+const AboutView = () => import('@/views/AboutView.vue');
+const SaleView = () => import('@/views/SaleView.vue');
+const NewsView = () => import('@/views/NewsView.vue');
+const ContactView = () => import('@/views/ContactView.vue');
 
 const routes = [
   {
@@ -37,6 +42,10 @@ const routes = [
     children: [
       { path: '', name: 'Home', component: Home },
       { path: 'menu', name: 'Menu', component: MenuView },
+      { path: 'about', name: 'About', component: AboutView },
+      { path: 'sale', name: 'Sale', component: SaleView },
+      { path: 'news', name: 'News', component: NewsView },
+      { path: 'contact', name: 'Contact', component: ContactView },
       { path: 'booking', name: 'Booking', component: Booking },
       { path: 'order-menu', name: 'OrderMenu', component: OrderMenu },
       { path: 'dashboard', name: 'UserDashboard', component: UserDashboard, meta: { requiresAuth: true } },
@@ -49,7 +58,8 @@ const routes = [
       { path: 'admin/kitchen', name: 'AdminKitchen', component: AdminKitchen, meta: { allowedRoles: ['admin', 'waiter', 'kitchen'] } },
       { path: 'admin/menu', name: 'AdminMenu', component: MenuView, meta: { allowedRoles: ['admin', 'waiter'] } },
       { path: 'admin/employees', name: 'EmployeeManagement', component: EmployeeManagement, meta: { allowedRoles: ['admin'] } },
-      { path: 'admin/reports', name: 'AdminReports', component: AdminReports, meta: { allowedRoles: ['admin'] } },
+      { path: 'admin/reports', name: 'AdminReports', component: AdminReports, meta: { allowedRoles: ['admin', 'manager'] } },
+      { path: 'admin/reviews', name: 'AdminReviews', component: AdminReviews, meta: { allowedRoles: ['admin', 'manager'] } },
       { path: 'admin/branches', name: 'AdminBranches', component: BranchManagement, meta: { allowedRoles: ['admin'] } },
       { path: 'admin/my-branch', name: 'MyBranchManagement', component: BranchManagement, meta: { allowedRoles: ['manager', 'admin'] } },
     ],

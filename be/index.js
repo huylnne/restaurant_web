@@ -111,6 +111,9 @@ app.use('/api/admin/employees',adminEmployeeRoutes)
 const adminReportRoutes = require('./routes/admin/report.routes')
 app.use('/api/admin/reports',adminReportRoutes)
 
+const adminReviewRoutes = require('./routes/admin/review.routes');
+app.use('/api/admin/reviews', adminReviewRoutes);
+
 const adminBranchRoutes = require('./routes/admin/branch.routes');
 app.use('/api/admin/branches', adminBranchRoutes);
 
@@ -123,6 +126,22 @@ app.use('/api/admin/waiter', waiterRoutes);
 
 app.get('/', (req, res) => {
   res.send(' Backend API đang chạy!');
+});
+
+// Body không phải JSON hợp lệ (hay gặp: curl/ghi trong PowerShell sai dấu nháy → body-parser lỗi)
+app.use((err, req, res, next) => {
+  const isJsonSyntax =
+    err &&
+    typeof err.message === 'string' &&
+    (err.message.includes('JSON') || err.type === 'entity.parse.failed');
+
+  if (err instanceof SyntaxError && isJsonSyntax) {
+    return res.status(400).json({
+      message:
+        'Body không phải JSON hợp lệ. Dùng Content-Type: application/json, key và chuỗi bọc trong dấu nháy kép ("). Trên Windows nên POST từ file: curl -d @body.json hoặc Invoke-RestMethod + ConvertTo-Json.',
+    });
+  }
+  return next(err);
 });
 
 const PORT = process.env.PORT || 3000;

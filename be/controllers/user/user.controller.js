@@ -79,3 +79,40 @@ exports.getCurrentBill = async (req, res) => {
     res.status(500).json({ message: "Không thể lấy hóa đơn tạm tính" });
   }
 };
+
+// UC13 - Gửi đánh giá dịch vụ
+exports.createReview = async (req, res) => {
+  try {
+    const review = await userService.createReservationReview(req.userId, req.body);
+    return res.status(201).json({
+      message: "Gửi đánh giá thành công",
+      review,
+    });
+  } catch (err) {
+    const map = {
+      RESERVATION_ID_INVALID: 400,
+      RATING_INVALID: 400,
+      COMMENT_TOO_SHORT: 400,
+      COMMENT_TOO_LONG: 400,
+      RESERVATION_NOT_FOUND: 404,
+      REVIEW_ALREADY_EXISTS: 409,
+      REVIEW_NOT_ALLOWED: 400,
+    };
+    return res.status(map[err.message] || 500).json({
+      message:
+        err.message === "COMMENT_TOO_SHORT"
+          ? "Nội dung đánh giá quá ngắn (tối thiểu 5 ký tự)"
+          : err.message === "COMMENT_TOO_LONG"
+          ? "Nội dung đánh giá quá dài (tối đa 1000 ký tự)"
+          : err.message === "RATING_INVALID"
+          ? "Vui lòng chọn số sao từ 1 đến 5"
+          : err.message === "REVIEW_ALREADY_EXISTS"
+          ? "Bạn đã đánh giá cho lượt đặt bàn này rồi"
+          : err.message === "REVIEW_NOT_ALLOWED"
+          ? "Chỉ có thể đánh giá sau khi hoàn tất hoặc đã thanh toán"
+          : err.message === "RESERVATION_NOT_FOUND"
+          ? "Không tìm thấy lượt đặt bàn hợp lệ"
+          : "Không thể gửi đánh giá",
+    });
+  }
+};

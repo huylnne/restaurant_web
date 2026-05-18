@@ -5,12 +5,30 @@ const db = require("../../models/db");
 const User = db.User;
 const DEFAULT_AVATAR_URL = "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
 const PHONE_REGEX = /^0\d{9}$/;
+const PASSWORD_MIN_LEN = 8;
+const PASSWORD_MAX_LEN = 32;
 
-//  ĐĂNG KÝ
+//  ĐĂNG KÝ — chỉ dành cho khách hàng: không tin role/branch_id từ client
 const register = async (req, res) => {
   try {
-    const { username, password, full_name, phone, branch_id, role } = req.body;
+    const { username, password, full_name, phone } = req.body;
     const normalizedPhone = String(phone || "").trim();
+    const normalizedFullName = String(full_name || "").trim();
+
+    if (!username || !String(username).trim()) {
+      return res.status(400).json({ message: "Vui lòng nhập tên đăng nhập" });
+    }
+
+    const pwd = typeof password === "string" ? password : "";
+    if (pwd.length < PASSWORD_MIN_LEN || pwd.length > PASSWORD_MAX_LEN) {
+      return res.status(400).json({
+        message: `Mật khẩu phải có độ dài từ ${PASSWORD_MIN_LEN} đến ${PASSWORD_MAX_LEN} ký tự`,
+      });
+    }
+
+    if (!normalizedFullName) {
+      return res.status(400).json({ message: "Vui lòng nhập họ tên" });
+    }
 
     // Chuẩn hóa username
     const normalizedUsername = username.trim().toLowerCase();
@@ -37,17 +55,17 @@ const register = async (req, res) => {
     }
 
     // Hash password
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await bcrypt.hash(pwd, 10);
 
-    // Tạo user mới
+    // Tạo user mới — luôn role khách, không gán chi nhánh qua đăng ký công khai
     const newUser = await User.create({
       username: normalizedUsername,
       password_hash: hashedPassword,
-      full_name,
+      full_name: normalizedFullName,
       phone: normalizedPhone,
       avatar_url: DEFAULT_AVATAR_URL,
-      branch_id: branch_id || 1,
-      role: role || 'user'
+      branch_id: null,
+      role: "user",
     });
 
     res.status(201).json({

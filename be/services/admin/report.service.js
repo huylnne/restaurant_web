@@ -35,20 +35,33 @@ const reportService = {
       type: Sequelize.QueryTypes.SELECT
     });
 
-    // Tổng số đơn hàng hoàn thành
-    const totalOrders = await Order.count({
-      where: {
-        status: 'COMPLETED',
-        ...whereClause
-      }
+    // Tổng số đơn hoàn thành / đang xử lý (lọc đúng theo chi nhánh)
+    // Dùng COALESCE theo branch từ reservation hoặc table để không phụ thuộc menu_items.
+    let orderCountDateClause = '';
+    const orderCountParams = [branchId];
+    if (startDate && endDate) {
+      orderCountDateClause = ' AND o.created_at BETWEEN $2 AND $3';
+      orderCountParams.push(startDate, endDate);
+    }
+
+    const orderCountQuery = `
+      SELECT
+        COUNT(*) FILTER (WHERE o.status = 'COMPLETED') AS total_completed_orders,
+        COUNT(*) FILTER (WHERE o.status = 'IN_PROGRESS') AS total_in_progress_orders
+      FROM orders o
+      LEFT JOIN reservations r ON o.reservation_id = r.reservation_id
+      LEFT JOIN tables t ON o.table_id = t.table_id
+      WHERE COALESCE(r.branch_id, t.branch_id) = $1
+      ${orderCountDateClause}
+    `;
+
+    const [orderCountResult] = await db.sequelize.query(orderCountQuery, {
+      bind: orderCountParams,
+      type: Sequelize.QueryTypes.SELECT,
     });
 
-    // Tổng số đơn hàng đang xử lý
-    const pendingOrders = await Order.count({
-      where: {
-        status: 'IN_PROGRESS'
-      }
-    });
+    const totalOrders = parseInt(orderCountResult.total_completed_orders, 10) || 0;
+    const pendingOrders = parseInt(orderCountResult.total_in_progress_orders, 10) || 0;
 
     // Tổng số reservation
     const totalReservations = await Reservation.count({
