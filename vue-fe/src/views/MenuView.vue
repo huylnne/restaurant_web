@@ -8,7 +8,7 @@
           {{ canManage ? 'Xem, thêm, sửa và xóa món trong thực đơn' : 'Xem danh sách món ăn' }}
         </p>
       </div>
-      <!-- Chỉ admin mới thêm món -->
+      <!-- Admin / manager: thêm món -->
       <button v-if="canManage" class="add-dish-btn" @click="openAddModal">
         <el-icon><Plus /></el-icon>
         Thêm món
@@ -48,7 +48,7 @@
       </div>
 
       <div class="all-dishes">
-        <div class="dish-list">
+        <div ref="dishListRef" class="dish-list">
           <div
             class="dish-card"
             v-for="(dish, index) in filteredMenuItems"
@@ -91,7 +91,7 @@
 
         <PaginationBar
           :current-page="currentPage"
-          :total-pages="Math.max(1, totalPages)"
+          :total-pages="totalPages"
           :show-when-single-page="true"
           @update:current-page="(p) => (currentPage = p)"
         />
@@ -167,7 +167,7 @@
 </template>
 
 <script setup>
-import { ref, reactive, onMounted, computed } from "vue";
+import { ref, reactive, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { useRouter, useRoute } from "vue-router";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -186,8 +186,8 @@ const categoryOptions = [
   { value: "Đồ uống", label: "Đồ uống", icon: GobletFull },
 ];
 
-// isAdminView: true khi vào qua /admin/menu (admin + waiter) → hiển thị giao diện quản lý
-// canManage  : chỉ admin → được Thêm / Sửa / Xóa món
+// isAdminView: true khi vào qua /admin/menu (admin + manager + waiter) → giao diện quản lý
+// canManage  : admin + manager → Thêm / Sửa / Xóa món (theo branch_id)
 const isAdminView = ref(false);
 const canManage   = ref(false);
 const user = getCurrentUser();
@@ -202,8 +202,55 @@ const isAdmin = canManage;
 const selectedCategory = ref("");
 const allMenuItems = ref([]);
 const currentPage = ref(1);
-const totalPages = ref(1);
-const limit = 8;
+const dishListRef = ref(null);
+const pageSize = ref(12);
+let menuGridResizeObserver = null;
+
+function readCssPxVar(name, fallback) {
+  if (typeof document === "undefined") return fallback;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function computeMenuPageSize() {
+  const el = dishListRef.value;
+  if (!el || typeof window === "undefined") return;
+  const w = el.clientWidth;
+  if (w < 80) return;
+
+  const minCard = isAdminView.value
+    ? readCssPxVar("--hl-admin-grid-min", 260)
+    : 260;
+  const gap = isAdminView.value
+    ? readCssPxVar("--hl-admin-grid-gap", 20)
+    : readCssPxVar("--hl-space-lg", 24);
+  const cols = Math.max(1, Math.floor((w + gap) / (minCard + gap)));
+
+  const rect = el.getBoundingClientRect();
+  const reserveBottom = 100;
+  const availH = Math.max(320, window.innerHeight - rect.top - reserveBottom);
+  const estRowH = isAdminView.value ? 320 : 300;
+  const rows = Math.max(2, Math.min(8, Math.floor(availH / estRowH)));
+
+  const next = Math.min(100, Math.max(cols * rows, cols * 2));
+  if (pageSize.value !== next) {
+    pageSize.value = next;
+  }
+}
+
+function clampMenuPage() {
+  const total = filteredAllItems.value.length;
+  const maxPage = Math.max(1, Math.ceil(total / pageSize.value));
+  if (currentPage.value > maxPage) {
+    currentPage.value = maxPage;
+  }
+}
+
+function onMenuGridLayoutTick() {
+  computeMenuPageSize();
+  clampMenuPage();
+}
 
 // Modal state
 const showModal = ref(false);
@@ -220,15 +267,28 @@ const formState = reactive({
   branch_id: 1,
 });
 
-onMounted(() => {
+onMounted(async () => {
   const token = localStorage.getItem("token");
   const user  = JSON.parse(localStorage.getItem("user") || "{}");
   const role  = user?.role;
   const onAdminRoute = route.path.startsWith("/admin");
 
-  isAdminView.value = !!token && onAdminRoute && ["admin", "waiter"].includes(role);
-  canManage.value   = !!token && onAdminRoute && role === "admin";
-  fetchBranches().then(fetchAllMenuItems);
+  isAdminView.value = !!token && onAdminRoute && ["admin", "manager", "waiter"].includes(role);
+  canManage.value   = !!token && onAdminRoute && ["admin", "manager"].includes(role);
+  await fetchBranches();
+  await fetchAllMenuItems();
+  await nextTick();
+  onMenuGridLayoutTick();
+  if (dishListRef.value && typeof ResizeObserver !== "undefined") {
+    menuGridResizeObserver = new ResizeObserver(onMenuGridLayoutTick);
+    menuGridResizeObserver.observe(dishListRef.value);
+  }
+  window.addEventListener("resize", onMenuGridLayoutTick);
+});
+
+onUnmounted(() => {
+  menuGridResizeObserver?.disconnect();
+  window.removeEventListener("resize", onMenuGridLayoutTick);
 });
 
 const fetchBranches = async () => {
@@ -256,44 +316,37 @@ const fetchAllMenuItems = async () => {
       params: { branchId: selectedBranchId.value },
     });
     allMenuItems.value = res.data.items || [];
+    await nextTick();
+    onMenuGridLayoutTick();
   } catch (err) {
     console.error("Lỗi khi lấy menu:", err);
   }
 };
 
-// Filter items theo category (client-side)
-const filteredMenuItems = computed(() => {
+const filteredAllItems = computed(() => {
   let items = allMenuItems.value;
-
-  // Lọc theo category
   if (selectedCategory.value) {
     items = items.filter((item) => item.category === selectedCategory.value);
   }
+  return items;
+});
 
-  // Tính tổng số trang
-  totalPages.value = Math.ceil(items.length / limit);
+const totalPages = computed(() =>
+  Math.max(1, Math.ceil(filteredAllItems.value.length / pageSize.value))
+);
 
-  // Phân trang
-  const start = (currentPage.value - 1) * limit;
-  const end = start + limit;
-  return items.slice(start, end);
+const filteredMenuItems = computed(() => {
+  const start = (currentPage.value - 1) * pageSize.value;
+  return filteredAllItems.value.slice(start, start + pageSize.value);
+});
+
+watch([filteredAllItems, pageSize], () => {
+  clampMenuPage();
 });
 
 const selectCategory = (category) => {
   selectedCategory.value = category;
-  currentPage.value = 1; // Reset về trang 1
-};
-
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++;
-  }
-};
-
-const prevPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--;
-  }
+  currentPage.value = 1;
 };
 
 const handleOrderClick = () => {

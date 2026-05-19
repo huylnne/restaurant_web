@@ -4,13 +4,57 @@ const adminMenuController = require("../../controllers/admin/menu.controller");
 const { verifyToken, authorizeRole } = require("../../middlewares/auth");
 const { auditLog } = require("../../middlewares/operationLog");
 
-router.get("/", verifyToken, authorizeRole("admin", "waiter"), adminMenuController.getAll);
-router.get("/:id", verifyToken, authorizeRole("admin", "waiter"), adminMenuController.getById);
+// Manager chỉ CRUD/xem menu đúng chi nhánh được gán (không override branchId qua query/body)
+const enforceMenuBranchScope = (req, res, next) => {
+  const role = req.userRole || req.user?.role;
+  if (role !== "manager") return next();
+
+  const userBranchId = parseInt(req.user?.branch_id, 10);
+  if (!Number.isFinite(userBranchId)) {
+    return res
+      .status(403)
+      .json({ message: "Tài khoản manager chưa được gán chi nhánh" });
+  }
+
+  const requestedRaw =
+    req.query.branchId ?? req.query.branch_id ?? req.body?.branch_id;
+  if (requestedRaw !== undefined && requestedRaw !== null && requestedRaw !== "") {
+    const requestedBranchId = parseInt(requestedRaw, 10);
+    if (Number.isFinite(requestedBranchId) && requestedBranchId !== userBranchId) {
+      return res
+        .status(403)
+        .json({ message: "Manager chỉ được quản lý món của chi nhánh được phân công" });
+    }
+  }
+
+  req.query.branchId = String(userBranchId);
+  req.query.branch_id = String(userBranchId);
+  if (req.body && typeof req.body === "object") {
+    req.body.branch_id = userBranchId;
+  }
+  return next();
+};
+
+router.get(
+  "/",
+  verifyToken,
+  authorizeRole("admin", "waiter", "manager"),
+  enforceMenuBranchScope,
+  adminMenuController.getAll
+);
+router.get(
+  "/:id",
+  verifyToken,
+  authorizeRole("admin", "waiter", "manager"),
+  enforceMenuBranchScope,
+  adminMenuController.getById
+);
 
 router.post(
   "/",
   verifyToken,
-  authorizeRole("admin"),
+  authorizeRole("admin", "manager"),
+  enforceMenuBranchScope,
   auditLog({
     action: "MENU_CREATE",
     module: "menu",
@@ -23,7 +67,8 @@ router.post(
 router.put(
   "/:id",
   verifyToken,
-  authorizeRole("admin"),
+  authorizeRole("admin", "manager"),
+  enforceMenuBranchScope,
   auditLog({
     action: "MENU_UPDATE",
     module: "menu",
@@ -36,7 +81,8 @@ router.put(
 router.delete(
   "/:id",
   verifyToken,
-  authorizeRole("admin"),
+  authorizeRole("admin", "manager"),
+  enforceMenuBranchScope,
   auditLog({
     action: "MENU_DELETE",
     module: "menu",

@@ -61,7 +61,7 @@ const routes = [
       { path: 'admin', name: 'AdminDashboard', component: AdminDashboard, meta: { allowedRoles: ['admin', 'waiter'] } },
       { path: 'admin/tables', name: 'AdminTables', component: AdminTables, meta: { allowedRoles: ['admin', 'waiter'] } },
       { path: 'admin/kitchen', name: 'AdminKitchen', component: AdminKitchen, meta: { allowedRoles: ['admin', 'waiter', 'kitchen'] } },
-      { path: 'admin/menu', name: 'AdminMenu', component: MenuView, meta: { allowedRoles: ['admin', 'waiter'] } },
+      { path: 'admin/menu', name: 'AdminMenu', component: MenuView, meta: { allowedRoles: ['admin', 'manager', 'waiter'] } },
       { path: 'admin/employees', name: 'EmployeeManagement', component: EmployeeManagement, meta: { allowedRoles: ['admin'] } },
       { path: 'admin/customer-accounts', name: 'CustomerAccounts', component: CustomerAccounts, meta: { allowedRoles: ['admin'] } },
       { path: 'admin/reports', name: 'AdminReports', component: AdminReports, meta: { allowedRoles: ['admin', 'manager'] } },

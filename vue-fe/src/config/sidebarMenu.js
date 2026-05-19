@@ -2,7 +2,7 @@
  * Cấu hình menu sidebar dùng chung cho admin / manager / waiter / kitchen.
  * Mỗi item: key, label, icon (tên component), route (null = không link), roles (mảng role được phép xem).
  * - admin: full menu
- * - manager: quản lý chi nhánh của mình
+ * - manager: chi nhánh của mình, báo cáo, đánh giá, quản lý món ăn
  * - waiter: chỉ Quản lý món ăn, Quản lý bàn / Phục vụ, Bếp
  * - kitchen: chỉ Bếp
  */
@@ -61,7 +61,7 @@ export const SIDEBAR_MENU = [
     label: "Quản lý món ăn",
     icon: "Dish",
     route: "/admin/menu",
-    roles: ["admin", "waiter"],
+    roles: ["admin", "manager", "waiter"],
   },
   {
     key: "tables",
