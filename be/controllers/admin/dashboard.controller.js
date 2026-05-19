@@ -52,6 +52,7 @@ const dashboardController = {
         availableTables: data.empty,
         occupiedTables: data.occupied ?? data.serving,
         reservedTables: data.reserved,
+        cleaningTables: data.cleaning ?? 0,
       });
     } catch (error) {
       console.error('❌ Lỗi getTableStatus:', error);

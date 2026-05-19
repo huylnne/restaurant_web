@@ -1,11 +1,14 @@
 /** Nội dung tĩnh cho trang Giới thiệu, Khuyến mãi, Tin tức, Liên hệ */
 
 export const BRAND = {
-  name: "HL Food",
-  tagline: "Trải nghiệm ẩm thực Việt đặc sắc trong không gian ấm cúng",
-  hotline: "0879530869",
-  email: "huytdtm@gmail.com",
+  name: "ABC Restaurant",
+  shortName: "ABC",
+  logo: "/images/logo.svg",
+  tagline: "Hương vị tinh tế — trải nghiệm ẩm thực trong không gian ấm cúng",
+  hotline: "19001234",
+  email: "contact@abcrestaurant.vn",
   hours: "8:00 – 22:00",
+  hoursDisplay: "8AM - 10PM",
 };
 
 export const ABOUT_VALUES = [
@@ -89,13 +92,13 @@ export const NEWS_ARTICLES = [
   {
     id: 1,
     slug: "mo-rong-chi-nhanh",
-    title: "HL Food mở rộng hệ thống chi nhánh",
+    title: "ABC Restaurant mở rộng hệ thống chi nhánh",
     excerpt:
       "Chúng tôi tiếp tục đầu tư không gian phục vụ và đồng bộ quy trình vận hành trên nền tảng quản lý tập trung.",
     date: "2026-04-10",
     category: "Tin công ty",
     image: "/images/homeimg1.png",
-    body: `HL Food hướng tới mô hình chuỗi nhà hàng hiện đại: khách đặt bàn trực tuyến, nhân viên phục vụ và bếp phối hợp qua hệ thống, quản lý theo dõi doanh thu theo từng chi nhánh.
+    body: `ABC Restaurant hướng tới mô hình chuỗi nhà hàng hiện đại: khách đặt bàn trực tuyến, nhân viên phục vụ và bếp phối hợp qua hệ thống, quản lý theo dõi doanh thu theo từng chi nhánh.
 
 Mỗi chi nhánh mới đều được chuẩn hóa thực đơn, sơ đồ bàn và quy trình thanh toán để đảm bảo trải nghiệm đồng nhất.`,
   },
@@ -108,7 +111,7 @@ Mỗi chi nhánh mới đều được chuẩn hóa thực đơn, sơ đồ bàn
     date: "2026-03-22",
     category: "Thực đơn",
     image: "/images/homeimg2.png",
-    body: `Đầu bếp HL Food giới thiệu series món mùa hè với nguyên liệu tươi, ít dầu mỡ. Khách có thể xem menu theo chi nhánh và đặt món trước khi đến nhà hàng.
+    body: `Đầu bếp ABC Restaurant giới thiệu series món mùa hè với nguyên liệu tươi, ít dầu mỡ. Khách có thể xem menu theo chi nhánh và đặt món trước khi đến nhà hàng.
 
 Một số món nổi bật sẽ được gắn nhãn "Món nổi bật" trên trang chủ để bạn dễ lựa chọn.`,
   },
@@ -134,7 +137,7 @@ Tính năng phù hợp nhóm đông, tiệc sinh nhật và các buổi sum họ
     date: "2026-01-15",
     category: "Tin công ty",
     image: "/images/homeimg2.png",
-    body: `HL Food duy trì quy trình nhập kho, sơ chế và chế biến có checklist. Đội ngũ bếp cập nhật trạng thái món trên hệ thống để giảm nhầm lẫn khi phục vụ.
+    body: `ABC Restaurant duy trì quy trình nhập kho, sơ chế và chế biến có checklist. Đội ngũ bếp cập nhật trạng thái món trên hệ thống để giảm nhầm lẫn khi phục vụ.
 
 Chúng tôi định kỳ đào tạo nhân viên về vệ sinh và phục vụ khách hàng.`,
   },

@@ -54,4 +54,7 @@ db.Order.belongsTo(db.Reservation, { foreignKey: 'reservation_id' });
 db.Reservation.hasOne(db.Review, { foreignKey: 'reservation_id', as: 'Review' });
 db.Review.belongsTo(db.Reservation, { foreignKey: 'reservation_id' });
 
+db.User.hasMany(db.OperationLog, { foreignKey: 'user_id' });
+db.OperationLog.belongsTo(db.User, { foreignKey: 'user_id' });
+
 module.exports = db;

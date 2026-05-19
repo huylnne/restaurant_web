@@ -2,14 +2,45 @@ const express = require('express');
 const router = express.Router();
 const waiterController = require('../../controllers/admin/waiter.controller');
 const { verifyToken, authorizeRole } = require('../../middlewares/auth');
+const { auditLog } = require('../../middlewares/operationLog');
 
-// Chỉ admin, waiter (kitchen không tạo đơn / phục vụ bàn)
 router.use(verifyToken, authorizeRole('admin', 'waiter'));
 
-router.post('/orders', waiterController.createOrder);
+router.post(
+  '/orders',
+  auditLog({
+    action: 'WAITER_ORDER_CREATE',
+    module: 'orders',
+    description: 'Phục vụ: tạo đơn tại bàn',
+    entityType: 'order',
+  }),
+  waiterController.createOrder
+);
+
 router.get('/orders', waiterController.listOrdersByTable);
-router.patch('/order-items/:id/served', waiterController.serveOrderItem);
-router.patch('/tables/:id/status', waiterController.updateTableStatus);
+
+router.patch(
+  '/order-items/:id/served',
+  auditLog({
+    action: 'WAITER_ITEM_SERVED',
+    module: 'orders',
+    description: (req) => `Đánh dấu đã phục vụ món #${req.params.id}`,
+    entityType: 'order_item',
+  }),
+  waiterController.serveOrderItem
+);
+
+router.patch(
+  '/tables/:id/status',
+  auditLog({
+    action: 'WAITER_TABLE_STATUS',
+    module: 'tables',
+    description: (req) => `Đổi trạng thái bàn #${req.params.id}`,
+    entityType: 'table',
+  }),
+  waiterController.updateTableStatus
+);
+
 router.get('/tables/:id/bill', waiterController.getTableBill);
 
 module.exports = router;

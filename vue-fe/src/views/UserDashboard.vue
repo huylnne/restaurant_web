@@ -23,9 +23,15 @@
           </div>
           <div class="slider_overlay">
             <h1>Chào mừng đến với</h1>
-            <span>HL Food</span>
+            <span>{{ BRAND.name }}</span>
             <h2>Trải nghiệm ẩm thực Việt đặc sắc trong không gian ấm cúng</h2>
             <div class="overlay_btn">
+              <router-link to="/branches/nearby">
+                <el-button type="primary">
+                  <el-icon class="btn-icon-inline"><Location /></el-icon>
+                  Chi nhánh gần bạn
+                </el-button>
+              </router-link>
               <router-link to="./booking">
                 <el-button type="warning">Đặt bàn ngay</el-button>
               </router-link>
@@ -65,12 +71,17 @@
             <button class="scroll-right" @click="scrollRight">›</button>
           </div>
         </div>
+
+        <HomeNearbySection />
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
+import HomeNearbySection from "@/components/HomeNearbySection.vue";
+import { BRAND } from "@/config/siteContent";
+import { Location } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 const router = useRouter();
 import { Search } from "@element-plus/icons-vue";
@@ -493,10 +504,15 @@ const handleOrderClick = () => {
 }
 
 .overlay_btn {
-  gap: 20px;
+  gap: 12px;
   width: 100%;
   display: flex;
+  flex-wrap: wrap;
   justify-content: center;
+}
+
+.overlay_btn .btn-icon-inline {
+  margin-right: 4px;
 }
 
 .slider-carousel-track {

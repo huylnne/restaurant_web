@@ -3,6 +3,12 @@
     <div class="booking_grid">
       <el-card class="booking-card">
         <h2 class="title">Đặt bàn nhanh</h2>
+        <p class="booking-branch-hint">
+          Chưa biết chi nhánh nào gần?
+          <router-link to="/branches/nearby">Tìm chi nhánh gần bạn →</router-link>
+          ·
+          <router-link to="/branches">Danh sách tất cả</router-link>
+        </p>
         <el-form :model="form" label-position="top" @submit.prevent="submitForm">
           <el-form-item label="Chi nhánh">
             <el-select v-model="form.branch_id" placeholder="Chọn chi nhánh">
@@ -65,8 +71,9 @@ import Header from "../components/UserNavbar.vue";
 import { ref, computed, watch } from "vue";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 const router = useRouter();
+const route = useRoute();
 const branches = ref([]);
 const form = ref({
   branch_id: 1,
@@ -116,6 +123,10 @@ const fetchBranches = async () => {
     branches.value = Array.isArray(res.data) ? res.data : [];
     if (branches.value.length && !branches.value.some((b) => b.branch_id === form.value.branch_id)) {
       form.value.branch_id = branches.value[0].branch_id;
+    }
+    const fromQuery = Number(route.query.branch_id);
+    if (fromQuery && branches.value.some((b) => b.branch_id === fromQuery)) {
+      form.value.branch_id = fromQuery;
     }
   } catch (error) {
     console.error("Lỗi tải chi nhánh:", error);
@@ -236,9 +247,26 @@ const submitForm = async () => {
 
 .title {
   text-align: center;
-  margin-bottom: var(--hl-space-lg);
+  margin-bottom: var(--hl-space-sm);
   color: var(--hl-primary);
   font-size: 1.5rem;
   font-weight: 600;
+}
+
+.booking-branch-hint {
+  text-align: center;
+  font-size: 0.9rem;
+  color: var(--hl-text-muted);
+  margin: 0 0 var(--hl-space-lg);
+}
+
+.booking-branch-hint a {
+  color: var(--hl-primary);
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.booking-branch-hint a:hover {
+  text-decoration: underline;
 }
 </style>

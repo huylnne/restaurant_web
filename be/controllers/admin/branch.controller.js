@@ -30,7 +30,9 @@ exports.createBranch = async (req, res) => {
   if (!isSuperAdmin(req)) return res.status(403).json({ message: "Chỉ super admin được tạo chi nhánh" });
   try {
     const created = await branchService.createBranch(req.body);
-    res.status(201).json(toJSON(created));
+    const json = toJSON(created);
+    req.audit = { entityId: json.branch_id, description: `Tạo chi nhánh #${json.branch_id}` };
+    res.status(201).json(json);
   } catch (error) {
     console.error("Lỗi createBranch:", error);
     res.status(400).json({ message: error.message || "Không thể tạo chi nhánh" });
@@ -41,7 +43,9 @@ exports.updateBranch = async (req, res) => {
   if (!isSuperAdmin(req)) return res.status(403).json({ message: "Chỉ super admin được cập nhật chi nhánh này" });
   try {
     const updated = await branchService.updateBranch(req.params.id, req.body);
-    res.json(toJSON(updated));
+    const json = toJSON(updated);
+    req.audit = { entityId: json.branch_id || req.params.id };
+    res.json(json);
   } catch (error) {
     console.error("Lỗi updateBranch:", error);
     res.status(400).json({ message: error.message || "Không thể cập nhật chi nhánh" });
@@ -52,6 +56,7 @@ exports.deactivateBranch = async (req, res) => {
   if (!isSuperAdmin(req)) return res.status(403).json({ message: "Chỉ super admin được vô hiệu hóa chi nhánh" });
   try {
     const result = await branchService.deactivateBranch(req.params.id);
+    req.audit = { entityId: parseInt(req.params.id, 10) || null };
     res.json(result);
   } catch (error) {
     console.error("Lỗi deactivateBranch:", error);
@@ -72,7 +77,9 @@ exports.getMyBranch = async (req, res) => {
 exports.updateMyBranch = async (req, res) => {
   try {
     const branch = await branchService.updateMyBranch(req.userId, req.body);
-    res.json(toJSON(branch));
+    const json = toJSON(branch);
+    req.audit = { entityId: json.branch_id, description: `Manager cập nhật chi nhánh #${json.branch_id}` };
+    res.json(json);
   } catch (error) {
     console.error("Lỗi updateMyBranch:", error);
     res.status(400).json({ message: error.message || "Không thể cập nhật chi nhánh" });

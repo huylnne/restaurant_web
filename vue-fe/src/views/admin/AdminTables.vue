@@ -5,11 +5,11 @@
         <h2>Quản lý bàn ăn</h2>
         <p>Quản lý và theo dõi tình trạng bàn ăn trong nhà hàng</p>
       </div>
-      <div style="display:flex;gap:8px">
+      <div class="header-actions">
         <el-select
           v-model="selectedBranchId"
           placeholder="Chọn chi nhánh"
-          style="width: 220px"
+          class="branch-select"
           :disabled="userRole !== 'admin'"
           @change="handleBranchChange"
         >
@@ -22,6 +22,10 @@
         </el-select>
         <el-button :icon="Refresh" @click="() => { fetchTables(); fetchSummary(); }" title="Làm mới">
           Làm mới
+        </el-button>
+        <el-button type="success" @click="openReceptionDialog">
+          <el-icon><UserFilled /></el-icon>
+          Tiếp nhận khách
         </el-button>
         <el-button v-if="userRole === 'admin'" type="warning" @click="showAddDialog = true">
           <el-icon><Plus /></el-icon>
@@ -64,11 +68,21 @@
 
       <div class="summary-card reserved-border">
         <div class="card-content">
-          <h3>Đã đặt trước</h3>
+          <h3>Đã đặt</h3>
           <p class="value reserved">{{ summary.reservedTables }} bàn</p>
         </div>
         <div class="card-icon reserved">
           <el-icon><Calendar /></el-icon>
+        </div>
+      </div>
+
+      <div class="summary-card cleaning-border">
+        <div class="card-content">
+          <h3>Chờ dọn</h3>
+          <p class="value cleaning">{{ summary.cleaningTables }} bàn</p>
+        </div>
+        <div class="card-icon cleaning">
+          <el-icon><Refresh /></el-icon>
         </div>
       </div>
 
@@ -96,7 +110,8 @@
         <el-option label="Tất cả bàn" value="" />
         <el-option label="Bàn trống" value="available" />
         <el-option label="Đang phục vụ" value="occupied" />
-        <el-option label="Đã đặt trước" value="pre-ordered" />
+        <el-option label="Đã đặt" value="pre-ordered" />
+        <el-option label="Chờ dọn" value="cleaning" />
       </el-select>
     </div>
 
@@ -148,13 +163,16 @@
                 'status-ready-text': normalizeTableStatus(table.status) === 'available',
                 'status-reserved-text': normalizeTableStatus(table.status) === 'pre-ordered',
                 'status-occupied-text': normalizeTableStatus(table.status) === 'occupied',
+                'status-cleaning-text': normalizeTableStatus(table.status) === 'cleaning',
               }"
             >
               {{
-                normalizeTableStatus(table.status) === 'available'
+                normalizeTableStatus(table.status) === 'cleaning'
+                  ? 'Cần dọn bàn'
+                  : normalizeTableStatus(table.status) === 'available'
                   ? 'Sẵn sàng phục vụ'
                   : normalizeTableStatus(table.status) === 'pre-ordered'
-                    ? 'Đã đặt trước'
+                    ? 'Đã đặt'
                     : 'Đang phục vụ'
               }}
             </p>
@@ -393,6 +411,128 @@
       </template>
     </el-dialog>
 
+    <!-- UC06: Tiếp nhận khách -->
+    <el-dialog
+      v-model="showReceptionDialog"
+      title="Tiếp nhận khách"
+      width="640px"
+      destroy-on-close
+      @open="onReceptionDialogOpen"
+    >
+      <el-tabs v-model="receptionTab" @tab-change="onReceptionTabChange">
+        <el-tab-pane label="Có đặt trước" name="reservation">
+          <p class="reception-hint">
+            SĐT lấy từ tài khoản khách (không có email). Đang xem chi nhánh
+            <strong>#{{ selectedBranchId }}</strong> — phải trùng chi nhánh khi khách đặt bàn.
+            Nhập SĐT / tên / mã <strong>#123</strong> rồi bấm Tìm.
+          </p>
+          <div class="reception-search">
+            <el-input
+              v-model="receptionSearchQuery"
+              placeholder="SĐT / tên khách / mã đặt bàn (#123)"
+              :prefix-icon="Search"
+              clearable
+              @keyup.enter="searchReception"
+            />
+            <el-button type="primary" :loading="receptionSearchLoading" @click="searchReception">
+              Tìm
+            </el-button>
+          </div>
+          <div v-loading="receptionSearchLoading" class="reception-results">
+            <p
+              v-if="!receptionSearchLoading && !receptionResults.length"
+              class="text-muted"
+            >
+              {{
+                receptionSearched
+                  ? "Không tìm thấy đặt bàn phù hợp."
+                  : "Chưa có đặt bàn trong khung giờ hôm nay. Thử tìm theo SĐT (vd: 0999888777, 0359167823)."
+              }}
+            </p>
+            <div
+              v-for="item in receptionResults"
+              :key="item.reservation_id"
+              class="reception-result-card"
+            >
+              <div class="reception-result-main">
+                <strong>#{{ item.reservation_id }}</strong>
+                <span class="guest-name">{{ item.guest?.full_name || "—" }}</span>
+                <span class="guest-phone">
+                  SĐT: <strong>{{ item.guest?.phone || "—" }}</strong>
+                </span>
+              </div>
+              <div class="reception-result-meta">
+                <span>
+                  B{{ item.table?.table_number ?? "?" }} · {{ item.number_of_guests }} khách
+                </span>
+                <span>{{ formatReceptionTime(item.reservation_time) }}</span>
+                <el-tag :type="item.canCheckIn ? 'warning' : 'success'" size="small">
+                  {{ item.canCheckIn ? "Chờ tiếp nhận" : "Đã vào bàn" }}
+                </el-tag>
+              </div>
+              <el-button
+                v-if="item.canCheckIn"
+                type="primary"
+                size="small"
+                :loading="receptionConfirmLoading === item.reservation_id"
+                @click="confirmReception(item)"
+              >
+                Xác nhận tiếp nhận
+              </el-button>
+              <el-button
+                v-else
+                size="small"
+                @click="openTableAfterReception(item.table)"
+              >
+                Xem bàn
+              </el-button>
+            </div>
+          </div>
+        </el-tab-pane>
+
+        <el-tab-pane label="Khách vãng lai" name="walkin">
+          <el-form label-width="100px" class="walkin-form">
+            <el-form-item label="Số khách">
+              <el-input-number
+                v-model="walkInGuests"
+                :min="1"
+                :max="20"
+                @change="fetchWalkInTables"
+              />
+            </el-form-item>
+          </el-form>
+          <div v-loading="walkInTablesLoading" class="walkin-tables">
+            <p v-if="!walkInTablesLoading && !walkInTables.length" class="text-muted">
+              Không có bàn trống phù hợp.
+            </p>
+            <div
+              v-for="t in walkInTables"
+              :key="t.table_id"
+              class="walkin-table-chip"
+              :class="{ selected: walkInSelectedTableId === t.table_id }"
+              @click="walkInSelectedTableId = t.table_id"
+            >
+              <strong>B{{ t.table_number }}</strong>
+              <span>{{ t.capacity }} chỗ</span>
+            </div>
+          </div>
+        </el-tab-pane>
+      </el-tabs>
+
+      <template #footer>
+        <el-button @click="showReceptionDialog = false">Đóng</el-button>
+        <el-button
+          v-if="receptionTab === 'walkin'"
+          type="primary"
+          :disabled="!walkInSelectedTableId"
+          :loading="walkInSubmitLoading"
+          @click="submitWalkIn"
+        >
+          Xếp bàn
+        </el-button>
+      </template>
+    </el-dialog>
+
     <!-- Dialog sửa bàn -->
     <el-dialog v-model="showEditDialogVisible" title="Sửa thông tin bàn" width="500px">
       <el-form :model="editTableForm" label-width="120px">
@@ -415,8 +555,9 @@
         <el-form-item label="Trạng thái">
           <el-select v-model="editTableForm.status" placeholder="Chọn trạng thái">
             <el-option label="Trống" value="available" />
+            <el-option label="Đã đặt" value="pre-ordered" />
             <el-option label="Đang phục vụ" value="occupied" />
-            <el-option label="Đã đặt trước" value="pre-ordered" />
+            <el-option label="Chờ dọn" value="cleaning" />
           </el-select>
         </el-form-item>
         <el-form-item label="QR">
@@ -460,6 +601,7 @@ import {
   Money,
   Search,
   User,
+  UserFilled,
   Refresh,
 } from "@element-plus/icons-vue";
 import axios from "axios";
@@ -476,6 +618,7 @@ const API_BASE = "http://localhost:3000";
 const TABLE_PAGE_SIZE = 12;
 const WAITER_API = `${API_BASE}/api/admin/waiter`;
 const TABLE_API = `${API_BASE}/api/admin/table`;
+const RECEPTION_API = `${API_BASE}/api/admin/reception`;
 const BRANCH_API = `${API_BASE}/api/home/branches`;
 
 const userRole = ref("");
@@ -488,6 +631,7 @@ const summary = ref({
   availableTables: 0,
   occupiedTables: 0,
   reservedTables: 0,
+  cleaningTables: 0,
   currentRevenue: 0,
 });
 
@@ -541,6 +685,20 @@ const editTableForm = ref({
   capacity: null,
   status: "",
 });
+
+// UC06 – Tiếp nhận khách
+const showReceptionDialog = ref(false);
+const receptionTab = ref("reservation");
+const receptionSearchQuery = ref("");
+const receptionResults = ref([]);
+const receptionSearchLoading = ref(false);
+const receptionSearched = ref(false);
+const receptionConfirmLoading = ref(null);
+const walkInGuests = ref(2);
+const walkInTables = ref([]);
+const walkInTablesLoading = ref(false);
+const walkInSelectedTableId = ref(null);
+const walkInSubmitLoading = ref(false);
 
 const fetchBranches = async () => {
   try {
@@ -884,6 +1042,164 @@ const formatTime = (datetime) => {
   });
 };
 
+const authHeaders = () => ({
+  Authorization: `Bearer ${localStorage.getItem("token")}`,
+});
+
+const openReceptionDialog = () => {
+  showReceptionDialog.value = true;
+};
+
+const onReceptionDialogOpen = () => {
+  receptionTab.value = "reservation";
+  receptionSearchQuery.value = "";
+  receptionResults.value = [];
+  receptionSearched.value = false;
+  walkInGuests.value = 2;
+  walkInSelectedTableId.value = null;
+  walkInTables.value = [];
+  loadUpcomingArrivals();
+};
+
+const onReceptionTabChange = (tabName) => {
+  if (tabName === "walkin") fetchWalkInTables();
+};
+
+const loadUpcomingArrivals = async () => {
+  receptionSearchLoading.value = true;
+  try {
+    const res = await axios.get(`${RECEPTION_API}/upcoming`, {
+      params: { branchId: selectedBranchId.value },
+      headers: authHeaders(),
+    });
+    receptionResults.value = res.data?.results || [];
+  } catch (err) {
+    console.error("loadUpcomingArrivals:", err);
+    receptionResults.value = [];
+    ElMessage.error(
+      err.response?.data?.message ||
+        "Không tải được danh sách đặt bàn. Kiểm tra backend đã chạy và đã restart sau khi cập nhật API."
+    );
+  } finally {
+    receptionSearchLoading.value = false;
+  }
+};
+
+const formatReceptionTime = (datetime) => {
+  if (!datetime) return "";
+  return new Date(datetime).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+};
+
+const searchReception = async () => {
+  const q = receptionSearchQuery.value.trim();
+  if (!q) {
+    ElMessage.warning("Nhập SĐT, tên hoặc mã đặt bàn");
+    return;
+  }
+  receptionSearchLoading.value = true;
+  receptionSearched.value = true;
+  try {
+    const res = await axios.get(`${RECEPTION_API}/search`, {
+      params: { q, branchId: selectedBranchId.value },
+      headers: authHeaders(),
+    });
+    receptionResults.value = res.data?.results || [];
+  } catch (err) {
+    console.error("searchReception:", err);
+    receptionResults.value = [];
+    ElMessage.error(err.response?.data?.message || "Không thể tìm đặt bàn");
+  } finally {
+    receptionSearchLoading.value = false;
+  }
+};
+
+const confirmReception = async (item) => {
+  receptionConfirmLoading.value = item.reservation_id;
+  try {
+    const res = await axios.post(
+      `${RECEPTION_API}/check-in`,
+      { reservation_id: item.reservation_id, branch_id: selectedBranchId.value },
+      { headers: authHeaders() }
+    );
+    ElMessage.success(res.data?.message || "Tiếp nhận thành công");
+    showReceptionDialog.value = false;
+    await fetchTables();
+    await fetchSummary();
+    const tableNum = res.data?.table?.table_number ?? item.table?.table_number;
+    if (tableNum != null) {
+      const found = tables.value.find((t) => t.table_number === tableNum);
+      if (found) viewTableDetail(found);
+    }
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || "Tiếp nhận thất bại");
+  } finally {
+    receptionConfirmLoading.value = null;
+  }
+};
+
+const fetchWalkInTables = async () => {
+  walkInTablesLoading.value = true;
+  walkInSelectedTableId.value = null;
+  try {
+    const res = await axios.get(`${RECEPTION_API}/walk-in-tables`, {
+      params: { branchId: selectedBranchId.value, guests: walkInGuests.value },
+      headers: authHeaders(),
+    });
+    walkInTables.value = res.data?.tables || [];
+  } catch (err) {
+    console.error("fetchWalkInTables:", err);
+    walkInTables.value = [];
+    if (receptionTab.value === "walkin") {
+      ElMessage.error(err.response?.data?.message || "Không thể tải bàn trống");
+    }
+  } finally {
+    walkInTablesLoading.value = false;
+  }
+};
+
+const submitWalkIn = async () => {
+  if (!walkInSelectedTableId.value) return;
+  walkInSubmitLoading.value = true;
+  try {
+    const res = await axios.post(
+      `${RECEPTION_API}/walk-in`,
+      {
+        table_id: walkInSelectedTableId.value,
+        number_of_guests: walkInGuests.value,
+        branch_id: selectedBranchId.value,
+      },
+      { headers: authHeaders() }
+    );
+    ElMessage.success(res.data?.message || "Xếp bàn thành công");
+    showReceptionDialog.value = false;
+    await fetchTables();
+    await fetchSummary();
+    const tableNum = res.data?.table?.table_number;
+    if (tableNum != null) {
+      const found = tables.value.find((t) => t.table_number === tableNum);
+      if (found) viewTableDetail(found);
+    }
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || "Xếp bàn thất bại");
+  } finally {
+    walkInSubmitLoading.value = false;
+  }
+};
+
+const openTableAfterReception = (tableInfo) => {
+  if (!tableInfo?.table_number) return;
+  const found = tables.value.find((t) => t.table_number === tableInfo.table_number);
+  if (found) {
+    showReceptionDialog.value = false;
+    viewTableDetail(found);
+  }
+};
+
 const handleBranchChange = () => {
   tableCurrentPage.value = 1;
   filterStatus.value = "";
@@ -927,10 +1243,13 @@ onUnmounted(() => {
 
 <style scoped>
 .admin-tables {
-  padding: var(--hl-space-lg);
+  padding: 0;
   background: var(--hl-admin-bg);
-  min-height: 100vh;
+  min-height: 0;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .header {
@@ -938,6 +1257,20 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--hl-space-lg);
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.header-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.header-actions .branch-select {
+  width: 220px;
+  max-width: 100%;
 }
 
 .title-section h2 {
@@ -956,8 +1289,8 @@ onUnmounted(() => {
 /* Summary cards */
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  gap: var(--hl-admin-grid-gap);
   margin-bottom: 24px;
 }
 
@@ -1041,6 +1374,7 @@ onUnmounted(() => {
   display: flex;
   gap: 16px;
   margin-bottom: 24px;
+  flex-wrap: wrap;
 }
 
 .filter-section .el-input {
@@ -1055,8 +1389,10 @@ onUnmounted(() => {
 /* Tables grid */
 .tables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-  gap: 20px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  gap: var(--hl-admin-grid-gap);
+  width: 100%;
+  max-width: 100%;
 }
 
 .table-card {
@@ -1087,6 +1423,29 @@ onUnmounted(() => {
 .table-card.status-reserved {
   border-color: var(--hl-admin-warning);
   background: linear-gradient(135deg, #fefce8 0%, #fef08a 100%);
+}
+
+.table-card.status-cleaning {
+  border-color: #94a3b8;
+  background: linear-gradient(135deg, #f1f5f9 0%, #e2e8f0 100%);
+}
+
+.summary-card.cleaning-border {
+  border-left: 4px solid #64748b;
+}
+
+.value.cleaning {
+  color: #64748b;
+}
+
+.card-icon.cleaning {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+.status-cleaning-text {
+  color: #64748b;
+  font-weight: 600;
 }
 
 .table-header {
@@ -1340,5 +1699,148 @@ onUnmounted(() => {
   color: #b45309;
   font-style: italic;
   font-size: 13px !important;
+}
+
+.reception-hint {
+  margin: 0 0 12px;
+  font-size: 13px;
+  color: var(--hl-text-muted);
+  line-height: 1.45;
+}
+
+.reception-search {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+}
+
+.reception-search .el-input {
+  flex: 1;
+}
+
+.reception-results {
+  min-height: 80px;
+  max-height: 320px;
+  overflow-y: auto;
+}
+
+.reception-result-card {
+  border: 1px solid var(--hl-admin-border);
+  border-radius: var(--hl-radius-md);
+  padding: 12px;
+  margin-bottom: 10px;
+  background: var(--hl-admin-bg);
+}
+
+.reception-result-main {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin-bottom: 8px;
+  font-size: 14px;
+}
+
+.reception-result-main .guest-phone {
+  color: var(--hl-primary);
+  font-size: 13px;
+}
+
+.reception-result-main .guest-phone strong {
+  font-weight: 700;
+}
+
+.reception-result-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  font-size: 13px;
+  color: var(--hl-text-muted);
+}
+
+.walkin-form {
+  margin-bottom: 8px;
+}
+
+.walkin-tables {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-height: 60px;
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+.walkin-table-chip {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-width: 72px;
+  padding: 12px 16px;
+  border: 2px solid var(--hl-admin-border);
+  border-radius: var(--hl-radius-md);
+  cursor: pointer;
+  background: var(--hl-admin-card);
+  transition: border-color 0.15s, background 0.15s;
+}
+
+.walkin-table-chip:hover {
+  border-color: var(--hl-primary);
+}
+
+.walkin-table-chip.selected {
+  border-color: var(--hl-primary);
+  background: #fff7ed;
+}
+
+.walkin-table-chip span {
+  font-size: 12px;
+  color: var(--hl-text-muted);
+  margin-top: 4px;
+}
+
+@media (max-width: 1200px) {
+  .tables-grid {
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 200px), 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .header-actions {
+    width: 100%;
+    justify-content: flex-start;
+  }
+
+  .header-actions .branch-select,
+  .header-actions > * {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .filter-section .el-input,
+  .filter-section .el-select {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .tables-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .table-detail .actions {
+    flex-direction: column;
+  }
+
+  .order-item-row {
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .qr-image {
+    width: min(100%, 220px);
+    height: auto;
+  }
 }
 </style>

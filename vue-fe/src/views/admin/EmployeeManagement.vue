@@ -439,9 +439,13 @@ onMounted(() => {
 
 <style scoped>
 .employee-management {
-  padding: var(--hl-space-lg);
+  padding: 0;
   background: var(--hl-admin-bg);
-  min-height: 100vh;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .header-card,
@@ -482,5 +486,31 @@ onMounted(() => {
   color: var(--hl-text-light);
   margin-top: var(--hl-space-xs);
   display: block;
+}
+
+.table-card {
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .filter-card :deep(.el-row) {
+    row-gap: 12px;
+  }
+
+  .filter-card :deep(.el-col) {
+    max-width: 100%;
+    flex: 0 0 100%;
+  }
+
+  .pagination-container {
+    justify-content: center;
+    overflow-x: auto;
+  }
 }
 </style>

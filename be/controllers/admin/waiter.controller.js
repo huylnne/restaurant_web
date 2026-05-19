@@ -10,6 +10,11 @@ const waiterController = {
 
       const createdBy = req.user?.user_id || null;
       const result = await waiterService.createOrder({ table_id, items, createdBy });
+      req.audit = {
+        entityId: result?.order_id ?? result?.order?.order_id,
+        description: `Phục vụ tạo đơn bàn #${table_id}`,
+        metadata: { table_id, itemCount: items.length },
+      };
       return res.status(201).json(result);
     } catch (err) {
       console.error('waiter.createOrder', err);

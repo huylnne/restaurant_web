@@ -21,4 +21,5 @@ db.Reservation = require("./Reservation")(sequelize, DataTypes);
 db.Employee = require("./Employee")(sequelize, DataTypes);
 db.Payment = require("./Payment")(sequelize, DataTypes);
 db.Review = require("./Review")(sequelize, DataTypes);
+db.OperationLog = require("./OperationLog")(sequelize, DataTypes);
 module.exports = db;

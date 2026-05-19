@@ -42,6 +42,10 @@ class EmployeeController {
         branch_id: resolveBranchId(req, req.body.branch_id, 1),
       };
       const employee = await employeeService.createEmployee(payload);
+      req.audit = {
+        entityId: employee.employee_id,
+        description: `Thêm nhân viên #${employee.employee_id}`,
+      };
       res.status(201).json(employee);
     } catch (error) {
       console.error('Error in createEmployee:', error);

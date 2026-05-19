@@ -49,11 +49,14 @@
           <button class="scroll-right" @click="scrollRight">›</button>
         </div>
       </div>
+
+      <HomeNearbySection />
     </div>
   </div>
 </template>
 
 <script setup>
+import HomeNearbySection from "@/components/HomeNearbySection.vue";
 import { useRouter } from "vue-router";
 const router = useRouter();
 import { Search } from "@element-plus/icons-vue";
@@ -540,5 +543,61 @@ const scrollRight = () => scrollByCard("right");
 
 .desc {
   overflow: hidden;
+}
+
+@media (max-width: 992px) {
+  .slider-carousel {
+    height: 420px;
+  }
+
+  .dish-card {
+    flex: 0 0 calc(50% - 12px);
+  }
+
+  .section-title_desc {
+    font-size: 18px;
+  }
+}
+
+@media (max-width: 640px) {
+  .slider-carousel {
+    width: 100vw;
+    height: 300px;
+  }
+
+  .slider-carousel-image {
+    width: 100vw;
+  }
+
+  .slider_overlay h1,
+  .slider_overlay span {
+    font-size: 30px;
+  }
+
+  .slider_overlay h2 {
+    font-size: 18px;
+    padding: 0 12px;
+  }
+
+  .overlay_btn {
+    flex-direction: column;
+    align-items: stretch;
+    max-width: 260px;
+    gap: 10px;
+  }
+
+  .overlay_btn .el-button {
+    width: 100%;
+  }
+
+  .dish-card {
+    flex: 0 0 85%;
+  }
+
+  .scroll-left,
+  .scroll-right,
+  .arrow {
+    display: none;
+  }
 }
 </style>

@@ -68,11 +68,13 @@ const activeMenuKey = computed(() => {
 
 <style scoped>
 .sidebar {
-  width: 240px;
+  width: var(--hl-admin-sidebar-width);
+  flex: 0 0 var(--hl-admin-sidebar-width);
   height: 100%;
   border-right: none;
   background-color: var(--hl-sidebar-bg);
   padding-top: var(--hl-space-sm);
+  min-width: 0;
 }
 
 .el-menu-item {
@@ -103,5 +105,21 @@ const activeMenuKey = computed(() => {
 
 .el-menu-item:hover {
   background-color: var(--hl-sidebar-active-bg);
+}
+
+@media (max-width: 1024px) {
+  .sidebar {
+    width: 84px;
+  }
+
+  .el-menu-item {
+    justify-content: center;
+    margin: var(--hl-space-xs);
+    padding: 0;
+  }
+
+  .el-menu-item span {
+    display: none;
+  }
 }
 </style>

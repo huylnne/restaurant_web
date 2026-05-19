@@ -31,6 +31,11 @@ exports.checkinByToken = async (req, res) => {
       userId,
       numberOfGuests: number_of_guests,
     });
+    req.audit = {
+      entityId: data?.reservation_id ?? data?.reservation?.reservation_id,
+      description: `Check-in QR bàn`,
+      metadata: { table_id: data?.table_id },
+    };
     res.status(201).json(data);
   } catch (e) {
     const map = {

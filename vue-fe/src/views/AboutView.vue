@@ -1,7 +1,7 @@
 <template>
   <div class="static-page">
     <StaticPageHero
-      eyebrow="HL Food"
+      :eyebrow="BRAND.name"
       title="Giới thiệu"
       :subtitle="intro.subtitle"
       image="/images/homeimg1.png"
@@ -55,7 +55,10 @@
       </section>
 
       <section v-if="branches.length" class="static-block">
-        <h2 class="section-heading">Hệ thống chi nhánh</h2>
+        <div class="section-heading-row">
+          <h2 class="section-heading">Hệ thống chi nhánh</h2>
+          <router-link to="/branches" class="section-heading-link">Xem tất cả →</router-link>
+        </div>
         <div class="branch-grid">
           <el-card
             v-for="b in branches"
@@ -93,10 +96,10 @@ import { BRAND, ABOUT_VALUES, ABOUT_MILESTONES } from "@/config/siteContent";
 
 const branches = ref([]);
 const intro = ref({
-  title: `${BRAND.name} – Nơi hương vị quê hương thăng hoa`,
+  title: `${BRAND.name} – Nơi hương vị tinh tế`,
   subtitle: BRAND.tagline,
   content:
-    "Với kinh nghiệm phục vụ ẩm thực Việt, HL Food cam kết mang đến không gian ấm cúng và món ăn chất lượng cho mọi dịp sum họp.",
+    `Với kinh nghiệm phục vụ ẩm thực Việt, ${BRAND.name} cam kết mang đến không gian ấm cúng và món ăn chất lượng cho mọi dịp sum họp.`,
 });
 
 const branchImageStyle = (b) => ({
@@ -127,4 +130,28 @@ onMounted(async () => {
 
 <style scoped>
 @import "@/assets/static-pages.css";
+
+.section-heading-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: var(--hl-space-md);
+  margin-bottom: var(--hl-space-lg);
+}
+
+.section-heading--inline {
+  margin-bottom: 0;
+}
+
+.section-heading-link {
+  font-size: 0.95rem;
+  color: var(--hl-primary);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.section-heading-link:hover {
+  text-decoration: underline;
+}
 </style>

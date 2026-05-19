@@ -1,12 +1,31 @@
 const express = require('express');
 const router = express.Router();
 const authController = require('../../controllers/user/auth.controller');
+const { auditLog } = require('../../middlewares/operationLog');
 
-//  Route đăng ký
-router.post('/register', authController.register);
+router.post(
+  '/register',
+  auditLog({
+    action: 'AUTH_REGISTER',
+    module: 'auth',
+    description: 'Đăng ký tài khoản khách',
+    entityType: 'user',
+    skipBody: true,
+  }),
+  authController.register
+);
 
-//  Route đăng nhập
-router.post('/login', authController.login);
+router.post(
+  '/login',
+  auditLog({
+    action: 'AUTH_LOGIN',
+    module: 'auth',
+    description: 'Đăng nhập',
+    entityType: 'user',
+    skipBody: true,
+  }),
+  authController.login
+);
 
 //  Kiểm tra SĐT đã được đăng ký chưa (dùng cho realtime check ở form đăng ký)
 router.get('/check-phone', authController.checkPhone);

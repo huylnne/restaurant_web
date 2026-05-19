@@ -22,6 +22,7 @@ exports.createTable = async (req, res) => {
   try {
     const payload = { ...req.body, branch_id: resolveBranchId(req, req.body.branch_id || req.query.branchId, 1) };
     const table = await tableService.createTable(payload);
+    req.audit = { entityId: table.table_id, description: `Thêm bàn #${table.table_number || table.table_id}` };
     res.status(201).json(table);
   } catch (error) {
     console.error('Lỗi createTable:', error);

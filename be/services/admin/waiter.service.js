@@ -1,5 +1,10 @@
 const { Order, OrderItem, Table, MenuItem, Reservation, sequelize } = require('../../models');
 const { Op } = require('sequelize');
+const {
+  TABLE_STATUS,
+  isValidTableStatus,
+  shouldEndTableSession,
+} = require('../../utils/tableStatus');
 
 const waiterService = {
   // Tạo order mới (items = [{ item_id, quantity }])
@@ -29,7 +34,10 @@ const waiterService = {
       );
 
       // cập nhật trạng thái bàn sang occupied
-      await Table.update({ status: 'occupied' }, { where: { table_id }, transaction: t });
+      await Table.update(
+        { status: TABLE_STATUS.OCCUPIED },
+        { where: { table_id }, transaction: t }
+      );
 
       return { order, orderItems };
     });
@@ -79,9 +87,13 @@ const waiterService = {
 
   // Cập nhật trạng thái bàn (waiter chọn "Trống" = đã thanh toán xong → clear dữ liệu phiên)
   async updateTableStatus(table_id, status) {
+    if (!isValidTableStatus(status)) {
+      throw new Error('Trạng thái bàn không hợp lệ');
+    }
+
     await Table.update({ status }, { where: { table_id } });
 
-    if (status === 'available') {
+    if (shouldEndTableSession(status)) {
       // 1. Hoàn tất tất cả đơn gắn trực tiếp với bàn
       await Order.update(
         { status: 'COMPLETED' },

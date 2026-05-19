@@ -5,7 +5,7 @@
       <el-select
         v-model="selectedBranchId"
         placeholder="Chọn chi nhánh"
-        style="width: 220px"
+        class="branch-select"
         :disabled="!isSuperAdmin"
         @change="fetchDashboardData"
       >
@@ -96,7 +96,11 @@
           </li>
           <li>
             <span class="status-color reserved"></span>
-            Đã đặt trước: {{ tableStatus.reserved }} bàn
+            Đã đặt: {{ tableStatus.reserved }} bàn
+          </li>
+          <li>
+            <span class="status-color cleaning"></span>
+            Chờ dọn: {{ tableStatus.cleaning }} bàn
           </li>
         </ul>
       </div>
@@ -202,6 +206,7 @@ const tableStatus = ref({
   available: 0,
   occupied: 0,
   reserved: 0,
+  cleaning: 0,
 });
 
 const fetchBranches = async () => {
@@ -280,6 +285,7 @@ const fetchDashboardData = async () => {
       available: data.availableTables || 0,
       occupied: data.occupiedTables || 0,
       reserved: data.reservedTables || 0,
+      cleaning: data.cleaningTables || 0,
     };
 
     await nextTick();
@@ -292,15 +298,16 @@ const fetchDashboardData = async () => {
       tableStatusChartInstance.value = new Chart(ctx, {
         type: "doughnut",
         data: {
-          labels: ["Bàn trống", "Đang phục vụ", "Đã đặt trước"],
+          labels: ["Bàn trống", "Đang phục vụ", "Đã đặt", "Chờ dọn"],
           datasets: [
             {
               data: [
                 tableStatus.value.available,
                 tableStatus.value.occupied,
                 tableStatus.value.reserved,
+                tableStatus.value.cleaning,
               ],
-              backgroundColor: ["#10b981", "#f97316", "#ef4444"],
+              backgroundColor: ["#10b981", "#f97316", "#3b82f6", "#94a3b8"],
               borderWidth: 0,
             },
           ],
@@ -362,12 +369,14 @@ const chartOptions = {
 .dashboard {
   display: flex;
   flex-direction: column;
-  padding: var(--hl-space-lg) var(--hl-space-xl);
+  padding: 0;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   box-sizing: border-box;
   gap: var(--hl-space-xl);
   background: var(--hl-admin-bg);
-  min-height: 100%;
+  min-height: 0;
 }
 .dashboard-header {
   display: flex;
@@ -375,11 +384,16 @@ const chartOptions = {
   align-items: center;
   gap: var(--hl-space-md);
 }
+.branch-select {
+  width: 220px;
+}
 .two_charts {
   display: flex;
   flex-direction: row;
   flex: 1;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   gap: 20px;
 }
 h2 {
@@ -389,9 +403,11 @@ h2 {
   font-size: 1.5rem;
 }
 .stats {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--hl-space-lg);
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  gap: var(--hl-admin-grid-gap);
+  width: 100%;
+  max-width: 100%;
 }
 .stat-card {
   background: var(--hl-admin-card);
@@ -401,8 +417,7 @@ h2 {
   align-items: center;
   gap: var(--hl-space-lg);
   box-shadow: var(--hl-shadow-card);
-  flex: 1;
-  min-width: 240px;
+  min-width: 0;
   border: 1px solid var(--hl-admin-border);
 }
 .icon-box {
@@ -493,6 +508,9 @@ h2 {
   width: 100%;
   border-collapse: collapse;
 }
+.top-dishes {
+  overflow-x: auto;
+}
 .top-dishes thead th {
   background: var(--hl-bg-muted);
   text-align: left;
@@ -561,6 +579,53 @@ h2 {
   background: var(--hl-primary);
 }
 .status-color.reserved {
-  background: var(--hl-error);
+  background: #3b82f6;
+}
+.status-color.cleaning {
+  background: #94a3b8;
+}
+@media (max-width: 1024px) {
+  .branch-select {
+    width: 100%;
+    max-width: 320px;
+  }
+
+  .two_charts {
+    flex-direction: column;
+  }
+
+  .weekly-stats {
+    width: 100%;
+  }
+
+  .stat-card {
+    min-width: 0;
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--hl-space-sm);
+  }
+
+  .value {
+    font-size: 1.35rem;
+  }
+
+  .stat-card {
+    padding: var(--hl-space-md);
+    gap: var(--hl-space-sm);
+  }
+
+  .text h3 {
+    font-size: 0.9rem;
+    margin-bottom: 4px;
+  }
+
+  .growth {
+    font-size: 12px;
+  }
 }
 </style>

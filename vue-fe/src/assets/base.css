@@ -1,4 +1,4 @@
-/* ========== HLFood Design System ========== */
+/* ========== ABC Restaurant Design System ========== */
 :root {
   /* Backgrounds */
   --hl-bg-page: #fffaf3;
@@ -73,9 +73,42 @@
   --hl-header-height: 80px;
   --hl-nav-height: 60px;
   --hl-content-max: 1200px;
+  --hl-admin-sidebar-width: 240px;
+  --hl-admin-grid-min: 220px;
+  --hl-admin-grid-gap: 16px;
 }
 
-/* Override Element Plus theme to match HLFood */
+/* Tránh tràn ngang toàn trang (navbar dùng 100vw, grid cố định px, v.v.) */
+html {
+  overflow-x: clip;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+/* Lưới admin: luôn co theo chiều rộng vùng nội dung còn lại */
+.hl-admin-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(min(100%, var(--hl-admin-grid-min)), 1fr)
+  );
+  gap: var(--hl-admin-grid-gap);
+  width: 100%;
+  min-width: 0;
+}
+
+.hl-admin-page {
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+/* Override Element Plus theme to match ABC Restaurant */
 :root {
   --el-color-primary: var(--hl-primary);
   --el-color-primary-light-3: #c17a0a;

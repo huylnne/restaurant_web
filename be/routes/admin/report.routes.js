@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const reportController = require('../../controllers/admin/report.controller');
 const { verifyToken, authorizeRole } = require('../../middlewares/auth');
+const { auditLog } = require('../../middlewares/operationLog');
 
 // Manager chỉ được xem đúng branch của mình (không được override branchId qua query)
 const enforceReportBranchScope = (req, res, next) => {
@@ -32,8 +33,22 @@ const enforceReportBranchScope = (req, res, next) => {
 // Báo cáo tài chính: admin + manager
 router.use(verifyToken, authorizeRole('admin', 'manager'), enforceReportBranchScope);
 
-// Xuất Excel / PDF
-router.get('/export', reportController.exportReport);
+router.get(
+  '/export',
+  auditLog({
+    action: 'REPORT_EXPORT',
+    module: 'reports',
+    description: (req) =>
+      `Xuất báo cáo ${String(req.query.format || 'xlsx').toUpperCase()}`,
+    metadata: (req) => ({
+      format: req.query.format || 'xlsx',
+      branchId: req.query.branchId,
+      startDate: req.query.startDate,
+      endDate: req.query.endDate,
+    }),
+  }),
+  reportController.exportReport
+);
 
 // Thống kê tổng quan
 router.get('/overview', reportController.getOverviewStats);

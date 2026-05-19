@@ -3,7 +3,8 @@
     <div class="home-page_header">
       <!-- Top Bar -->
       <div class="top-bar">
-        <span>Chào mừng bạn đến với HLFood!</span>
+        <span>Chào mừng bạn đến với {{ BRAND.name }}!</span>
+        <router-link to="/branches/nearby" class="top-bar-branches">📍 Chi nhánh gần bạn</router-link>
         <div class="right-links">
           <template v-if="!isLoggedIn">
             <router-link to="/login" class="nav-link" active-class="active">
@@ -38,20 +39,20 @@
       <!-- Middle Bar -->
       <div class="middle-bar">
         <div class="logo-wrapper">
-          <img src="/images/logo.png" alt="HLFood Logo" class="logo" />
+          <img :src="BRAND.logo" :alt="`${BRAND.name} Logo`" class="logo" />
         </div>
         <div class="info-items">
           <div class="info">
             <span class="icon">🕒</span>
-            <div><strong>OPEN:</strong><br />8AM - 10PM</div>
+            <div><strong>OPEN:</strong><br />{{ BRAND.hoursDisplay }}</div>
           </div>
           <div class="info">
             <span class="icon">✉️</span>
-            <div><strong>EMAIL:</strong><br />huytdtm@gmail.com</div>
+            <div><strong>EMAIL:</strong><br />{{ BRAND.email }}</div>
           </div>
           <div class="info">
             <span class="icon">📞</span>
-            <div><strong>HOTLINE:</strong><br />0879530869</div>
+            <div><strong>HOTLINE:</strong><br />{{ BRAND.hotline }}</div>
           </div>
         </div>
       </div>
@@ -70,6 +71,11 @@
         <router-link to="/menu" class="nav-link" active-class="active"
           >THỰC ĐƠN</router-link
         >
+        <router-link to="/branches" class="nav-link" active-class="active">CHI NHÁNH</router-link>
+        <router-link to="/branches/nearby" class="nav-cta-branches" active-class="nav-cta-branches--active">
+          <el-icon><Location /></el-icon>
+          Gần bạn
+        </router-link>
         <router-link to="/sale" class="nav-link" active-class="active"
           >KHUYẾN MÃI</router-link
         >
@@ -99,10 +105,11 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
-import { Search, ShoppingCart, SwitchButton } from "@element-plus/icons-vue";
+import { Search, ShoppingCart, SwitchButton, Location } from "@element-plus/icons-vue";
 import axios from "axios";
 import { isStaffRole as checkStaffRole, getDefaultStaffPath } from "@/utils/auth.js";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { BRAND } from "@/config/siteContent";
 
 const router = useRouter();
 const user = ref(null);
@@ -181,35 +188,49 @@ const scrollToAllDishes = () => {
 <style scoped>
 .header-wrapper {
   background-color: var(--hl-bg-page);
-  width: 100vw;
+  width: 100%;
+  max-width: 100%;
 }
 
 .home-page_header {
-  max-width: var(--hl-content-max);
-  margin: 0 auto;
-  padding: 0 var(--hl-space-lg);
   width: 100%;
+  max-width: 100%;
+  margin: 0;
+  padding: 0 clamp(var(--hl-space-md), 3vw, var(--hl-space-2xl));
   position: relative;
   overflow: visible;
+  box-sizing: border-box;
 }
 .header-divider {
   height: 1px;
   border-bottom: 1px dashed var(--hl-divider-dashed);
-  width: 100vw;
-  position: relative;
-  left: 50%;
-  transform: translateX(-50%);
+  width: 100%;
   margin: 0;
   padding: 0;
 }
+.top-bar-branches {
+  color: var(--hl-primary);
+  font-weight: 600;
+  font-size: 13px;
+  text-decoration: none;
+  margin-left: var(--hl-space-md);
+}
+
+.top-bar-branches:hover {
+  text-decoration: underline;
+}
+
 .top-bar {
   display: flex;
   justify-content: space-between;
   font-size: 14px;
-  height: var(--hl-nav-height);
-  line-height: var(--hl-nav-height);
+  min-height: var(--hl-nav-height);
+  line-height: 1.4;
   align-items: center;
   color: var(--hl-text-secondary);
+  padding: 10px 0;
+  gap: var(--hl-space-sm);
+  flex-wrap: wrap;
 }
 .right-links {
   display: flex;
@@ -229,7 +250,8 @@ const scrollToAllDishes = () => {
   justify-content: space-between;
   align-items: center;
   padding: var(--hl-space-sm) 0;
-  height: var(--hl-header-height);
+  min-height: var(--hl-header-height);
+  gap: var(--hl-space-md);
 }
 .info-items {
   display: flex;
@@ -266,8 +288,10 @@ const scrollToAllDishes = () => {
   margin-top: var(--hl-space-sm);
   font-weight: bold;
   padding-top: var(--hl-space-sm);
-  height: var(--hl-nav-height);
+  min-height: var(--hl-nav-height);
   align-items: center;
+  flex-wrap: wrap;
+  row-gap: var(--hl-space-sm);
 }
 .nav-menu a,
 .nav-menu .dropdown > span {
@@ -318,7 +342,7 @@ const scrollToAllDishes = () => {
   bottom: -12px;
   left: 50%;
   transform: translateX(-50%);
-  width: 100vw;
+  width: 100%;
   height: 12px;
   background: url("data:image/svg+xml,%3Csvg viewBox='0 0 60 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23fffaf3' d='M0 0 L5 10 L10 0 L15 10 L20 0 L25 10 L30 0 L35 10 L40 0 L45 10 L50 0 L55 10 L60 0 Z'/%3E%3C/svg%3E")
     repeat-x;
@@ -359,19 +383,110 @@ const scrollToAllDishes = () => {
   color: var(--hl-primary);
   border-bottom: 2px solid var(--hl-primary);
 }
+
+.nav-cta-branches {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+  padding: 8px 16px;
+  background: var(--hl-primary);
+  color: #fff !important;
+  text-decoration: none;
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: var(--hl-radius-md);
+  border: none !important;
+  white-space: nowrap;
+  transition: background 0.2s ease, transform 0.15s ease;
+}
+
+.nav-cta-branches:hover {
+  background: var(--hl-primary-hover, #3d624f);
+  transform: translateY(-1px);
+}
+
+.nav-cta-branches--active {
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
+}
+
+@media (max-width: 992px) {
+  .nav-cta-branches {
+    order: -1;
+    margin-left: 0;
+    flex: 1 1 100%;
+    justify-content: center;
+    margin-bottom: 4px;
+  }
+}
 @media (max-width: 768px) {
+  .home-page_header {
+    padding: 0 var(--hl-space-md);
+  }
+
+  .top-bar {
+    font-size: 12px;
+    min-height: auto;
+    padding: 8px 0;
+  }
+
+  .right-links {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .middle-bar {
     flex-direction: column;
     align-items: flex-start;
     gap: var(--hl-space-lg);
+    min-height: auto;
+    padding-bottom: var(--hl-space-md);
   }
+
+  .info-items {
+    width: 100%;
+    flex-direction: row;
+    gap: var(--hl-space-sm);
+    justify-content: space-between;
+  }
+
+  .info {
+    min-width: 0;
+    flex: 1;
+  }
+
+  .info div {
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
+  }
+
+  .nav-menu {
+    height: auto;
+    min-height: auto;
+    gap: var(--hl-space-sm) var(--hl-space-md);
+    padding: 0 0 var(--hl-space-sm);
+    margin-top: 0;
+  }
+
+  .nav-menu_icon {
+    width: 100%;
+    margin-left: 0;
+    justify-content: flex-start;
+    padding-top: 4px;
+  }
+}
+
+@media (max-width: 480px) {
   .info-items {
     flex-direction: column;
-    gap: var(--hl-space-md);
+    align-items: flex-start;
   }
-  .nav-menu {
+
+  .nav-user-loggedin {
+    width: 100%;
     flex-wrap: wrap;
-    gap: var(--hl-space-sm);
+    gap: 6px;
   }
 }
 </style>

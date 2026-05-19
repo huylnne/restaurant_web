@@ -3,7 +3,7 @@
     <StaticPageHero
       eyebrow="Ưu đãi"
       title="Khuyến mãi"
-      subtitle="Chương trình ưu đãi tại HL Food — áp dụng theo từng chi nhánh và thời gian. Vui lòng đặt bàn trước để được giữ chỗ."
+      :subtitle="`Chương trình ưu đãi tại ${BRAND.name} — áp dụng theo từng chi nhánh và thời gian. Vui lòng đặt bàn trước để được giữ chỗ.`"
       image="/images/homeimg2.png"
     />
 
@@ -34,7 +34,7 @@
 
 <script setup>
 import StaticPageHero from "@/components/StaticPageHero.vue";
-import { PROMOTIONS } from "@/config/siteContent";
+import { BRAND, PROMOTIONS } from "@/config/siteContent";
 </script>
 
 <style scoped>

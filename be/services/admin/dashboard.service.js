@@ -245,16 +245,24 @@ const dashboardService = {
   //  4. Tình trạng bàn ăn – dùng chung tableSummary.service với trang Quản lý bàn
   async getTableStatus(branchId = tableSummaryService.DEFAULT_BRANCH_ID) {
     const summary = await tableSummaryService.getTableSummary(branchId);
-    const { totalTables, availableTables, servingTables, reservedTables } = summary;
+    const {
+      totalTables,
+      availableTables,
+      servingTables,
+      reservedTables,
+      cleaningTables,
+    } = summary;
     return {
       empty: availableTables,
       serving: servingTables,
       occupied: servingTables,
       reserved: reservedTables,
+      cleaning: cleaningTables,
       total: totalTables,
       emptyPercent: totalTables ? Math.round((availableTables / totalTables) * 100) : 0,
       occupiedPercent: totalTables ? Math.round((servingTables / totalTables) * 100) : 0,
       reservedPercent: totalTables ? Math.round((reservedTables / totalTables) * 100) : 0,
+      cleaningPercent: totalTables ? Math.round((cleaningTables / totalTables) * 100) : 0,
     };
   },
 

@@ -1,5 +1,6 @@
 const { Table, Reservation } = require("../../models");
 const billService = require("../bill.service");
+const { TABLE_STATUS, isBookableTableStatus } = require("../../utils/tableStatus");
 
 const ACTIVE_RESERVATION_STATUSES = ["confirmed", "pre-ordered", "waiting_payment"];
 
@@ -58,8 +59,12 @@ async function checkinByToken({ token, userId, numberOfGuests }) {
   });
 
   // Chuyển trạng thái bàn sang đang phục vụ
-  if (table.status === "available") {
-    await table.update({ status: "occupied" });
+  if (isBookableTableStatus(table.status)) {
+    await table.update({ status: TABLE_STATUS.OCCUPIED });
+  } else if (table.status === TABLE_STATUS.CLEANING) {
+    const err = new Error("Bàn đang chờ dọn, chưa sẵn sàng phục vụ");
+    err.code = "TABLE_CLEANING";
+    throw err;
   }
 
   return { reservation: reservation.toJSON(), reused: false };

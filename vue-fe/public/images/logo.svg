@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 280 72" role="img" aria-label="ABC Restaurant">
+  <defs>
+    <linearGradient id="abc-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f5c842"/>
+      <stop offset="100%" stop-color="#d4a012"/>
+    </linearGradient>
+  </defs>
+  <rect width="280" height="72" rx="10" fill="#2e4a3d"/>
+  <circle cx="36" cy="36" r="22" fill="url(#abc-gold)" opacity="0.95"/>
+  <text x="36" y="43" text-anchor="middle" fill="#2e4a3d" font-family="Georgia, 'Times New Roman', serif" font-size="22" font-weight="bold">A</text>
+  <text x="108" y="40" text-anchor="middle" fill="url(#abc-gold)" font-family="Georgia, 'Times New Roman', serif" font-size="32" font-weight="bold" letter-spacing="1">ABC</text>
+  <text x="108" y="58" text-anchor="middle" fill="#ffffff" font-family="Arial, Helvetica, sans-serif" font-size="13" letter-spacing="3">RESTAURANT</text>
+</svg>

@@ -11,7 +11,7 @@
       <el-select
         v-model="selectedBranchId"
         placeholder="Chọn chi nhánh"
-        style="width: 220px"
+        class="filter-branch-select"
         :disabled="!isSuperAdmin"
         @change="fetchOrderItems"
       >
@@ -190,10 +190,13 @@ onMounted(() => {
 
 <style scoped>
 .admin-kitchen {
-  padding: var(--hl-space-lg);
+  padding: 0;
   background: var(--hl-admin-bg);
-  min-height: 100vh;
+  min-height: 0;
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .header {
@@ -218,6 +221,10 @@ onMounted(() => {
   align-items: center;
   gap: var(--hl-space-md);
   margin-bottom: var(--hl-space-lg);
+  flex-wrap: wrap;
+}
+.filter-branch-select {
+  width: 220px;
 }
 
 .order-items-section {
@@ -226,8 +233,10 @@ onMounted(() => {
 
 .items-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: var(--hl-space-md);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  gap: var(--hl-admin-grid-gap);
+  width: 100%;
+  max-width: 100%;
 }
 
 .item-card {
@@ -283,5 +292,30 @@ onMounted(() => {
   margin-top: var(--hl-space-md);
   padding-top: var(--hl-space-md);
   border-top: 1px solid var(--hl-admin-border);
+}
+
+@media (max-width: 768px) {
+  .filter-section > * {
+    width: 100%;
+  }
+
+  .filter-branch-select {
+    width: 100%;
+  }
+
+  .filter-section :deep(.el-radio-group) {
+    display: flex;
+    width: 100%;
+    overflow-x: auto;
+  }
+
+  .items-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .item-meta {
+    flex-wrap: wrap;
+    gap: var(--hl-space-sm);
+  }
 }
 </style>

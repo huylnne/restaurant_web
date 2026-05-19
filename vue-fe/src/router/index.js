@@ -24,6 +24,8 @@ const AboutView = () => import('@/views/AboutView.vue');
 const SaleView = () => import('@/views/SaleView.vue');
 const NewsView = () => import('@/views/NewsView.vue');
 const ContactView = () => import('@/views/ContactView.vue');
+const BranchesView = () => import('@/views/BranchesView.vue');
+const NearbyBranchesView = () => import('@/views/NearbyBranchesView.vue');
 
 const routes = [
   {
@@ -43,6 +45,8 @@ const routes = [
       { path: '', name: 'Home', component: Home },
       { path: 'menu', name: 'Menu', component: MenuView },
       { path: 'about', name: 'About', component: AboutView },
+      { path: 'branches', name: 'Branches', component: BranchesView },
+      { path: 'branches/nearby', name: 'BranchesNearby', component: NearbyBranchesView },
       { path: 'sale', name: 'Sale', component: SaleView },
       { path: 'news', name: 'News', component: NewsView },
       { path: 'contact', name: 'Contact', component: ContactView },

@@ -84,6 +84,11 @@ exports.getCurrentBill = async (req, res) => {
 exports.createReview = async (req, res) => {
   try {
     const review = await userService.createReservationReview(req.userId, req.body);
+    req.audit = {
+      entityId: review.review_id,
+      description: `Đánh giá reservation #${review.reservation_id}`,
+      metadata: { rating: review.rating },
+    };
     return res.status(201).json({
       message: "Gửi đánh giá thành công",
       review,

@@ -288,6 +288,10 @@ onMounted(() => {
   display: flex;
   flex-direction: column;
   gap: 16px;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .header-card h2 {
   margin: 0;
@@ -304,5 +308,25 @@ onMounted(() => {
 .actions {
   display: flex;
   justify-content: flex-end;
+}
+
+.table-card {
+  overflow-x: auto;
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 12px;
+  }
+
+  .actions {
+    justify-content: stretch;
+  }
+
+  .actions .el-button {
+    width: 100%;
+  }
 }
 </style>

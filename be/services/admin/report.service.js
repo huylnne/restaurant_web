@@ -241,6 +241,7 @@ const reportService = {
       availableTables: summary.availableTables,
       occupiedTables,
       reservedTables: summary.reservedTables,
+      cleaningTables: summary.cleaningTables,
       occupancyRate:
         summary.totalTables > 0
           ? ((occupiedTables / summary.totalTables) * 100).toFixed(2)

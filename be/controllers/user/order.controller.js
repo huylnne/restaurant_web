@@ -25,6 +25,7 @@ const createOrder = async (req, res) => {
       });
     }
 
+    req.audit = { entityId: newOrder.order_id, metadata: { reservation_id } };
     res.json({ message: "Đặt món trước thành công!", order_id: newOrder.order_id });
   } catch (error) {
     console.error("❌ Lỗi khi đặt món trước:", error);

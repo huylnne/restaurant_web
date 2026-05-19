@@ -1,10 +1,9 @@
 /**
- * Service dùng chung cho thống kê bàn (tổng số, trống, đang phục vụ, đã đặt).
+ * Service dùng chung cho thống kê bàn (UC10: trống, đã đặt, đang phục vụ, chờ dọn).
  * Dashboard và trang Quản lý bàn đều gọi service này để đảm bảo số liệu khớp.
- *
- * Rule: chỉ đếm bàn active, theo branch_id. (Sau này thêm is_deleted, is_active thì bổ sung vào baseWhere.)
  */
 const { Table } = require("../../models");
+const { TABLE_STATUS } = require("../../utils/tableStatus");
 const db = require("../../models/db");
 const { Sequelize } = require("sequelize");
 
@@ -37,10 +36,14 @@ async function expireReservationsForBranch(branchId, cutoff) {
        AND reservation_time <= :noShowDeadline
        AND table_id IN (
          SELECT table_id FROM tables
-         WHERE branch_id = :branchId AND status = 'pre-ordered'
+         WHERE branch_id = :branchId AND status = :preOrdered
        )`,
     {
-      replacements: { branchId, noShowDeadline: noShowDeadline.toISOString() },
+      replacements: {
+        branchId,
+        preOrdered: TABLE_STATUS.PRE_ORDERED,
+        noShowDeadline: noShowDeadline.toISOString(),
+      },
       type: Sequelize.QueryTypes.UPDATE,
     }
   );
@@ -48,9 +51,9 @@ async function expireReservationsForBranch(branchId, cutoff) {
   // 2. Giải phóng bàn không còn reservation active
   await db.sequelize.query(
     `UPDATE tables t
-     SET status = 'available'
+     SET status = :available
      WHERE t.branch_id = :branchId
-       AND t.status = 'pre-ordered'
+       AND t.status = :preOrdered
        AND t.table_id NOT IN (
          SELECT table_id FROM reservations
          WHERE status IN ('confirmed', 'pre-ordered')
@@ -60,6 +63,8 @@ async function expireReservationsForBranch(branchId, cutoff) {
     {
       replacements: {
         branchId,
+        available: TABLE_STATUS.AVAILABLE,
+        preOrdered: TABLE_STATUS.PRE_ORDERED,
         now: nowIso,
         preOrderTrigger: preOrderTrigger.toISOString(),
       },
@@ -70,9 +75,9 @@ async function expireReservationsForBranch(branchId, cutoff) {
   // 3. Chuyển bàn sang 'pre-ordered' khi còn ≤ PRE_ORDER_MINUTES trước giờ đặt
   await db.sequelize.query(
     `UPDATE tables t
-     SET status = 'pre-ordered'
+     SET status = :preOrdered
      WHERE t.branch_id = :branchId
-       AND t.status = 'available'
+       AND t.status = :available
        AND t.table_id IN (
          SELECT table_id FROM reservations
          WHERE status = 'confirmed'
@@ -82,6 +87,8 @@ async function expireReservationsForBranch(branchId, cutoff) {
     {
       replacements: {
         branchId,
+        available: TABLE_STATUS.AVAILABLE,
+        preOrdered: TABLE_STATUS.PRE_ORDERED,
         now: nowIso,
         preOrderTrigger: preOrderTrigger.toISOString(),
       },
@@ -91,15 +98,11 @@ async function expireReservationsForBranch(branchId, cutoff) {
 }
 
 /**
- * Lấy thống kê bàn theo branch – một nguồn duy nhất cho Dashboard và Trang quản lý bàn.
- * @param {number} [branchId=1] - branch hiện tại (mặc định 1)
- * @returns {Promise<{ totalTables: number, availableTables: number, servingTables: number, reservedTables: number }>}
- */
-/**
- * Đếm bàn theo nghiệp vụ hiện tại:
- * - "Trống" = available VÀ không có reservation tương lai (khách chưa tới giờ vẫn coi là đã đặt trước)
- * - "Đã đặt trước" = pre-ordered HOẶC available nhưng đã có reservation active với giờ đặt > now
- * - "Đang phục vụ" = occupied
+ * Đếm bàn theo UC10:
+ * - Trống = available, không có reservation tương lai
+ * - Đã đặt = pre-ordered hoặc available + reservation sắp tới
+ * - Đang phục vụ = occupied
+ * - Chờ dọn = cleaning (tách khỏi trống)
  */
 async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
   await expireReservationsForBranch(branchId);
@@ -107,9 +110,10 @@ async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
   const baseWhere = { branch_id: branchId };
   const nowIso = new Date().toISOString();
 
-  const [totalTables, servingTables] = await Promise.all([
+  const [totalTables, servingTables, cleaningTables] = await Promise.all([
     Table.count({ where: baseWhere }),
-    Table.count({ where: { ...baseWhere, status: "occupied" } }),
+    Table.count({ where: { ...baseWhere, status: TABLE_STATUS.OCCUPIED } }),
+    Table.count({ where: { ...baseWhere, status: TABLE_STATUS.CLEANING } }),
   ]);
 
   const [reservedRow] = await db.sequelize.query(
@@ -151,6 +155,7 @@ async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
     availableTables,
     servingTables,
     reservedTables,
+    cleaningTables,
   };
 }
 

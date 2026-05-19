@@ -9,6 +9,12 @@ const {
 const { Sequelize, Op } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
 const crypto = require("crypto");
+const {
+  TABLE_STATUS,
+  isValidTableStatus,
+  shouldEndTableSession,
+  normalizeTableStatus,
+} = require("../../utils/tableStatus");
 
 const DEFAULT_BRANCH_ID = tableSummaryService.DEFAULT_BRANCH_ID;
 
@@ -108,7 +114,8 @@ const tableService = {
       // Bàn đang dùng (pre-ordered / occupied) → lấy reservation trong cửa sổ ±2 giờ
       // Bàn trống → không set activeReservation (tránh lộ data cũ)
       const activeReservation =
-        tableData.status !== "available"
+        tableData.status !== TABLE_STATUS.AVAILABLE &&
+        tableData.status !== TABLE_STATUS.CLEANING
           ? (tableData.Reservations?.find((r) => {
               const reservationTime = new Date(r.reservation_time);
               const timeDiff = (reservationTime - now) / (1000 * 60 * 60);
@@ -118,7 +125,7 @@ const tableService = {
 
       // Bàn đang Trống nhưng có reservation tương lai (trong 24h tới) → cảnh báo cho nhân viên
       const upcomingReservation =
-        tableData.status === "available"
+        tableData.status === TABLE_STATUS.AVAILABLE
           ? (tableData.Reservations?.find((r) => {
               if (r.status !== "confirmed") return false;
               const resTime = new Date(r.reservation_time);
@@ -144,7 +151,10 @@ const tableService = {
       reservations.forEach((reservation) => sumOrderItems(reservation.Orders));
       sumOrderItems(tableData.TableOrders);
 
-      if (tableData.status === 'available') {
+      if (
+        tableData.status === TABLE_STATUS.AVAILABLE ||
+        tableData.status === TABLE_STATUS.CLEANING
+      ) {
         totalRevenue = 0;
       }
 
@@ -170,7 +180,7 @@ const tableService = {
     const table = await Table.create({
       table_number,
       capacity,
-      status: "available",
+      status: TABLE_STATUS.AVAILABLE,
       branch_id,
     });
 
@@ -186,6 +196,10 @@ const tableService = {
 
     const { table_number, capacity, status } = data;
 
+    if (status && !isValidTableStatus(status)) {
+      throw new Error("Trạng thái bàn không hợp lệ");
+    }
+
     // Nếu đổi số bàn, kiểm tra số mới đã tồn tại chưa
     if (table_number && table_number !== table.table_number) {
       const existingTable = await Table.findOne({ where: { table_number, branch_id } });
@@ -198,8 +212,8 @@ const tableService = {
       status: status || table.status,
     });
 
-    // Nếu chuyển trạng thái về "available" → hoàn tất toàn bộ phiên hiện tại
-    if (status === "available") {
+    // Kết thúc phiên khi chuyển Trống hoặc Chờ dọn (sau thanh toán / khách rời)
+    if (status && shouldEndTableSession(status)) {
       const { Op } = require("sequelize");
 
       // Hoàn tất đơn gắn trực tiếp với bàn
@@ -258,8 +272,8 @@ const tableService = {
       throw new Error("Không tìm thấy bàn");
     }
 
-    if (table.status !== "available") {
-      throw new Error("Không thể xóa bàn đang được sử dụng");
+    if (normalizeTableStatus(table.status) !== TABLE_STATUS.AVAILABLE) {
+      throw new Error("Chỉ xóa được bàn đang trống");
     }
 
     await table.destroy();
@@ -329,6 +343,7 @@ const tableService = {
       availableTables: summary.availableTables,
       occupiedTables: summary.servingTables,
       reservedTables: summary.reservedTables,
+      cleaningTables: summary.cleaningTables,
       currentRevenue: parseFloat(revenueResult.total) || 0,
     };
   },

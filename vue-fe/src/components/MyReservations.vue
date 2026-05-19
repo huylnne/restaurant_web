@@ -1,7 +1,8 @@
 <template>
-  <el-card>
+  <el-card class="reservations-card">
     <h2 class="title">Lịch sử dùng bữa</h2>
-    <el-table :data="reservations" v-loading="loading" style="width: 100%">
+    <div class="reservations-table-wrap">
+    <el-table :data="reservations" v-loading="loading" class="reservations-table">
       <el-table-column prop="reservation_time" label="Thời gian" width="200">
         <template #default="{ row }">
           {{ new Date(row.reservation_time).toLocaleString("vi-VN") }}
@@ -81,6 +82,7 @@
         </template>
       </el-table-column>
     </el-table>
+    </div>
 
     <el-dialog v-model="reviewDialogVisible" title="Đánh giá chất lượng dịch vụ" width="520px">
       <div class="review-form">
@@ -202,7 +204,8 @@ function getDiningStatusLabel(row) {
   if (resStatus === "waiting_payment") return "Chờ thanh toán";
 
   if (tableStatus === "occupied") return "Đang phục vụ";
-  if (tableStatus === "pre-ordered") return "Đã đặt trước";
+  if (tableStatus === "pre-ordered") return "Đã đặt";
+  if (tableStatus === "cleaning") return "Chờ dọn";
   if (resStatus === "confirmed") return "Đã xác nhận";
 
   return getTableStatusLabel(row.Table?.status) || row.status || "-";
@@ -333,9 +336,28 @@ onMounted(fetchReservations);
   margin-top: 16px;
 }
 
+.reservations-card {
+  width: 100%;
+}
+
+.reservations-table-wrap {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.reservations-table {
+  width: 100%;
+  min-width: 1100px;
+}
+
 :deep(.el-card) {
   border-radius: var(--hl-radius-lg);
   box-shadow: var(--hl-shadow-card);
   border: 1px solid var(--hl-border-light);
+}
+
+:deep(.reservations-card .el-card__body) {
+  width: 100%;
 }
 </style>

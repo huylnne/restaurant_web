@@ -124,7 +124,7 @@ const bill = ref(null);
 const activeSession = computed(() => {
   if (!bill.value) return null;
   const status = normalizeTableStatus(bill.value.table?.status);
-  if (status === "available") return null;
+  if (status === "available" || status === "cleaning") return null;
   return bill.value;
 });
 
@@ -238,7 +238,10 @@ const requestBill = async () => {
 <style scoped>
 .my-table-page {
   min-height: 100%;
-  padding: var(--hl-space-lg);
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: var(--hl-space-lg) clamp(var(--hl-space-md), 3vw, var(--hl-space-2xl));
   background: var(--hl-bg-section);
   display: flex;
   flex-direction: column;
@@ -246,7 +249,8 @@ const requestBill = async () => {
 }
 
 .my-table-header {
-  max-width: 960px;
+  width: 100%;
+  max-width: min(1400px, 100%);
   margin: 0 auto var(--hl-space-xl);
 }
 
@@ -264,9 +268,9 @@ const requestBill = async () => {
 }
 
 .layout {
-  max-width: 960px;
-  margin: 0 auto;
   width: 100%;
+  max-width: min(1400px, 100%);
+  margin: 0 auto;
 }
 
 .card {
@@ -347,6 +351,11 @@ const requestBill = async () => {
 .status-pre-ordered {
   background: #fff4e5;
   color: #b55b07;
+}
+
+.status-cleaning {
+  background: #f1f5f9;
+  color: #64748b;
 }
 
 .status-reserved,

@@ -10,6 +10,8 @@ const MUTABLE_FIELDS = [
   "open_time",
   "close_time",
   "image_url",
+  "latitude",
+  "longitude",
   "is_active",
 ];
 
@@ -44,6 +46,8 @@ async function createBranch(data) {
     open_time: data.open_time || null,
     close_time: data.close_time || null,
     image_url: data.image_url || null,
+    latitude: data.latitude ?? null,
+    longitude: data.longitude ?? null,
     is_active: data.is_active !== undefined ? !!data.is_active : true,
   });
 }

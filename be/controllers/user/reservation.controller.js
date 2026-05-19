@@ -87,6 +87,11 @@ const createReservation = async (req, res) => {
       created_at: new Date(),
     });
 
+    req.audit = {
+      entityId: reservation.reservation_id,
+      description: `Đặt bàn #${reservation.reservation_id}, bàn ${table.table_id}`,
+      metadata: { branch_id, table_id: table.table_id },
+    };
     return res.status(201).json({ message: "Đặt bàn thành công", reservation });
   } catch (err) {
     console.error("Lỗi đặt bàn:", err);
@@ -190,10 +195,11 @@ const cancelReservation = async (req, res) => {
     reservation.status = "cancelled";
     await reservation.save();
     const table = await Table.findByPk(reservation.table_id);
-    if (table) {
+    if (table && ["pre-ordered", "reserved"].includes(table.status)) {
       table.status = "available";
       await table.save();
     }
+    req.audit = { entityId: reservation.reservation_id };
     return res.json({
       message: "Đã hủy đặt bàn thành công",
       reservation,
@@ -234,6 +240,7 @@ const requestBill = async (req, res) => {
     reservation.status = "waiting_payment";
     await reservation.save();
 
+    req.audit = { entityId: reservation.reservation_id };
     return res.json({
       message: "Đã gửi yêu cầu thanh toán, vui lòng chờ nhân viên.",
       reservation,

@@ -11,48 +11,58 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ========== DATABASE ==========
 const db = require('./models/db');
+require('./models/index');
 
-db.sequelize.authenticate()
-  .then(() => {
-    console.log('✅ Kết nối DB thành công');
-    return db.sequelize.sync({ alter: true });
-  })
-  .then(() => {
-    console.log('✅ Sequelize đã sync models');
-    // payments: cho phép order_id NULL và thêm reservation_id + unique index
-    return db.sequelize
-      .query('ALTER TABLE payments ALTER COLUMN order_id DROP NOT NULL;', { raw: true })
-      .catch(() => {});
-  })
-  .then(() => {
-    return db.sequelize
-      .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS reservation_id INTEGER;', { raw: true })
-      .catch(() => {});
-  })
-  .then(() => {
-    return db.sequelize
-      .query(
-        'CREATE UNIQUE INDEX IF NOT EXISTS payments_reservation_id_uq ON payments(reservation_id) WHERE reservation_id IS NOT NULL;',
-        { raw: true }
-      )
-      .catch(() => {});
-  })
-  .then(() => {
-    // Cho phép reservation_id = NULL (đơn waiter tạo theo bàn không qua đặt bàn)
-    return db.sequelize
-      .query('ALTER TABLE orders ALTER COLUMN reservation_id DROP NOT NULL;', { raw: true })
-      .catch(() => {});
-  })
-  .then(() => {
-    // Chuẩn hóa trạng thái bàn: chỉ dùng available | occupied | pre-ordered
-    return db.sequelize.query(
-      "UPDATE tables SET status = 'pre-ordered' WHERE status = 'reserved';",
+async function initDatabase() {
+  await db.sequelize.authenticate();
+  console.log('✅ Kết nối DB thành công');
+
+  if (process.env.DB_SYNC_ALTER === 'true') {
+    await db.sequelize.sync({ alter: true });
+    console.log('✅ Sequelize đã sync models (alter)');
+  }
+
+  // Migrations nhẹ — chạy mỗi lần start, bỏ qua nếu đã áp dụng
+  await db.sequelize
+    .query('ALTER TABLE payments ALTER COLUMN order_id DROP NOT NULL;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS reservation_id INTEGER;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      'CREATE UNIQUE INDEX IF NOT EXISTS payments_reservation_id_uq ON payments(reservation_id) WHERE reservation_id IS NOT NULL;',
       { raw: true }
-    ).catch(() => {});
-  })
-  .catch((err) => {
-    console.error('❌ Lỗi kết nối DB:', err);
-  });
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE orders ALTER COLUMN reservation_id DROP NOT NULL;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query("UPDATE tables SET status = 'pre-ordered' WHERE status = 'reserved';", { raw: true })
+    .catch(() => {});
+
+  await db.sequelize
+    .query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS latitude DECIMAL(10, 7);', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS longitude DECIMAL(10, 7);', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE branches SET latitude = 21.0134, longitude = 105.7985
+       WHERE branch_id = 1 AND (latitude IS NULL OR longitude IS NULL);`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE branches SET latitude = 10.7542, longitude = 106.669
+       WHERE branch_id = 2 AND (latitude IS NULL OR longitude IS NULL);`,
+      { raw: true }
+    )
+    .catch(() => {});
+}
 
 // ========== ROUTES ==========
 // Auth routes
@@ -124,6 +134,12 @@ app.use('/api/admin/kitchen', kitchenRoutes);
 const waiterRoutes = require('./routes/admin/waiter.routes');
 app.use('/api/admin/waiter', waiterRoutes);
 
+const receptionRoutes = require('./routes/admin/reception.routes');
+app.use('/api/admin/reception', receptionRoutes);
+
+const operationLogRoutes = require('./routes/admin/operationLog.routes');
+app.use('/api/admin/operation-logs', operationLogRoutes);
+
 app.get('/', (req, res) => {
   res.send(' Backend API đang chạy!');
 });
@@ -144,7 +160,49 @@ app.use((err, req, res, next) => {
   return next(err);
 });
 
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`✅ Server đang chạy tại http://localhost:${PORT}`);
+const PORT = Number(process.env.PORT) || 3000;
+let server;
+
+async function startServer() {
+  try {
+    await initDatabase();
+  } catch (err) {
+    console.error('❌ Lỗi kết nối DB:', err.message || err);
+    process.exit(1);
+  }
+
+  server = app.listen(PORT, () => {
+    console.log(`✅ Server đang chạy tại http://localhost:${PORT}`);
+    console.log('   Giữ terminal mở. Dừng server: Ctrl+C');
+  });
+
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n❌ Port ${PORT} đã có process khác đang dùng.`);
+      console.error('   Kiểm tra: Get-NetTCPConnection -LocalPort ' + PORT + ' | Select-Object OwningProcess');
+      console.error('   Tắt process cũ: Stop-Process -Id <PID> -Force\n');
+    } else {
+      console.error('❌ Lỗi khởi động server:', err.message || err);
+    }
+    process.exit(1);
+  });
+}
+
+process.on('unhandledRejection', (reason) => {
+  console.error('❌ unhandledRejection:', reason);
 });
+
+process.on('uncaughtException', (err) => {
+  console.error('❌ uncaughtException:', err);
+});
+
+process.on('SIGINT', () => {
+  console.log('\n⏹ Đang tắt server...');
+  if (server) {
+    server.close(() => process.exit(0));
+  } else {
+    process.exit(0);
+  }
+});
+
+startServer();

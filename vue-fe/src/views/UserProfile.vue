@@ -223,9 +223,11 @@ const changePassword = async () => {
 }
 
 .container {
-  max-width: 720px;
+  width: 100%;
+  max-width: min(1400px, 100%);
   margin: 0 auto;
-  padding: 0 var(--hl-space-md);
+  padding: 0 clamp(var(--hl-space-md), 3vw, var(--hl-space-xl));
+  box-sizing: border-box;
 }
 
 .profile-card {

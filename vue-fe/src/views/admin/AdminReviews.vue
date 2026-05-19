@@ -9,7 +9,7 @@
         <el-select
           v-model="selectedBranchId"
           placeholder="Chọn chi nhánh"
-          style="width: 220px"
+          class="filter-branch-select"
           :disabled="!isSuperAdmin"
           @change="fetchAll"
         >
@@ -20,14 +20,20 @@
             :value="branch.branch_id"
           />
         </el-select>
-        <el-select v-model="ratingFilter" placeholder="Số sao" clearable style="width: 140px" @change="fetchAll">
+        <el-select
+          v-model="ratingFilter"
+          placeholder="Số sao"
+          clearable
+          class="filter-rating-select"
+          @change="fetchAll"
+        >
           <el-option v-for="n in [5,4,3,2,1]" :key="n" :label="`${n} sao`" :value="n" />
         </el-select>
         <el-input
           v-model="keyword"
           clearable
           placeholder="Tìm tên, SĐT, nội dung..."
-          style="width: 260px"
+          class="filter-keyword-input"
           @keyup.enter="fetchAll"
           @clear="fetchAll"
         />
@@ -54,7 +60,7 @@
       </div>
     </div>
 
-    <el-card>
+    <el-card class="reviews-table-card">
       <el-table :data="reviews" v-loading="loading" stripe style="width: 100%">
         <el-table-column label="Thời gian" width="170">
           <template #default="{ row }">
@@ -158,9 +164,13 @@ onMounted(async () => {
 
 <style scoped>
 .admin-reviews {
-  padding: var(--hl-space-lg);
+  padding: 0;
   background: var(--hl-admin-bg);
-  min-height: 100vh;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 .header {
   display: flex;
@@ -183,10 +193,19 @@ onMounted(async () => {
   gap: 10px;
   flex-wrap: wrap;
 }
+.filter-branch-select {
+  width: 220px;
+}
+.filter-rating-select {
+  width: 140px;
+}
+.filter-keyword-input {
+  width: 260px;
+}
 .summary-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
+  gap: var(--hl-admin-grid-gap);
   margin-bottom: 16px;
 }
 .card {
@@ -205,10 +224,36 @@ onMounted(async () => {
   font-weight: 700;
   color: var(--hl-text);
 }
+
+.reviews-table-card {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.reviews-table-card :deep(.el-table) {
+  min-width: 720px;
+}
+
 @media (max-width: 900px) {
   .header {
     flex-direction: column;
     align-items: flex-start;
+  }
+
+  .filters {
+    width: 100%;
+  }
+
+  .filters > * {
+    width: 100%;
+  }
+
+  .filter-branch-select,
+  .filter-rating-select,
+  .filter-keyword-input {
+    width: 100%;
   }
 }
 </style>

@@ -33,6 +33,10 @@ exports.create = async (req, res) => {
     const branchId = resolveBranchId(req, req.body.branch_id || req.query.branchId, 1);
     const payload = { ...req.body, branch_id: branchId };
     const newItem = await menuService.create(payload);
+    req.audit = {
+      entityId: newItem.item_id,
+      description: `Thêm món #${newItem.item_id}: ${newItem.name || ''}`.trim(),
+    };
     res.status(201).json(newItem);
   } catch (err) {
     console.error("❌ Error in create:", err);

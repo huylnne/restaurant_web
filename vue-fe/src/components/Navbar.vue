@@ -3,7 +3,7 @@
     <div class="zigzag-background">
       <div class="home-page_header">
         <div class="top-bar">
-          <span>Chào mừng bạn đến với HLFood!</span>
+          <span>Chào mừng bạn đến với {{ BRAND.name }}!</span>
           <div class="right-links">
             <a href="#">Trang chủ</a>
             <a href="#">Giới thiệu</a>
@@ -29,21 +29,21 @@
 
         <div class="middle-bar">
           <div class="logo-wrapper">
-            <img src="/images/logo.png" alt="HLFood Logo" class="logo" />
+            <img :src="BRAND.logo" :alt="`${BRAND.name} Logo`" class="logo" />
           </div>
 
           <div class="info-items">
             <div class="info">
               <span class="icon">🕒</span>
-              <div><strong>OPEN:</strong><br />8AM - 10PM</div>
+              <div><strong>OPEN:</strong><br />{{ BRAND.hoursDisplay }}</div>
             </div>
             <div class="info">
               <span class="icon">✉️</span>
-              <div><strong>EMAIL:</strong><br />huytdtm@gmail.com</div>
+              <div><strong>EMAIL:</strong><br />{{ BRAND.email }}</div>
             </div>
             <div class="info">
               <span class="icon">📞</span>
-              <div><strong>HOTLINE:</strong><br />0879530869</div>
+              <div><strong>HOTLINE:</strong><br />{{ BRAND.hotline }}</div>
             </div>
           </div>
         </div>
@@ -84,6 +84,7 @@
 
 <script setup>
 import { Search, ShoppingCart } from "@element-plus/icons-vue";
+import { BRAND } from "@/config/siteContent";
 </script>
 
 <style scoped>

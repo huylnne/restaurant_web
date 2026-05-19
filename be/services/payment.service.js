@@ -4,6 +4,7 @@ const { QueryTypes, Op } = require("sequelize");
 const billService = require("./bill.service");
 const momo = require("../utils/momo");
 const { generateVietQR } = require("vietqr-ts");
+const { TABLE_STATUS } = require("../utils/tableStatus");
 
 const ALLOWED_METHODS = ["COD", "MOMO"];
 const now = () => new Date();
@@ -225,7 +226,10 @@ async function onPaymentSucceededByReservation(reservationId) {
 
   await Reservation.update({ status: "completed" }, { where: { reservation_id: reservationId } });
   if (reservation.table_id) {
-    await Table.update({ status: "available" }, { where: { table_id: reservation.table_id } });
+    await Table.update(
+      { status: TABLE_STATUS.CLEANING },
+      { where: { table_id: reservation.table_id } }
+    );
   }
 }
 

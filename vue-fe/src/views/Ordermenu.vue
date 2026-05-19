@@ -3,8 +3,8 @@
     <el-card class="order-menu-card">
       <h2>Đặt món trước cho bàn đã đặt</h2>
       <el-row :gutter="16">
-        <el-col v-for="item in menu" :key="item.item_id" :span="8" style="display: flex">
-          <el-card class="menu-item-card" style="flex: 1">
+        <el-col v-for="item in menu" :key="item.item_id" :xs="24" :sm="12" :md="8" class="menu-col">
+          <el-card class="menu-item-card">
             <div class="menu-item-content">
               <img
                 :src="item.image_url"
@@ -125,5 +125,26 @@ const submitOrder = async () => {
   position: absolute;
   bottom: var(--hl-space-md);
   left: var(--hl-space-md);
+}
+
+.menu-col {
+  display: flex;
+}
+
+.menu-col .menu-item-card {
+  flex: 1;
+}
+
+@media (max-width: 640px) {
+  .order-menu-card {
+    margin: var(--hl-space-lg) 10px;
+    padding: var(--hl-space-md);
+  }
+
+  .menu-item-card {
+    height: auto;
+    min-height: 330px;
+    padding-bottom: 70px;
+  }
 }
 </style>

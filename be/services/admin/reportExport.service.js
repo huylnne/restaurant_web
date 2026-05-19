@@ -61,7 +61,7 @@ async function gatherReportData({ branchId, startDate, endDate, days, months, li
 
 async function buildExcel(data) {
   const wb = new ExcelJS.Workbook();
-  wb.creator = 'HL Food Admin';
+  wb.creator = 'ABC Restaurant Admin';
   wb.created = new Date();
 
   const periodLabel =
@@ -147,7 +147,8 @@ async function buildExcel(data) {
   ws6.addRow(['Tổng số bàn', ts.totalTables]);
   ws6.addRow(['Bàn trống', ts.availableTables]);
   ws6.addRow(['Đang phục vụ', ts.occupiedTables]);
-  ws6.addRow(['Đã đặt trước', ts.reservedTables]);
+  ws6.addRow(['Đã đặt', ts.reservedTables]);
+  ws6.addRow(['Chờ dọn', ts.cleaningTables ?? 0]);
   ws6.addRow(['Tỷ lệ sử dụng (%)', ts.occupancyRate]);
   ws6.getRow(1).font = { bold: true };
 
@@ -266,7 +267,8 @@ async function buildPdf(data) {
       ['Tổng bàn', String(ts.totalTables)],
       ['Trống', String(ts.availableTables)],
       ['Đang phục vụ', String(ts.occupiedTables)],
-      ['Đặt trước', String(ts.reservedTables)],
+      ['Đã đặt', String(ts.reservedTables)],
+      ['Chờ dọn', String(ts.cleaningTables ?? 0)],
       ['Tỷ lệ sử dụng', `${ts.occupancyRate}%`],
     ]
   );

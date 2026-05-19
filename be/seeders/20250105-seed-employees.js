@@ -1,107 +1,57 @@
 'use strict';
 
+/**
+ * Gán employees cho tài khoản demo cũ (admin/manager cơ sở).
+ * Nhân viên theo chi nhánh mới: chạy 20260519100000-seed-seven-branches-staff.js
+ */
 module.exports = {
   up: async (queryInterface, Sequelize) => {
-    // Lấy user_id thực tế từ bảng users
     const users = await queryInterface.sequelize.query(
       `SELECT user_id, username FROM users ORDER BY user_id;`,
       { type: Sequelize.QueryTypes.SELECT }
     );
 
-    // Tạo map username -> user_id
     const userMap = {};
-    users.forEach(u => {
+    users.forEach((u) => {
       userMap[u.username] = u.user_id;
     });
 
-    const now = new Date();
+    const pairs = [
+      ['admin_b1', 1, 'admin', 20000000],
+      ['admin_b2', 5, 'admin', 19500000],
+      ['manager1', 1, 'manager', 15000000],
+      ['manager2', 6, 'manager', 17000000],
+      ['kitchen1', 1, 'kitchen', 12000000],
+      ['waiter1', 1, 'waiter', 8000000],
+    ];
 
-    await queryInterface.bulkInsert('employees', [
-      {
-        user_id: userMap['admin_b1'], // branch admin 1
-        branch_id: 1,
-        position: 'admin',
-        salary: 20000000.00,
-        hire_date: new Date('2024-01-05'),
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      },
-      {
-        user_id: userMap['admin_b2'], // branch admin 2
-        branch_id: 2,
-        position: 'admin',
-        salary: 18000000.00,
-        hire_date: new Date('2024-01-10'),
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      },
-      {
-        user_id: userMap['manager1'], // manager1
-        branch_id: 1,
-        position: 'manager',
-        salary: 15000000.00,
+    const now = new Date();
+    const rows = [];
+
+    for (const [username, branchId, position, salary] of pairs) {
+      const userId = userMap[username];
+      if (!userId) continue;
+      const exists = await queryInterface.sequelize.query(
+        `SELECT 1 FROM employees WHERE user_id = ${userId} LIMIT 1`,
+        { type: Sequelize.QueryTypes.SELECT }
+      );
+      if (exists.length) continue;
+      rows.push({
+        user_id: userId,
+        branch_id: branchId,
+        position,
+        salary,
         hire_date: new Date('2024-01-15'),
         status: 'active',
         created_at: now,
-        updated_at: now
-      },
-      {
-        user_id: userMap['kitchen1'], // kitchen1
-        branch_id: 1,
-        position: 'kitchen',
-        salary: 12000000.00,
-        hire_date: new Date('2024-02-20'),
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      },
-      {
-        user_id: userMap['waiter1'], // waiter1
-        branch_id: 1,
-        position: 'waiter',
-        salary: 8000000.00,
-        hire_date: new Date('2024-03-10'),
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      },
-      {
-        user_id: userMap['ngochuy'], // ngochuy
-        branch_id: 1,
-        position: 'user',
-        salary: 9000000.00,
-        hire_date: new Date('2024-06-01'),
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      },
-      // Thêm nhân viên cho branch 2
-      {
-        user_id: userMap['manager1'], // manager1
-        branch_id: 2,
-        position: 'manager',
-        salary: 14000000.00,
-        hire_date: new Date('2024-07-01'),
-        status: 'active',
-        created_at: now,
-        updated_at: now
-      },
-      {
-        user_id: userMap['kitchen1'], // kitchen1
-        branch_id: 2,
-        position: 'kitchen',
-        salary: 11000000.00,
-        hire_date: new Date('2024-07-15'),
-        status: 'on_leave',
-        created_at: now,
-        updated_at: now
-      }
-    ], {});
+        updated_at: now,
+      });
+    }
+
+    if (rows.length) {
+      await queryInterface.bulkInsert('employees', rows, {});
+    }
   },
 
-  down: async (queryInterface, Sequelize) => {
-    await queryInterface.bulkDelete('employees', null, {});
-  }
+  down: async () => {},
 };

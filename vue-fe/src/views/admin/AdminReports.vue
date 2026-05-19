@@ -9,7 +9,7 @@
         <el-select
           v-model="selectedBranchId"
           placeholder="Chọn chi nhánh"
-          style="width: 220px"
+          class="filter-branch-select"
           :disabled="!isSuperAdmin"
           @change="fetchAllData"
         >
@@ -180,8 +180,12 @@
           <span class="value orange">{{ tableStats.occupiedTables }}</span>
         </div>
         <div class="stat-item">
-          <span class="label">Đã đặt trước:</span>
+          <span class="label">Đã đặt:</span>
           <span class="value blue">{{ tableStats.reservedTables }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">Chờ dọn:</span>
+          <span class="value">{{ tableStats.cleaningTables }}</span>
         </div>
         <div class="stat-item">
           <span class="label">Tỷ lệ sử dụng:</span>
@@ -234,6 +238,7 @@ const tableStats = ref({
   availableTables: 0,
   occupiedTables: 0,
   reservedTables: 0,
+  cleaningTables: 0,
   occupancyRate: 0,
 });
 const monthlyRevenue = ref([]);
@@ -538,9 +543,13 @@ onMounted(async () => {
 
 <style scoped>
 .admin-reports {
-  padding: var(--hl-space-lg);
+  padding: 0;
   background: var(--hl-admin-bg);
-  min-height: 100vh;
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 .header {
@@ -548,6 +557,8 @@ onMounted(async () => {
   justify-content: space-between;
   align-items: center;
   margin-bottom: var(--hl-space-lg);
+  flex-wrap: wrap;
+  gap: var(--hl-space-md);
 }
 
 .title-section h2 {
@@ -566,13 +577,17 @@ onMounted(async () => {
 .filter-section {
   display: flex;
   gap: var(--hl-space-md);
+  flex-wrap: wrap;
+}
+.filter-branch-select {
+  width: 220px;
 }
 
 /* Cards tổng quan */
 .overview-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: var(--hl-space-lg);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  gap: var(--hl-admin-grid-gap);
   margin-bottom: var(--hl-space-lg);
 }
 
@@ -646,9 +661,11 @@ onMounted(async () => {
 /* Biểu đồ */
 .charts-section {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(500px, 1fr));
-  gap: var(--hl-space-lg);
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  gap: var(--hl-admin-grid-gap);
   margin-bottom: var(--hl-space-lg);
+  width: 100%;
+  max-width: 100%;
 }
 
 .chart-card {
@@ -679,6 +696,10 @@ onMounted(async () => {
   margin-bottom: var(--hl-space-lg);
   box-shadow: var(--hl-shadow-md);
   border: 1px solid var(--hl-admin-border);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .table-section h3 {
@@ -686,6 +707,10 @@ onMounted(async () => {
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--hl-text);
+}
+
+.table-section :deep(.el-table) {
+  min-width: 760px;
 }
 
 /* Thống kê bàn */
@@ -706,7 +731,7 @@ onMounted(async () => {
 
 .table-stats-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
   gap: var(--hl-space-md);
 }
 
@@ -748,7 +773,35 @@ onMounted(async () => {
     gap: 16px;
   }
 
+  .filter-section {
+    width: 100%;
+  }
+
+  .filter-section > * {
+    width: 100%;
+  }
+
+  .filter-branch-select {
+    width: 100%;
+  }
+
+  .overview-cards {
+    grid-template-columns: 1fr;
+  }
+
   .charts-section {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-section .chart-card {
+    overflow: hidden;
+  }
+
+  .table-section {
+    overflow-x: auto;
+  }
+
+  .table-stats-cards {
     grid-template-columns: 1fr;
   }
 }

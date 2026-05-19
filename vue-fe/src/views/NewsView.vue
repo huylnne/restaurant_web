@@ -3,7 +3,7 @@
     <StaticPageHero
       eyebrow="Tin tức"
       title="Tin tức & Sự kiện"
-      subtitle="Cập nhật thực đơn, mở rộng chi nhánh và các tính năng mới trên hệ thống HL Food."
+      :subtitle="`Cập nhật thực đơn, mở rộng chi nhánh và các tính năng mới trên hệ thống ${BRAND.name}.`"
       image="/images/homeimg3.png"
     />
 
@@ -40,7 +40,7 @@
 <script setup>
 import { ref } from "vue";
 import StaticPageHero from "@/components/StaticPageHero.vue";
-import { NEWS_ARTICLES } from "@/config/siteContent";
+import { BRAND, NEWS_ARTICLES } from "@/config/siteContent";
 
 const dialogVisible = ref(false);
 const selected = ref(null);

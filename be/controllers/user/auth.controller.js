@@ -68,6 +68,19 @@ const register = async (req, res) => {
       role: "user",
     });
 
+    req.userId = newUser.user_id;
+    req.userRole = newUser.role;
+    req.user = {
+      user_id: newUser.user_id,
+      username: newUser.username,
+      role: newUser.role,
+      branch_id: null,
+    };
+    req.audit = {
+      entityId: newUser.user_id,
+      description: `Đăng ký: ${newUser.username}`,
+    };
+
     res.status(201).json({
       message: 'Đăng ký thành công',
       user: {
@@ -116,6 +129,19 @@ const login = async (req, res) => {
       process.env.JWT_SECRET || "default_secret",
       { expiresIn: "7d" }
     );
+
+    req.userId = user.user_id;
+    req.userRole = user.role;
+    req.user = {
+      user_id: user.user_id,
+      username: user.username,
+      role: user.role,
+      branch_id: user.branch_id || null,
+    };
+    req.audit = {
+      entityId: user.user_id,
+      description: `Đăng nhập: ${user.username} (${user.role})`,
+    };
 
     return res.json({
       token,

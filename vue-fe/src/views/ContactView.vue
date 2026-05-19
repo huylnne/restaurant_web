@@ -2,7 +2,7 @@
   <div class="static-page">
     <StaticPageHero
       eyebrow="Liên hệ"
-      title="Liên hệ HL Food"
+      :title="`Liên hệ ${BRAND.name}`"
       :subtitle="`Hotline ${BRAND.hotline} · ${BRAND.email} · Mở cửa ${BRAND.hours}`"
       image="/images/homeimg1.png"
     />
@@ -36,7 +36,11 @@
           </div>
         </div>
 
-        <h3 class="section-heading" style="text-align: left; margin-top: 1.5rem">Chi nhánh</h3>
+        <div class="contact-branches-head">
+          <h3 class="section-heading" style="text-align: left; margin-top: 1.5rem; margin-bottom: 0">Chi nhánh</h3>
+          <router-link to="/branches/nearby" class="contact-branches-link">Gần bạn →</router-link>
+          <router-link to="/branches" class="contact-branches-link">Tất cả →</router-link>
+        </div>
         <el-skeleton v-if="loadingBranches" :rows="3" animated />
         <el-empty v-else-if="!branches.length" description="Chưa có dữ liệu chi nhánh" />
         <div v-else class="branch-list-mini">
@@ -189,5 +193,24 @@ const submit = async () => {
 .branch-mini p {
   color: var(--hl-text-muted);
   margin: 2px 0;
+}
+
+.contact-branches-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--hl-space-sm);
+  margin-bottom: var(--hl-space-md);
+}
+
+.contact-branches-link {
+  font-size: 0.9rem;
+  color: var(--hl-primary);
+  text-decoration: none;
+}
+
+.contact-branches-link:hover {
+  text-decoration: underline;
 }
 </style>

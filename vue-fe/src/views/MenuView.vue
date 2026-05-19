@@ -240,6 +240,10 @@ const fetchBranches = async () => {
     } else if (branches.value.length && !branches.value.some((b) => b.branch_id === selectedBranchId.value)) {
       selectedBranchId.value = branches.value[0].branch_id;
     }
+    const fromQuery = Number(route.query.branch_id);
+    if (fromQuery && branches.value.some((b) => b.branch_id === fromQuery)) {
+      selectedBranchId.value = fromQuery;
+    }
   } catch {
     branches.value = [];
   }
@@ -402,7 +406,11 @@ const handleSubmit = async () => {
 
 .menu-page--admin {
   background: var(--hl-admin-bg);
-  padding: var(--hl-space-lg);
+  padding: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
 }
 
 /* ----- Header (chỉ admin) ----- */
@@ -457,6 +465,11 @@ const handleSubmit = async () => {
 .menu-content {
   max-width: 1280px;
   margin: 0 auto;
+  width: 100%;
+}
+
+.menu-page--admin .menu-content {
+  max-width: 100%;
 }
 
 .branch-selector {
@@ -523,8 +536,15 @@ const handleSubmit = async () => {
 
 .dish-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
   gap: var(--hl-space-lg);
+  width: 100%;
+  max-width: 100%;
+}
+
+.menu-page--admin .dish-list {
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  gap: var(--hl-admin-grid-gap);
 }
 
 .dish-card {

@@ -1,24 +1,25 @@
 /**
- * Trạng thái bàn – dùng chung cho admin (Quản lý bàn) và user (Lịch sử dùng bữa).
- * Backend chỉ dùng 3 giá trị: available | occupied | pre-ordered
+ * UC10 – Trạng thái bàn (4 giá trị, đồng bộ backend):
+ * available | pre-ordered | occupied | cleaning
  */
 
 export const TABLE_STATUS = {
   AVAILABLE: "available",
-  OCCUPIED: "occupied",
   PRE_ORDERED: "pre-ordered",
+  OCCUPIED: "occupied",
+  CLEANING: "cleaning",
 };
 
-/** Nhãn tiếng Việt */
+/** Nhãn tiếng Việt theo đồ án UC10 */
 export const TABLE_STATUS_LABELS = {
   [TABLE_STATUS.AVAILABLE]: "Trống",
+  [TABLE_STATUS.PRE_ORDERED]: "Đã đặt",
   [TABLE_STATUS.OCCUPIED]: "Đang phục vụ",
-  [TABLE_STATUS.PRE_ORDERED]: "Đã đặt trước",
-  // Alias: API cũ có thể trả "reserved" -> coi như pre-ordered
-  reserved: "Đã đặt trước",
+  [TABLE_STATUS.CLEANING]: "Chờ dọn",
+  reserved: "Đã đặt",
 };
 
-/** Chuẩn hóa giá trị từ API (reserved -> pre-ordered) */
+/** Chuẩn hóa giá trị từ API (reserved → pre-ordered) */
 export function normalizeTableStatus(status) {
   if (!status) return status;
   const s = String(status).trim().toLowerCase();
@@ -38,6 +39,7 @@ export function getTableStatusClass(status) {
     [TABLE_STATUS.AVAILABLE]: "status-available",
     [TABLE_STATUS.OCCUPIED]: "status-occupied",
     [TABLE_STATUS.PRE_ORDERED]: "status-reserved",
+    [TABLE_STATUS.CLEANING]: "status-cleaning",
   };
   return map[normalized] ?? "";
 }
@@ -49,6 +51,7 @@ export function getTableTagType(status) {
     [TABLE_STATUS.AVAILABLE]: "success",
     [TABLE_STATUS.OCCUPIED]: "warning",
     [TABLE_STATUS.PRE_ORDERED]: "info",
+    [TABLE_STATUS.CLEANING]: "",
   };
   return map[normalized] ?? "";
 }
