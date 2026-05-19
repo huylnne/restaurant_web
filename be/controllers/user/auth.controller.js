@@ -1,71 +1,42 @@
 const { Op } = require("sequelize");
-const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const db = require("../../models/db");
 const User = db.User;
-const DEFAULT_AVATAR_URL = "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
-const PHONE_REGEX = /^0\d{9}$/;
-const PASSWORD_MIN_LEN = 8;
-const PASSWORD_MAX_LEN = 32;
+const { signAccessToken } = require("../../utils/jwt");
+const { getAccountBlockMessage } = require("../../utils/userAccount");
+const { PHONE_REGEX } = require("../../middlewares/validateAuthInput");
 
-//  ĐĂNG KÝ — chỉ dành cho khách hàng: không tin role/branch_id từ client
+const DEFAULT_AVATAR_URL = "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
+
 const register = async (req, res) => {
   try {
     const { username, password, full_name, phone } = req.body;
-    const normalizedPhone = String(phone || "").trim();
-    const normalizedFullName = String(full_name || "").trim();
 
-    if (!username || !String(username).trim()) {
-      return res.status(400).json({ message: "Vui lòng nhập tên đăng nhập" });
-    }
-
-    const pwd = typeof password === "string" ? password : "";
-    if (pwd.length < PASSWORD_MIN_LEN || pwd.length > PASSWORD_MAX_LEN) {
-      return res.status(400).json({
-        message: `Mật khẩu phải có độ dài từ ${PASSWORD_MIN_LEN} đến ${PASSWORD_MAX_LEN} ký tự`,
-      });
-    }
-
-    if (!normalizedFullName) {
-      return res.status(400).json({ message: "Vui lòng nhập họ tên" });
-    }
-
-    // Chuẩn hóa username
-    const normalizedUsername = username.trim().toLowerCase();
-
-    // Kiểm tra username đã tồn tại
     const existingUser = await User.findOne({
-      where: { username: { [Op.iLike]: normalizedUsername } }
+      where: { username: { [Op.iLike]: username } },
     });
 
     if (existingUser) {
-      return res.status(400).json({ message: 'Tên đăng nhập đã tồn tại' });
+      return res.status(400).json({ message: "Tên đăng nhập đã tồn tại" });
     }
 
-    if (!PHONE_REGEX.test(normalizedPhone)) {
-      return res.status(400).json({
-        message: "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0",
-      });
-    }
-
-    // Kiểm tra SĐT đã được đăng ký bởi tài khoản khác chưa
-    const existingPhone = await User.findOne({ where: { phone: normalizedPhone } });
+    const existingPhone = await User.findOne({ where: { phone } });
     if (existingPhone) {
       return res.status(400).json({ message: "Số điện thoại này đã được đăng ký" });
     }
 
-    // Hash password
-    const hashedPassword = await bcrypt.hash(pwd, 10);
+    const hashedPassword = await bcrypt.hash(password, 10);
 
-    // Tạo user mới — luôn role khách, không gán chi nhánh qua đăng ký công khai
     const newUser = await User.create({
-      username: normalizedUsername,
+      username,
       password_hash: hashedPassword,
-      full_name: normalizedFullName,
-      phone: normalizedPhone,
+      full_name,
+      phone,
       avatar_url: DEFAULT_AVATAR_URL,
       branch_id: null,
       role: "user",
+      is_active: true,
+      locked: false,
     });
 
     req.userId = newUser.user_id;
@@ -82,53 +53,48 @@ const register = async (req, res) => {
     };
 
     res.status(201).json({
-      message: 'Đăng ký thành công',
+      message: "Đăng ký thành công",
       user: {
         user_id: newUser.user_id,
         username: newUser.username,
         full_name: newUser.full_name,
-        role: newUser.role
-      }
+        role: newUser.role,
+      },
     });
   } catch (error) {
-    console.error('❌ Lỗi register:', error);
-    res.status(500).json({ message: 'Lỗi server: ' + error.message });
+    console.error("❌ Lỗi register:", error);
+    res.status(500).json({ message: "Lỗi server: " + error.message });
   }
 };
 
-//  ĐĂNG NHẬP
 const login = async (req, res) => {
   try {
-    const rawUsername = req.body.username || "";
-    const username = rawUsername.trim().toLowerCase();
-    const password = req.body.password;
+    const { username, password } = req.body;
 
-    // Tìm user
     const user = await User.findOne({
-      where: { username: { [Op.iLike]: username } }
+      where: { username: { [Op.iLike]: username } },
     });
 
     if (!user) {
-      return res.status(401).json({ message: "Tài khoản không tồn tại" });
+      return res.status(401).json({ message: "Tài khoản hoặc mật khẩu không đúng" });
     }
 
-    // Kiểm tra password
+    const blockMsg = getAccountBlockMessage(user);
+    if (blockMsg) {
+      return res.status(403).json({ message: blockMsg });
+    }
+
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
-      return res.status(401).json({ message: "Sai mật khẩu" });
+      return res.status(401).json({ message: "Tài khoản hoặc mật khẩu không đúng" });
     }
 
-    // Tạo JWT token
-    const token = jwt.sign(
-      {
-        user_id: user.user_id,
-        username: user.username,
-        role: user.role,
-        branch_id: user.branch_id || null,
-      },
-      process.env.JWT_SECRET || "default_secret",
-      { expiresIn: "7d" }
-    );
+    const token = signAccessToken({
+      user_id: user.user_id,
+      username: user.username,
+      role: user.role,
+      branch_id: user.branch_id || null,
+    });
 
     req.userId = user.user_id;
     req.userRole = user.role;
@@ -145,6 +111,7 @@ const login = async (req, res) => {
 
     return res.json({
       token,
+      expiresIn: process.env.JWT_EXPIRES_IN || "2h",
       user: {
         user_id: user.user_id,
         username: user.username,
@@ -159,11 +126,15 @@ const login = async (req, res) => {
   }
 };
 
-// Kiểm tra SĐT đã tồn tại chưa — dùng cho realtime check ở frontend
 const checkPhone = async (req, res) => {
   try {
     const phone = String(req.query.phone || "").trim();
     if (!phone) return res.status(400).json({ message: "Thiếu số điện thoại" });
+    if (!PHONE_REGEX.test(phone)) {
+      return res.status(400).json({
+        message: "Số điện thoại phải gồm 10 chữ số và bắt đầu bằng số 0",
+      });
+    }
     const existing = await User.findOne({ where: { phone } });
     if (existing) {
       return res.status(409).json({ message: "Số điện thoại này đã được đăng ký" });
@@ -175,4 +146,20 @@ const checkPhone = async (req, res) => {
   }
 };
 
-module.exports = { register, login, checkPhone };
+const captchaService = require("../../services/captcha.service");
+
+const getCaptchaConfig = (req, res) => {
+  res.json(captchaService.getPublicConfig());
+};
+
+const getCaptchaChallenge = (req, res) => {
+  const config = captchaService.getPublicConfig();
+  if (config.provider !== "math") {
+    return res.status(400).json({
+      message: "CAPTCHA dạng phép tính chỉ dùng khi chưa cấu hình reCAPTCHA/Turnstile",
+    });
+  }
+  res.json(captchaService.createMathChallenge());
+};
+
+module.exports = { register, login, checkPhone, getCaptchaConfig, getCaptchaChallenge };

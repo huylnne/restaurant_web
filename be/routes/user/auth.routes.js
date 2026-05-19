@@ -2,9 +2,26 @@ const express = require('express');
 const router = express.Router();
 const authController = require('../../controllers/user/auth.controller');
 const { auditLog } = require('../../middlewares/operationLog');
+const {
+  loginLimiter,
+  registerLimiter,
+  checkPhoneLimiter,
+  captchaChallengeLimiter,
+} = require('../../middlewares/rateLimit');
+const {
+  validateRegisterBody,
+  validateLoginBody,
+} = require('../../middlewares/validateAuthInput');
+const { verifyRegisterCaptcha } = require('../../middlewares/verifyCaptcha');
+
+router.get('/captcha-config', authController.getCaptchaConfig);
+router.get('/captcha-challenge', captchaChallengeLimiter, authController.getCaptchaChallenge);
 
 router.post(
   '/register',
+  registerLimiter,
+  validateRegisterBody,
+  verifyRegisterCaptcha,
   auditLog({
     action: 'AUTH_REGISTER',
     module: 'auth',
@@ -17,6 +34,8 @@ router.post(
 
 router.post(
   '/login',
+  loginLimiter,
+  validateLoginBody,
   auditLog({
     action: 'AUTH_LOGIN',
     module: 'auth',
@@ -28,6 +47,6 @@ router.post(
 );
 
 //  Kiểm tra SĐT đã được đăng ký chưa (dùng cho realtime check ở form đăng ký)
-router.get('/check-phone', authController.checkPhone);
+router.get('/check-phone', checkPhoneLimiter, authController.checkPhone);
 
 module.exports = router;

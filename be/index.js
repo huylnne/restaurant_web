@@ -1,12 +1,16 @@
 const express = require('express');
 const app = express();
 const cors = require('cors');
+const helmet = require('helmet');
 const path = require("path");
 require('dotenv').config();
 
+const { assertJwtSecretConfigured } = require('./utils/jwt');
+
 // ========== MIDDLEWARE ==========
+app.use(helmet());
 app.use(cors());
-app.use(express.json());
+app.use(express.json({ limit: '100kb' }));
 app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 
 // ========== DATABASE ==========
@@ -68,6 +72,22 @@ async function initDatabase() {
       { raw: true }
     )
     .catch(() => {});
+
+  await db.sequelize
+    .query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE users ADD COLUMN IF NOT EXISTS locked BOOLEAN DEFAULT false;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('UPDATE users SET is_active = true WHERE is_active IS NULL;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('UPDATE users SET locked = false WHERE locked IS NULL;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE reservations ADD COLUMN IF NOT EXISTS note TEXT;', { raw: true })
+    .catch(() => {});
 }
 
 // ========== ROUTES ==========
@@ -124,6 +144,9 @@ app.use('/api/admin/menu', adminMenuRoutes);
 const adminEmployeeRoutes = require('./routes/admin/employee.routes')
 app.use('/api/admin/employees',adminEmployeeRoutes)
 
+const adminUserAccountRoutes = require('./routes/admin/userAccount.routes');
+app.use('/api/admin/users', adminUserAccountRoutes);
+
 const adminReportRoutes = require('./routes/admin/report.routes')
 app.use('/api/admin/reports',adminReportRoutes)
 
@@ -172,6 +195,7 @@ let server;
 
 async function startServer() {
   try {
+    assertJwtSecretConfigured();
     await initDatabase();
   } catch (err) {
     console.error('❌ Lỗi kết nối DB:', err.message || err);

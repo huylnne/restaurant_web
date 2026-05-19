@@ -1,6 +1,20 @@
-const jwt = require('jsonwebtoken');
+const db = require('../models/db');
+const User = db.User;
+const { verifyAccessToken } = require('../utils/jwt');
+const { getAccountBlockMessage } = require('../utils/userAccount');
 
-const verifyToken = (req, res, next) => {
+async function loadActiveUser(userId) {
+  const user = await User.findByPk(userId, {
+    attributes: ['user_id', 'username', 'role', 'branch_id', 'is_active', 'locked'],
+  });
+  const blockMsg = getAccountBlockMessage(user);
+  if (blockMsg) {
+    return { blocked: true, message: blockMsg };
+  }
+  return { user };
+}
+
+const verifyToken = async (req, res, next) => {
   const header = req.headers.authorization;
   if (!header) {
     return res.status(401).json({ message: 'Chưa có token xác thực' });
@@ -12,10 +26,20 @@ const verifyToken = (req, res, next) => {
   }
 
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
-    req.userId = payload.user_id;
-    req.userRole = payload.role;
-    req.user = payload;
+    const payload = verifyAccessToken(token);
+    const { user, blocked, message } = await loadActiveUser(payload.user_id);
+    if (blocked) {
+      return res.status(403).json({ message });
+    }
+
+    req.userId = user.user_id;
+    req.userRole = user.role;
+    req.user = {
+      user_id: user.user_id,
+      username: user.username,
+      role: user.role,
+      branch_id: user.branch_id || null,
+    };
     next();
   } catch (error) {
     return res.status(403).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
@@ -32,7 +56,7 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
-const verifyAdmin = (req, res, next) => {
+const verifyAdmin = async (req, res, next) => {
   const header = req.headers.authorization;
   if (!header) {
     return res.status(401).json({ message: 'Chưa có token xác thực' });
@@ -42,23 +66,30 @@ const verifyAdmin = (req, res, next) => {
     return res.status(401).json({ message: 'Token không hợp lệ' });
   }
   try {
-    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const payload = verifyAccessToken(token);
     if (payload.role !== 'admin') {
       return res.status(403).json({ message: 'Bạn không có quyền truy cập' });
     }
-    req.userId = payload.user_id;
-    req.userRole = payload.role;
-    req.user = payload;
+    const { user, blocked, message } = await loadActiveUser(payload.user_id);
+    if (blocked) {
+      return res.status(403).json({ message });
+    }
+    req.userId = user.user_id;
+    req.userRole = user.role;
+    req.user = {
+      user_id: user.user_id,
+      username: user.username,
+      role: user.role,
+      branch_id: user.branch_id || null,
+    };
     next();
   } catch (error) {
     return res.status(403).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
   }
 };
 
-// Phân quyền theo role
 const authorizeRole = (...allowedRoles) => {
   return (req, res, next) => {
-    // Đảm bảo đã verifyToken trước đó
     const role = req.userRole || (req.user && req.user.role);
     if (!role) {
       return res.status(401).json({ message: 'Vui lòng đăng nhập' });
@@ -70,7 +101,6 @@ const authorizeRole = (...allowedRoles) => {
   };
 };
 
-// Alias cho tương thích (report.routes dùng authenticateToken)
 const authenticateToken = verifyToken;
 
 module.exports = {
@@ -78,5 +108,5 @@ module.exports = {
   authenticateToken,
   verifyAdmin,
   isAdmin,
-  authorizeRole
+  authorizeRole,
 };

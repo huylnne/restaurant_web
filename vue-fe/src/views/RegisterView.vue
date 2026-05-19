@@ -12,7 +12,8 @@
         </div>
 
         <form @submit.prevent="handleRegister">
-          <input v-model="username" placeholder="Tên đăng nhập" required />
+          <input v-model="username" placeholder="Tên đăng nhập (chữ thường, số, _)" required />
+          <p v-if="usernameWarning" class="field-warning">{{ usernameWarning }}</p>
 
           <input
             v-model="password"
@@ -43,7 +44,9 @@
             {{ phoneTakenError || phoneWarning }}
           </p>
 
-          <button type="submit" class="submit-btn">Đăng ký</button>
+          <CaptchaField ref="captchaRef" @update:valid="(v) => (captchaValid = v)" />
+
+          <button type="submit" class="submit-btn" :disabled="!captchaValid">Đăng ký</button>
           <p v-if="errorMessage" class="submit-error">{{ errorMessage }}</p>
         </form>
       </div>
@@ -56,6 +59,7 @@ import { computed, ref } from "vue";
 import axios from "axios";
 import { useRouter } from "vue-router";
 import { ElMessage } from "element-plus";
+import CaptchaField from "@/components/CaptchaField.vue";
 
 const router = useRouter();
 
@@ -66,6 +70,18 @@ const fullName = ref("");
 const phone = ref("");
 const errorMessage = ref("");
 const phoneTakenError = ref("");
+const captchaRef = ref(null);
+const captchaValid = ref(false);
+
+const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
+
+const usernameWarning = computed(() => {
+  const v = username.value.trim().toLowerCase();
+  if (!v) return "";
+  return USERNAME_REGEX.test(v)
+    ? ""
+    : "Tên đăng nhập: 3–30 ký tự, chỉ chữ thường, số và gạch dưới";
+});
 
 // Inline warnings — chỉ hiện khi đã nhập
 const phoneWarning = computed(() => {
@@ -121,12 +137,24 @@ const handleRegister = async () => {
   // Nếu đã có lỗi SĐT trùng (từ blur check) → không gửi, không hiện thêm errorMessage
   if (phoneTakenError.value) return;
 
+  const normalizedUsername = username.value.trim().toLowerCase();
+  if (!USERNAME_REGEX.test(normalizedUsername)) {
+    errorMessage.value = "Tên đăng nhập không hợp lệ";
+    return;
+  }
+
+  if (!captchaRef.value?.isReady?.()) {
+    errorMessage.value = "Vui lòng hoàn thành xác minh CAPTCHA";
+    return;
+  }
+
   try {
     await axios.post("http://localhost:3000/api/auth/register", {
-      username: username.value.trim(),
+      username: normalizedUsername,
       password: password.value,
       full_name: fullName.value.trim(),
       phone: normalizedPhone,
+      ...captchaRef.value.getPayload(),
     });
     ElMessage.success("Đăng ký thành công!");
     router.push("/login");
@@ -138,6 +166,7 @@ const handleRegister = async () => {
     } else {
       errorMessage.value = msg;
     }
+    captchaRef.value?.reset?.();
   }
 };
 </script>
@@ -235,8 +264,13 @@ input:focus {
   transition: background-color 0.2s ease;
 }
 
-.submit-btn:hover {
+.submit-btn:hover:not(:disabled) {
   background-color: var(--hl-primary-hover);
+}
+
+.submit-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 /* Cảnh báo ngay dưới input — kéo sát ô nhập một chút */

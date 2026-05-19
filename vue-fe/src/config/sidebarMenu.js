@@ -36,6 +36,13 @@ export const SIDEBAR_MENU = [
     roles: ["admin"],
   },
   {
+    key: "customer-accounts",
+    label: "Tài khoản khách",
+    icon: "User",
+    route: "/admin/customer-accounts",
+    roles: ["admin"],
+  },
+  {
     key: "branches-admin",
     label: "Quản lý chi nhánh",
     icon: "OfficeBuilding",

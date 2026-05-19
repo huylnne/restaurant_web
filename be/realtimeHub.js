@@ -3,7 +3,7 @@
  * Client: ws://host/ws/realtime?token=JWT&branchId=1
  */
 const WebSocket = require('ws');
-const jwt = require('jsonwebtoken');
+const { verifyAccessToken } = require('./utils/jwt');
 
 const STAFF_ROLES = new Set(['admin', 'waiter', 'kitchen', 'manager']);
 
@@ -38,7 +38,7 @@ function attachToHttpServer(server) {
 
     let payload;
     try {
-      payload = jwt.verify(token, process.env.JWT_SECRET || 'default_secret');
+      payload = verifyAccessToken(token);
     } catch {
       socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
       socket.destroy();

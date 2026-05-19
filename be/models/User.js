@@ -33,7 +33,17 @@ module.exports = (sequelize, DataTypes) => {
     branch_id: {
       type: DataTypes.INTEGER,
       allowNull: true
-    }
+    },
+    is_active: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: true,
+    },
+    locked: {
+      type: DataTypes.BOOLEAN,
+      allowNull: false,
+      defaultValue: false,
+    },
   }, {
     tableName: 'users',
     timestamps: false

@@ -7,7 +7,7 @@ const { Op } = db.Sequelize;
 const createReservation = async (req, res) => {
   try {
     const user_id = req.userId;
-    const { reservation_time, number_of_guests, table_id } = req.body;
+    const { reservation_time, number_of_guests, table_id, note } = req.body;
     const branch_id = parseInt(req.body.branch_id, 10) || 1;
 
     // Từ chối đặt bàn với thời gian đã qua hoặc quá gần hiện tại (< 15 phút)
@@ -83,6 +83,7 @@ const createReservation = async (req, res) => {
       table_id: table.table_id,
       reservation_time,
       number_of_guests,
+      note: note || null,
       status: "confirmed",
       created_at: new Date(),
     });

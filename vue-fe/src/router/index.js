@@ -5,6 +5,7 @@ import AdminDashboard from "../views/admin/AdminDashboard.vue";
 import AdminTables from "../views/admin/AdminTables.vue";
 import AdminKitchen from "../views/admin/AdminKitchen.vue";
 import EmployeeManagement from "../views/admin/EmployeeManagement.vue";
+import CustomerAccounts from "../views/admin/CustomerAccounts.vue";
 import AdminReports from "../views/admin/AdminReports.vue";
 import AdminReviews from "../views/admin/AdminReviews.vue";
 import BranchManagement from "../views/admin/BranchManagement.vue";
@@ -62,6 +63,7 @@ const routes = [
       { path: 'admin/kitchen', name: 'AdminKitchen', component: AdminKitchen, meta: { allowedRoles: ['admin', 'waiter', 'kitchen'] } },
       { path: 'admin/menu', name: 'AdminMenu', component: MenuView, meta: { allowedRoles: ['admin', 'waiter'] } },
       { path: 'admin/employees', name: 'EmployeeManagement', component: EmployeeManagement, meta: { allowedRoles: ['admin'] } },
+      { path: 'admin/customer-accounts', name: 'CustomerAccounts', component: CustomerAccounts, meta: { allowedRoles: ['admin'] } },
       { path: 'admin/reports', name: 'AdminReports', component: AdminReports, meta: { allowedRoles: ['admin', 'manager'] } },
       { path: 'admin/reviews', name: 'AdminReviews', component: AdminReviews, meta: { allowedRoles: ['admin', 'manager'] } },
       { path: 'admin/branches', name: 'AdminBranches', component: BranchManagement, meta: { allowedRoles: ['admin'] } },

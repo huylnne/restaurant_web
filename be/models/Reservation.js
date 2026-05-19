@@ -16,6 +16,10 @@ module.exports = (sequelize, DataTypes) => {
       reservation_time: DataTypes.DATE,
       number_of_guests: DataTypes.INTEGER,
       status: DataTypes.STRING,
+      note: {
+        type: DataTypes.TEXT,
+        allowNull: true,
+      },
       created_at: DataTypes.DATE,
     },
     {

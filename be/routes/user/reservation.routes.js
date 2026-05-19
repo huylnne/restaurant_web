@@ -3,10 +3,16 @@ const router = express.Router();
 const reservationController = require('../../controllers/user/reservation.controller');
 const { verifyToken } = require('../../middlewares/auth');
 const { auditLog } = require('../../middlewares/operationLog');
+const { reservationCreateLimiter } = require('../../middlewares/rateLimit');
+const { enforceReservationQuota } = require('../../middlewares/reservationLimits');
+const { validateCreateReservationBody } = require('../../middlewares/validateReservationInput');
 
 router.post(
   '/',
   verifyToken,
+  reservationCreateLimiter,
+  validateCreateReservationBody,
+  enforceReservationQuota,
   auditLog({
     action: 'RESERVATION_CREATE',
     module: 'reservations',
