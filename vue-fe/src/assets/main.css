@@ -1,5 +1,6 @@
 @import './base.css';
 @import './admin-responsive.css';
+@import './admin-theme.css';
 
 html,
 body {
@@ -9,10 +10,23 @@ body {
 
 #app {
   min-height: 100vh;
+  min-height: 100dvh;
   width: 100%;
   max-width: 100%;
   margin: 0;
   padding: 0;
+}
+
+/* Trang admin: khóa scroll body, chỉ scroll vùng nội dung */
+body.admin-route-active {
+  overflow: hidden;
+  height: 100vh;
+  height: 100dvh;
+}
+
+body.admin-route-active #app {
+  height: 100%;
+  overflow: hidden;
 }
 
 /* Full-width layout - no max-width constraint for restaurant pages */
@@ -20,4 +34,9 @@ body {
   body {
     display: block;
   }
+}
+
+/* UC08: toast món xong — luôn trên dialog bàn (z-index ~2000) */
+.el-notification {
+  z-index: 30000 !important;
 }

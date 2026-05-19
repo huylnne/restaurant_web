@@ -1,6 +1,31 @@
 <template>
-  <div class="header-wrapper">
-    <div class="home-page_header">
+  <div class="header-wrapper" :class="{ 'header-wrapper--admin': isAdminRoute }">
+    <header v-if="isAdminRoute" class="admin-compact-header">
+      <router-link to="/" class="admin-compact-header__brand">
+        <img :src="BRAND.logo" :alt="BRAND.name" class="admin-compact-header__logo" />
+        <span class="admin-compact-header__title">{{ BRAND.name }}</span>
+      </router-link>
+      <nav class="admin-compact-header__nav">
+        <router-link to="/" class="admin-compact-header__link">Trang chủ</router-link>
+        <router-link to="/menu" class="admin-compact-header__link">Thực đơn</router-link>
+        <router-link :to="staffHomePath" class="admin-compact-header__link">Quản lý</router-link>
+      </nav>
+      <div class="admin-compact-header__actions">
+        <template v-if="isLoggedIn">
+          <router-link to="/profile" class="nav-user">
+            <el-avatar :size="28" :src="getAvatarUrl(user?.avatar || user?.avatar_url)" />
+            <span class="username">{{ user?.name || user?.full_name }}</span>
+          </router-link>
+          <el-button type="text" class="logout-button" @click="logout">
+            <el-icon><SwitchButton /></el-icon>
+            <span>Đăng xuất</span>
+          </el-button>
+        </template>
+        <router-link v-else to="/login" class="admin-compact-header__link">Đăng nhập</router-link>
+      </div>
+    </header>
+
+    <div v-else class="home-page_header">
       <!-- Top Bar -->
       <div class="top-bar">
         <span>Chào mừng bạn đến với {{ BRAND.name }}!</span>
@@ -72,9 +97,14 @@
           >THỰC ĐƠN</router-link
         >
         <router-link to="/branches" class="nav-link" active-class="active">CHI NHÁNH</router-link>
-        <router-link to="/branches/nearby" class="nav-cta-branches" active-class="nav-cta-branches--active">
-          <el-icon><Location /></el-icon>
-          Gần bạn
+        <router-link
+          to="/branches/nearby"
+          class="nav-link nav-link--nearby"
+          :class="{ 'nav-cta-branches': !isAdminRoute }"
+          active-class="active"
+        >
+          <el-icon v-if="!isAdminRoute"><Location /></el-icon>
+          {{ isAdminRoute ? 'GẦN BẠN' : 'Gần bạn' }}
         </router-link>
         <router-link to="/sale" class="nav-link" active-class="active"
           >KHUYẾN MÃI</router-link
@@ -104,7 +134,7 @@
 
 <script setup>
 import { ref, onMounted, computed } from "vue";
-import { useRouter } from "vue-router";
+import { useRouter, useRoute } from "vue-router";
 import { Search, ShoppingCart, SwitchButton, Location } from "@element-plus/icons-vue";
 import axios from "axios";
 import { isStaffRole as checkStaffRole, getDefaultStaffPath } from "@/utils/auth.js";
@@ -112,6 +142,8 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { BRAND } from "@/config/siteContent";
 
 const router = useRouter();
+const route = useRoute();
+const isAdminRoute = computed(() => route.path.startsWith("/admin"));
 const user = ref(null);
 const isLoggedIn = ref(false);
 
@@ -190,6 +222,11 @@ const scrollToAllDishes = () => {
   background-color: var(--hl-bg-page);
   width: 100%;
   max-width: 100%;
+  flex-shrink: 0;
+}
+
+.header-wrapper--admin {
+  background: transparent;
 }
 
 .home-page_header {
@@ -384,7 +421,7 @@ const scrollToAllDishes = () => {
   border-bottom: 2px solid var(--hl-primary);
 }
 
-.nav-cta-branches {
+.nav-menu .nav-cta-branches {
   display: inline-flex;
   align-items: center;
   gap: 6px;

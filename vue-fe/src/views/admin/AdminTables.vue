@@ -5,7 +5,7 @@
         <h2>Quản lý bàn ăn</h2>
         <p>Quản lý và theo dõi tình trạng bàn ăn trong nhà hàng</p>
       </div>
-      <div class="header-actions">
+      <div class="header-actions admin-toolbar">
         <el-select
           v-model="selectedBranchId"
           placeholder="Chọn chi nhánh"
@@ -115,8 +115,8 @@
       </el-select>
     </div>
 
-    <!-- Danh sách bàn -->
-    <div class="tables-grid">
+    <!-- Danh sách bàn (ref để tính số bàn/trang theo kích thước màn) -->
+    <div ref="tablesGridRef" class="tables-grid">
       <div
         v-for="table in displayedTables"
         :key="table.table_id"
@@ -307,16 +307,26 @@
                   class="order-item-row"
                 >
                   <span>{{ oi.MenuItem?.name }} x {{ oi.quantity }}</span>
-                  <el-tag v-if="oi.status === 'served'" type="success" size="small">Đã phục vụ</el-tag>
-                  <el-button
-                    v-else
-                    type="primary"
-                    size="small"
-                    link
-                    @click="markItemServed(oi.order_item_id)"
-                  >
-                    Đánh dấu đã phục vụ
-                  </el-button>
+                  <div class="order-item-actions">
+                    <el-tag v-if="oi.status === 'served'" type="success" size="small">Đã phục vụ</el-tag>
+                    <template v-else>
+                      <el-tag
+                        v-if="oi.status === 'done'"
+                        type="warning"
+                        size="small"
+                      >
+                        Bếp đã xong
+                      </el-tag>
+                      <el-button
+                        type="primary"
+                        size="small"
+                        link
+                        @click="markItemServed(oi.order_item_id)"
+                      >
+                        Đánh dấu đã phục vụ
+                      </el-button>
+                    </template>
+                  </div>
                 </div>
               </div>
             </template>
@@ -348,6 +358,70 @@
                 </div>
               </div>
             </template>
+          </div>
+        </div>
+
+        <div class="orders-section" v-if="tableBill">
+          <div class="orders-section-header">
+            <h4>Thanh toán &amp; hóa đơn</h4>
+          </div>
+          <div class="orders-list">
+            <div class="payment-status" v-if="paymentInfo">
+              <el-tag
+                :type="paymentInfo.status === 'succeeded' ? 'success' : 'warning'"
+                size="small"
+              >
+                {{ paymentInfo.status === 'succeeded' ? 'Đã thanh toán' : 'Chờ thanh toán' }}
+              </el-tag>
+              <span class="muted" v-if="paymentInfo.invoice_no">
+                Mã HĐ: {{ paymentInfo.invoice_no }}
+              </span>
+              <span class="muted" v-if="paymentInfo.paid_at">
+                • {{ formatDateTime(paymentInfo.paid_at) }}
+              </span>
+            </div>
+
+            <el-form label-position="top" class="payment-form">
+              <el-form-item label="Phương thức thanh toán">
+                <el-select v-model="paymentMethod" placeholder="Chọn phương thức">
+                  <el-option
+                    v-for="opt in paymentMethodOptions"
+                    :key="opt.value"
+                    :label="opt.label"
+                    :value="opt.value"
+                  />
+                </el-select>
+              </el-form-item>
+              <el-form-item label="Mã giao dịch (nếu có)">
+                <el-input
+                  v-model="paymentTransactionRef"
+                  placeholder="Ví dụ: ngân hàng / ví / POS"
+                />
+              </el-form-item>
+            </el-form>
+
+            <div class="payment-actions">
+              <el-button
+                type="primary"
+                :loading="paymentSubmitting"
+                :disabled="!tableBill?.items?.length"
+                @click="finalizePayment"
+              >
+                Xác nhận thanh toán
+              </el-button>
+              <el-button
+                :disabled="!paymentInfo || paymentInfo.status !== 'succeeded'"
+                @click="downloadInvoice"
+              >
+                Tải hóa đơn PDF
+              </el-button>
+              <el-button
+                v-if="paymentMethod === 'BANK_TRANSFER'"
+                @click="openPaymentQrDialog(selectedTable)"
+              >
+                QR chuyển khoản
+              </el-button>
+            </div>
           </div>
         </div>
 
@@ -590,7 +664,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from "vue";
+import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import {
   Plus,
@@ -613,9 +687,60 @@ import {
 } from "@/constants/tableStatus";
 import PaginationBar from "@/components/PaginationBar.vue";
 import QRCode from "qrcode";
+import { connectBranchRealtime } from "@/utils/branchRealtime";
+import {
+  handleKitchenRealtimeMessage,
+  notifyKitchenDishDone,
+} from "@/utils/kitchenDoneAlert";
 
 const API_BASE = "http://localhost:3000";
-const TABLE_PAGE_SIZE = 12;
+/** Số bàn mỗi trang — cập nhật theo chiều rộng lưới + viewport (tránh 12 bàn trên màn 5 cột) */
+const tablesGridRef = ref(null);
+const tablePageSize = ref(36);
+let tablesGridResizeObserver = null;
+
+function readCssPxVar(name, fallback) {
+  if (typeof document === "undefined") return fallback;
+  const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+  const n = parseFloat(raw);
+  return Number.isFinite(n) ? n : fallback;
+}
+
+function computeTablePageSize() {
+  const el = tablesGridRef.value;
+  if (!el || typeof window === "undefined") return;
+  const w = el.clientWidth;
+  if (w < 80) return;
+
+  const minCard = readCssPxVar("--hl-admin-grid-min", 220);
+  const gap = readCssPxVar("--hl-admin-grid-gap", 16);
+  const cols = Math.max(1, Math.floor((w + gap) / (minCard + gap)));
+
+  const rect = el.getBoundingClientRect();
+  const reserveBottom = 120;
+  const availH = Math.max(240, window.innerHeight - rect.top - reserveBottom);
+  const estRowH = 150;
+  const rows = Math.max(3, Math.min(14, Math.floor(availH / estRowH)));
+
+  const next = Math.min(150, Math.max(12, cols * rows));
+  if (tablePageSize.value !== next) {
+    tablePageSize.value = next;
+  }
+}
+
+function clampTablePage() {
+  const total = filteredTables.value?.length || 0;
+  const maxPage = Math.max(1, Math.ceil(total / tablePageSize.value));
+  if (tableCurrentPage.value > maxPage) {
+    tableCurrentPage.value = maxPage;
+  }
+}
+
+function onTablesGridLayoutTick() {
+  computeTablePageSize();
+  clampTablePage();
+}
+
 const WAITER_API = `${API_BASE}/api/admin/waiter`;
 const TABLE_API = `${API_BASE}/api/admin/table`;
 const RECEPTION_API = `${API_BASE}/api/admin/reception`;
@@ -662,6 +787,18 @@ const orderQuantities = ref({});
 // Bill tạm tính cho bàn (dùng chung với phía user)
 const tableBill = ref(null);
 const tableBillLoading = ref(false);
+const paymentInfo = ref(null);
+const paymentLoading = ref(false);
+const paymentMethod = ref("CASH");
+const paymentTransactionRef = ref("");
+const paymentSubmitting = ref(false);
+
+const paymentMethodOptions = [
+  { value: "CASH", label: "Tiền mặt" },
+  { value: "BANK_TRANSFER", label: "Chuyển khoản" },
+  { value: "CARD", label: "Thẻ" },
+  { value: "WALLET", label: "Ví điện tử" },
+];
 
 const hasOrderItemsSelected = computed(() =>
   Object.values(orderQuantities.value).some((qty) => qty > 0)
@@ -724,6 +861,10 @@ const fetchTables = async () => {
     });
     tables.value = response.data;
     filteredTables.value = response.data;
+    await nextTick();
+    requestAnimationFrame(() => {
+      onTablesGridLayoutTick();
+    });
   } catch (error) {
     console.error("Lỗi lấy danh sách bàn:", error);
     ElMessage.error("Không thể lấy danh sách bàn");
@@ -743,6 +884,44 @@ const fetchSummary = async () => {
   }
 };
 
+// UC08: phát hiện món vừa chuyển sang "done" sau khi refetch đơn (polling / WS đều đi qua đây)
+const lastOrderItemStatusById = new Map();
+let orderItemStatusSnapshotPrimed = false;
+
+function resetOrderItemStatusSnapshot() {
+  lastOrderItemStatusById.clear();
+  orderItemStatusSnapshotPrimed = false;
+}
+
+function primeOrderItemStatusSnapshot(orders) {
+  lastOrderItemStatusById.clear();
+  for (const order of orders || []) {
+    for (const oi of order.OrderItems || []) {
+      const id = oi.order_item_id;
+      if (id == null) continue;
+      lastOrderItemStatusById.set(id, String(oi.status || "").toLowerCase());
+    }
+  }
+}
+
+function notifyDishJustDoneFromOrders(ordersAfter) {
+  for (const order of ordersAfter || []) {
+    for (const oi of order.OrderItems || []) {
+      const id = oi.order_item_id;
+      if (id == null) continue;
+      const st = String(oi.status || "").toLowerCase();
+      const prev = lastOrderItemStatusById.get(id);
+      if (st === "done" && prev && prev !== "done") {
+        notifyKitchenDishDone({
+          dishName: oi.MenuItem?.name,
+          tableNumber: selectedTable.value?.table_number,
+          orderItemId: id,
+        });
+      }
+    }
+  }
+}
+
 // API nhân viên phục vụ: đơn hàng theo bàn
 const fetchTableOrders = async (table_id) => {
   if (!table_id) return;
@@ -753,7 +932,13 @@ const fetchTableOrders = async (table_id) => {
       params: { table_id },
       headers: { Authorization: `Bearer ${token}` },
     });
-    tableOrders.value = Array.isArray(res.data) ? res.data : res.data.orders || [];
+    const data = Array.isArray(res.data) ? res.data : res.data.orders || [];
+    if (orderItemStatusSnapshotPrimed) {
+      notifyDishJustDoneFromOrders(data);
+    }
+    tableOrders.value = data;
+    primeOrderItemStatusSnapshot(data);
+    orderItemStatusSnapshotPrimed = true;
   } catch (err) {
     console.error("Lỗi lấy đơn hàng bàn:", err);
     tableOrders.value = [];
@@ -779,10 +964,38 @@ const fetchTableBill = async (table_id) => {
   }
 };
 
+const fetchTablePayment = async (table_id) => {
+  if (!table_id) return;
+  paymentLoading.value = true;
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.get(`${WAITER_API}/tables/${table_id}/payment`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.data?.payment) {
+      paymentInfo.value = {
+        ...res.data.payment,
+        reservation_id: res.data?.reservation_id ?? res.data.payment.reservation_id,
+      };
+    } else {
+      paymentInfo.value = null;
+    }
+    if (paymentInfo.value?.method) {
+      paymentMethod.value = paymentInfo.value.method;
+    }
+  } catch (err) {
+    paymentInfo.value = null;
+  } finally {
+    paymentLoading.value = false;
+  }
+};
+
 const onDetailDialogOpen = () => {
+  resetOrderItemStatusSnapshot();
   if (selectedTable.value?.table_id) {
     fetchTableOrders(selectedTable.value.table_id);
     fetchTableBill(selectedTable.value.table_id);
+    fetchTablePayment(selectedTable.value.table_id);
   }
 };
 
@@ -1015,12 +1228,13 @@ const filterTables = () => {
 };
 
 const tablePaginationTotalPages = computed(() =>
-  Math.max(1, Math.ceil((filteredTables.value?.length || 0) / TABLE_PAGE_SIZE))
+  Math.max(1, Math.ceil((filteredTables.value?.length || 0) / tablePageSize.value))
 );
 const displayedTables = computed(() => {
   const list = filteredTables.value || [];
-  const start = (tableCurrentPage.value - 1) * TABLE_PAGE_SIZE;
-  return list.slice(start, start + TABLE_PAGE_SIZE);
+  const size = tablePageSize.value;
+  const start = (tableCurrentPage.value - 1) * size;
+  return list.slice(start, start + size);
 });
 
 // Dùng chung constants/tableStatus
@@ -1042,9 +1256,68 @@ const formatTime = (datetime) => {
   });
 };
 
+const formatDateTime = (datetime) => {
+  if (!datetime) return "";
+  return new Date(datetime).toLocaleString("vi-VN");
+};
+
 const authHeaders = () => ({
   Authorization: `Bearer ${localStorage.getItem("token")}`,
 });
+
+const finalizePayment = async () => {
+  if (!selectedTable.value?.table_id) return;
+  paymentSubmitting.value = true;
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.post(
+      `${WAITER_API}/tables/${selectedTable.value.table_id}/checkout`,
+      {
+        method: paymentMethod.value,
+        transaction_ref: paymentTransactionRef.value,
+      },
+      { headers: { Authorization: `Bearer ${token}` } }
+    );
+    paymentInfo.value = res.data?.payment || null;
+    ElMessage.success("Đã xác nhận thanh toán");
+    if (selectedTable.value?.table_id) {
+      fetchTableBill(selectedTable.value.table_id);
+      fetchTableOrders(selectedTable.value.table_id);
+    }
+    fetchTables();
+    fetchSummary();
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || "Không thể xác nhận thanh toán");
+  } finally {
+    paymentSubmitting.value = false;
+  }
+};
+
+const downloadInvoice = async () => {
+  if (!paymentInfo.value?.reservation_id) {
+    ElMessage.warning("Chưa có hóa đơn để tải");
+    return;
+  }
+  try {
+    const token = localStorage.getItem("token");
+    const res = await axios.get(
+      `${WAITER_API}/reservations/${paymentInfo.value.reservation_id}/invoice.pdf`,
+      { headers: { Authorization: `Bearer ${token}` }, responseType: "blob" }
+    );
+    const blob = new Blob([res.data], { type: "application/pdf" });
+    const url = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    const invoiceNo = paymentInfo.value.invoice_no || "invoice";
+    link.download = `${invoiceNo}.pdf`;
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    ElMessage.error(err.response?.data?.message || "Không thể tải hóa đơn");
+  }
+};
 
 const openReceptionDialog = () => {
   showReceptionDialog.value = true;
@@ -1210,18 +1483,57 @@ const handleBranchChange = () => {
   fetchSummary();
 };
 
-// Tự động làm mới danh sách bàn mỗi 15 giây để đồng bộ khi user đặt bàn
+// UC08 – Đồng bộ realtime: polling ngắn (phục vụ/bếp) + WebSocket
 let refreshTimer = null;
+let disposeTablesWs = null;
 
-function startPolling() {
-  refreshTimer = setInterval(() => {
-    // Không refresh khi đang mở dialog chi tiết để tránh giật UI
-    if (!showDetailDialog.value) {
-      fetchTables();
-      fetchSummary();
-    }
-  }, 15000);
+function getTablesPollIntervalMs() {
+  const r = userRole.value;
+  if (r === "waiter" || r === "kitchen") return 4000;
+  return 12000;
 }
+
+function pollTablesSyncTick() {
+  if (showDetailDialog.value && selectedTable.value?.table_id) {
+    fetchTableOrders(selectedTable.value.table_id);
+    fetchTableBill(selectedTable.value.table_id);
+    fetchTablePayment(selectedTable.value.table_id);
+  } else {
+    fetchTables();
+    fetchSummary();
+  }
+}
+
+function onTablesRealtimeMsg(msg) {
+  if (msg?.type !== "order_item_status" && msg?.type !== "order_flow") return;
+  handleKitchenRealtimeMessage(msg);
+  pollTablesSyncTick();
+}
+
+function stopTablesPollingAndWs() {
+  if (refreshTimer) {
+    clearInterval(refreshTimer);
+    refreshTimer = null;
+  }
+  if (typeof disposeTablesWs === "function") {
+    disposeTablesWs();
+    disposeTablesWs = null;
+  }
+}
+
+function startTablesPollingAndWs() {
+  stopTablesPollingAndWs();
+  refreshTimer = setInterval(pollTablesSyncTick, getTablesPollIntervalMs());
+  disposeTablesWs = connectBranchRealtime(API_BASE, selectedBranchId.value, onTablesRealtimeMsg);
+}
+
+watch(selectedBranchId, () => {
+  startTablesPollingAndWs();
+});
+
+watch(tablePageSize, () => {
+  clampTablePage();
+});
 
 onMounted(() => {
   const user = JSON.parse(localStorage.getItem("user") || "{}");
@@ -1232,12 +1544,27 @@ onMounted(() => {
   fetchBranches().then(() => {
     fetchTables();
     fetchSummary();
+    startTablesPollingAndWs();
   });
-  startPolling();
+
+  nextTick(() => {
+    const el = tablesGridRef.value;
+    if (el && typeof ResizeObserver !== "undefined") {
+      tablesGridResizeObserver = new ResizeObserver(() => {
+        onTablesGridLayoutTick();
+      });
+      tablesGridResizeObserver.observe(el);
+    }
+    window.addEventListener("resize", onTablesGridLayoutTick);
+    requestAnimationFrame(() => onTablesGridLayoutTick());
+  });
 });
 
 onUnmounted(() => {
-  if (refreshTimer) clearInterval(refreshTimer);
+  stopTablesPollingAndWs();
+  tablesGridResizeObserver?.disconnect();
+  tablesGridResizeObserver = null;
+  window.removeEventListener("resize", onTablesGridLayoutTick);
 });
 </script>
 
@@ -1302,7 +1629,7 @@ onUnmounted(() => {
   justify-content: space-between;
   align-items: center;
   box-shadow: var(--hl-shadow-md);
-  border: 3px solid var(--hl-admin-border);
+  border: 1px solid var(--hl-admin-border);
 }
 
 .summary-card.orange-border {
@@ -1389,10 +1716,11 @@ onUnmounted(() => {
 /* Tables grid */
 .tables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
   gap: var(--hl-admin-grid-gap);
   width: 100%;
   max-width: 100%;
+  align-content: start;
 }
 
 .table-card {
@@ -1553,6 +1881,13 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
+.order-item-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
 .create-order-form .table-info {
   margin-bottom: var(--hl-space-md);
   font-weight: 600;
@@ -1620,6 +1955,24 @@ onUnmounted(() => {
   color: var(--hl-admin-success);
   font-size: 1.1rem;
   font-weight: 700;
+}
+
+.payment-status {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: var(--hl-space-sm);
+}
+
+.payment-form {
+  margin-top: var(--hl-space-xs);
+}
+
+.payment-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: var(--hl-space-sm);
 }
 
 .qr-token-row {

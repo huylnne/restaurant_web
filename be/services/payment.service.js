@@ -6,7 +6,23 @@ const momo = require("../utils/momo");
 const { generateVietQR } = require("vietqr-ts");
 const { TABLE_STATUS } = require("../utils/tableStatus");
 
-const ALLOWED_METHODS = ["COD", "MOMO"];
+const PAYMENT_METHODS = {
+  CASH: "CASH",
+  BANK_TRANSFER: "BANK_TRANSFER",
+  CARD: "CARD",
+  WALLET: "WALLET",
+  MOMO: "MOMO",
+  COD: "COD",
+};
+
+const ALLOWED_METHODS = Object.values(PAYMENT_METHODS);
+const OFFLINE_METHODS = new Set([
+  PAYMENT_METHODS.CASH,
+  PAYMENT_METHODS.BANK_TRANSFER,
+  PAYMENT_METHODS.CARD,
+  PAYMENT_METHODS.WALLET,
+  PAYMENT_METHODS.COD,
+]);
 const now = () => new Date();
 
 const ACTIVE_RESERVATION_STATUSES = ["confirmed", "pre-ordered", "waiting_payment"];
@@ -21,6 +37,21 @@ async function getOrderAmount(orderId) {
     { replacements: { orderId }, type: QueryTypes.SELECT }
   );
   return Number(rows[0]?.amount || 0);
+}
+
+function normalizeMethod(method) {
+  if (!method) return method;
+  if (method === PAYMENT_METHODS.COD) return PAYMENT_METHODS.CASH;
+  return method;
+}
+
+function isOfflineMethod(method) {
+  return OFFLINE_METHODS.has(method);
+}
+
+function generateInvoiceNo(paymentId) {
+  const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+  return `INV-${stamp}-${paymentId}`;
 }
 
 async function getActiveReservationByTableId(tableId) {
@@ -43,14 +74,15 @@ async function getAmountByReservation(reservationId) {
 }
 
 async function createOrUpdatePaymentForReservation({ reservationId, amount, method }) {
+  const normalizedMethod = normalizeMethod(method);
   let payment = await Payment.findOne({ where: { reservation_id: reservationId } });
   if (!payment) {
     payment = await Payment.create({
       reservation_id: reservationId,
       order_id: null,
       amount,
-      method,
-      status: method === "COD" ? "pending" : "requires_action",
+      method: normalizedMethod,
+      status: isOfflineMethod(normalizedMethod) ? "pending" : "requires_action",
       transaction_ref: null,
       paid_at: null,
       created_at: now(),
@@ -58,10 +90,10 @@ async function createOrUpdatePaymentForReservation({ reservationId, amount, meth
   } else {
     if (payment.status === "succeeded") throw new Error("RESERVATION_ALREADY_PAID");
     payment.amount = amount;
-    payment.method = method;
-    payment.status = method === "COD" ? "pending" : "requires_action";
+    payment.method = normalizedMethod;
+    payment.status = isOfflineMethod(normalizedMethod) ? "pending" : "requires_action";
     payment.transaction_ref = null;
-    if (method !== "COD") payment.paid_at = null;
+    if (!isOfflineMethod(normalizedMethod)) payment.paid_at = null;
     await payment.save();
   }
   return payment;
@@ -129,7 +161,8 @@ async function createMomoSessionForReservation({ reservationId, amount, returnUr
  * - Legacy: orderId (giữ tương thích)
  */
 async function createSession({ reservationId, tableToken, orderId, method, returnUrl, cancelUrl }) {
-  if (!ALLOWED_METHODS.includes(method)) throw new Error("UNSUPPORTED_METHOD");
+  const normalizedMethod = normalizeMethod(method);
+  if (!ALLOWED_METHODS.includes(normalizedMethod)) throw new Error("UNSUPPORTED_METHOD");
 
   // 1) Phiên bàn (recommended)
   if (reservationId || tableToken) {
@@ -146,13 +179,17 @@ async function createSession({ reservationId, tableToken, orderId, method, retur
     const { amount } = await getAmountByReservation(resId);
     if (amount <= 0) throw new Error("INVALID_AMOUNT");
 
-    const payment = await createOrUpdatePaymentForReservation({ reservationId: resId, amount, method });
+    const payment = await createOrUpdatePaymentForReservation({
+      reservationId: resId,
+      amount,
+      method: normalizedMethod,
+    });
 
-    if (method === "COD") {
+    if (isOfflineMethod(normalizedMethod)) {
       return { nextAction: "none", paymentId: payment.payment_id, reservationId: resId };
     }
 
-    if (method === "MOMO") {
+    if (normalizedMethod === PAYMENT_METHODS.MOMO) {
       const momoData = await createMomoSessionForReservation({ reservationId: resId, amount, returnUrl, cancelUrl });
       // Lưu mapping giao dịch: dùng orderId/requestId của MoMo để trace
       payment.transaction_ref = momoData.orderId || momoData.requestId || payment.transaction_ref;
@@ -182,8 +219,8 @@ async function createSession({ reservationId, tableToken, orderId, method, retur
         order_id: orderId,
         reservation_id: order.reservation_id || null,
         amount,
-        method,
-        status: method === "COD" ? "pending" : "requires_action",
+        method: normalizedMethod,
+        status: isOfflineMethod(normalizedMethod) ? "pending" : "requires_action",
         transaction_ref: null,
         paid_at: null,
         created_at: now(),
@@ -191,16 +228,18 @@ async function createSession({ reservationId, tableToken, orderId, method, retur
     } else {
       if (payment.status === "succeeded") throw new Error("ORDER_ALREADY_PAID");
       payment.amount = amount;
-      payment.method = method;
-      payment.status = method === "COD" ? "pending" : "requires_action";
+      payment.method = normalizedMethod;
+      payment.status = isOfflineMethod(normalizedMethod) ? "pending" : "requires_action";
       payment.transaction_ref = null;
-      if (method !== "COD") payment.paid_at = null;
+      if (!isOfflineMethod(normalizedMethod)) payment.paid_at = null;
       await payment.save();
     }
 
-    if (method === "COD") return { nextAction: "none", paymentId: payment.payment_id, orderId };
+    if (isOfflineMethod(normalizedMethod)) {
+      return { nextAction: "none", paymentId: payment.payment_id, orderId };
+    }
 
-    if (method === "MOMO") {
+    if (normalizedMethod === PAYMENT_METHODS.MOMO) {
       // Legacy: treat orderId as reservationId is not supported; ask migrate
       throw new Error("ORDER_PAYMENT_MOMO_NOT_SUPPORTED");
     }
@@ -233,6 +272,39 @@ async function onPaymentSucceededByReservation(reservationId) {
   }
 }
 
+async function finalizeReservationPayment({ reservationId, tableId, method, transactionRef }) {
+  const normalizedMethod = normalizeMethod(method);
+  if (!ALLOWED_METHODS.includes(normalizedMethod)) throw new Error("UNSUPPORTED_METHOD");
+
+  let resId = reservationId ? Number(reservationId) : null;
+  if (!resId && tableId) {
+    const active = await getActiveReservationByTableId(tableId);
+    if (!active) throw new Error("NO_ACTIVE_SESSION");
+    resId = active.reservation_id;
+  }
+  if (!resId) throw new Error("RESERVATION_NOT_FOUND");
+
+  const { amount } = await getAmountByReservation(resId);
+  if (amount <= 0) throw new Error("INVALID_AMOUNT");
+
+  const payment = await createOrUpdatePaymentForReservation({
+    reservationId: resId,
+    amount,
+    method: normalizedMethod,
+  });
+
+  payment.status = "succeeded";
+  payment.paid_at = now();
+  if (transactionRef) payment.transaction_ref = transactionRef;
+  if (!payment.invoice_no) payment.invoice_no = generateInvoiceNo(payment.payment_id);
+  if (!payment.invoice_issued_at) payment.invoice_issued_at = now();
+  await payment.save();
+
+  await onPaymentSucceededByReservation(resId);
+
+  return payment;
+}
+
 async function handleMomoWebhook(payload, verifyOk = true) {
   if (!verifyOk) throw new Error("INVALID_SIGNATURE");
 
@@ -251,6 +323,8 @@ async function handleMomoWebhook(payload, verifyOk = true) {
     if (ok) {
       payment.transaction_ref = String(payload.transId || payload.orderId || payload.requestId || "");
       payment.paid_at = now();
+      if (!payment.invoice_no) payment.invoice_no = generateInvoiceNo(payment.payment_id);
+      if (!payment.invoice_issued_at) payment.invoice_issued_at = now();
       await payment.save();
       await onPaymentSucceededByReservation(reservationId);
     } else {
@@ -275,6 +349,8 @@ module.exports = {
   getPaymentByReservation,
   onPaymentSucceededByReservation,
   getActiveReservationByTableId,
+  finalizeReservationPayment,
+  PAYMENT_METHODS,
   async createVietQr({ reservationId, tableToken }) {
     let resId = reservationId ? Number(reservationId) : null;
     if (!resId && tableToken) {

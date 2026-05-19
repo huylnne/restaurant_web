@@ -62,6 +62,23 @@ const kitchenService = {
     }
     item.status = newStatus;
     await item.save();
+    await item.reload({
+      include: [
+        { model: MenuItem, attributes: ['name', 'branch_id', 'item_id'] },
+        {
+          model: Order,
+          attributes: ['order_id', 'table_id', 'reservation_id'],
+          include: [
+            { model: Table, attributes: ['table_id', 'table_number'] },
+            {
+              model: Reservation,
+              attributes: ['reservation_id', 'table_id'],
+              include: [{ model: Table, attributes: ['table_id', 'table_number'] }],
+            },
+          ],
+        },
+      ],
+    });
     return item;
   },
 

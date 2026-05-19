@@ -74,8 +74,8 @@
   --hl-nav-height: 60px;
   --hl-content-max: 1200px;
   --hl-admin-sidebar-width: 240px;
-  --hl-admin-grid-min: 220px;
-  --hl-admin-grid-gap: 16px;
+  --hl-admin-grid-min: 260px;
+  --hl-admin-grid-gap: 20px;
 }
 
 /* Tránh tràn ngang toàn trang (navbar dùng 100vw, grid cố định px, v.v.) */
@@ -93,7 +93,7 @@ html {
 .hl-admin-grid {
   display: grid;
   grid-template-columns: repeat(
-    auto-fill,
+    auto-fit,
     minmax(min(100%, var(--hl-admin-grid-min)), 1fr)
   );
   gap: var(--hl-admin-grid-gap);

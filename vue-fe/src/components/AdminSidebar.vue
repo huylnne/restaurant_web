@@ -71,10 +71,19 @@ const activeMenuKey = computed(() => {
   width: var(--hl-admin-sidebar-width);
   flex: 0 0 var(--hl-admin-sidebar-width);
   height: 100%;
-  border-right: none;
+  min-height: 100%;
+  align-self: stretch;
+  border-right: 1px solid rgba(0, 0, 0, 0.12);
   background-color: var(--hl-sidebar-bg);
-  padding-top: var(--hl-space-sm);
+  padding: var(--hl-space-md) var(--hl-space-sm);
   min-width: 0;
+  box-sizing: border-box;
+  overflow-y: auto;
+}
+
+.sidebar :deep(.el-menu) {
+  border-right: none;
+  background-color: transparent;
 }
 
 .el-menu-item {
@@ -85,7 +94,8 @@ const activeMenuKey = computed(() => {
   align-items: center;
   gap: var(--hl-space-sm);
   border-radius: var(--hl-radius-md);
-  margin: var(--hl-space-xs) var(--hl-space-sm);
+  margin: var(--hl-space-xs) var(--hl-space-xs);
+  padding-left: var(--hl-space-md) !important;
   transition: 0.2s ease;
   text-decoration: none;
 }

@@ -1,0 +1,145 @@
+/* Shared admin UI — toolbar, page shell, compact header when sidebar visible */
+
+.admin-main {
+  background-color: var(--hl-admin-bg) !important;
+}
+
+/* Toolbar: filters + buttons aligned on one baseline */
+.admin-toolbar,
+.admin-reports .filter-section,
+.admin-tables .header-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hl-space-sm) var(--hl-space-md);
+}
+
+.admin-toolbar > *,
+.admin-reports .filter-section > *,
+.admin-tables .header-actions > * {
+  flex-shrink: 0;
+}
+
+.admin-reports .filter-section .el-date-editor,
+.admin-reports .filter-section .filter-branch-select {
+  width: auto;
+  min-width: 220px;
+}
+
+/* Stat / summary cards — lighter borders, consistent padding */
+.admin-reports .stat-card,
+.admin-tables .summary-card {
+  border-width: 1px !important;
+  box-shadow: var(--hl-shadow-card);
+}
+
+.admin-reports .stat-card:hover,
+.admin-tables .summary-card:hover {
+  transform: none;
+}
+
+/* Admin compact header */
+.header-wrapper--admin {
+  flex-shrink: 0;
+  background: var(--hl-bg-card);
+  border-bottom: 1px solid var(--hl-admin-border);
+}
+
+.admin-compact-header {
+  display: flex;
+  align-items: center;
+  gap: var(--hl-space-md);
+  padding: var(--hl-space-sm) clamp(var(--hl-space-md), 2vw, var(--hl-space-xl));
+  min-height: 56px;
+  box-sizing: border-box;
+}
+
+.admin-compact-header__brand {
+  display: flex;
+  align-items: center;
+  gap: var(--hl-space-sm);
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.admin-compact-header__logo {
+  height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+.admin-compact-header__title {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--hl-primary);
+  white-space: nowrap;
+}
+
+.admin-compact-header__nav {
+  display: flex;
+  align-items: center;
+  gap: var(--hl-space-lg);
+  flex-wrap: wrap;
+}
+
+.admin-compact-header__link {
+  color: var(--hl-text-secondary);
+  text-decoration: none;
+  font-size: 0.875rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.admin-compact-header__link:hover,
+.admin-compact-header__link.router-link-active {
+  color: var(--hl-primary);
+}
+
+.admin-compact-header__actions {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: var(--hl-space-md);
+  flex-shrink: 0;
+}
+
+.admin-compact-header__actions .nav-user {
+  text-decoration: none;
+}
+
+.admin-compact-header__actions .username {
+  font-size: 0.875rem;
+}
+
+/* Chart height — fit viewport better */
+.admin-reports .chart-container {
+  min-height: 240px;
+  height: 260px;
+}
+
+/* Equal-height admin menu cards */
+.menu-page--admin .dish-list {
+  align-items: stretch;
+}
+
+.menu-page--admin .dish-card {
+  height: 100%;
+}
+
+/* Lưới 2 cột chart — luôn giãn full width (tránh cột trống auto-fill) */
+.admin-reports .charts-section {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (max-width: 900px) {
+  .admin-reports .charts-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+.content-wrapper .admin-reports,
+.content-wrapper .dashboard,
+.content-wrapper .admin-tables {
+  width: 100%;
+  max-width: none;
+}

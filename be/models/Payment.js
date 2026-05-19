@@ -12,6 +12,8 @@ module.exports = (sequelize, DataTypes) => {
     status:     { type: DataTypes.STRING(50), allowNull: false, defaultValue: 'pending' }, // pending|requires_action|succeeded|failed|canceled
     transaction_ref: { type: DataTypes.STRING(100), allowNull: true }, // mã giao dịch từ cổng
     paid_at:    { type: DataTypes.DATE, allowNull: true },
+    invoice_no: { type: DataTypes.STRING(60), allowNull: true },
+    invoice_issued_at: { type: DataTypes.DATE, allowNull: true },
     created_at: { type: DataTypes.DATE, allowNull: true, defaultValue: sequelize.literal('CURRENT_TIMESTAMP') },
   }, {
     tableName: 'payments',

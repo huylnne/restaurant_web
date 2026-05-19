@@ -563,6 +563,10 @@ const handleSubmit = async () => {
   border-color: var(--hl-admin-border);
 }
 
+.menu-page--admin .dish-info {
+  flex: 1;
+}
+
 .dish-card:hover {
   transform: translateY(-4px);
   box-shadow: var(--hl-shadow-lg);
@@ -613,10 +617,11 @@ const handleSubmit = async () => {
 }
 
 .dish-price {
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.125rem;
+  font-weight: 700;
   color: var(--hl-primary);
-  margin-top: var(--hl-space-sm);
+  margin-top: auto;
+  padding-top: var(--hl-space-sm);
 }
 
 .price-num {

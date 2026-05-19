@@ -1,6 +1,8 @@
 const db = require("../../models/db"); 
 const Order = db.Order;
 const OrderItem = db.OrderItem;
+const Reservation = db.Reservation;
+const realtimeHub = require("../../realtimeHub");
 
 const createOrder = async (req, res) => {
   try {
@@ -24,6 +26,17 @@ const createOrder = async (req, res) => {
         quantity: item.quantity,
       });
     }
+
+    try {
+      const resv = await Reservation.findByPk(reservation_id, { attributes: ["branch_id"] });
+      if (resv?.branch_id) {
+        realtimeHub.notifyBranch(resv.branch_id, {
+          type: "order_flow",
+          reason: "user_preorder",
+          reservation_id: Number(reservation_id),
+        });
+      }
+    } catch (_) {}
 
     req.audit = { entityId: newOrder.order_id, metadata: { reservation_id } };
     res.json({ message: "Đặt món trước thành công!", order_id: newOrder.order_id });

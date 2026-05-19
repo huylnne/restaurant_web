@@ -30,6 +30,12 @@ async function initDatabase() {
     .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS reservation_id INTEGER;', { raw: true })
     .catch(() => {});
   await db.sequelize
+    .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(60);', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_issued_at TIMESTAMP;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
     .query(
       'CREATE UNIQUE INDEX IF NOT EXISTS payments_reservation_id_uq ON payments(reservation_id) WHERE reservation_id IS NOT NULL;',
       { raw: true }
@@ -161,6 +167,7 @@ app.use((err, req, res, next) => {
 });
 
 const PORT = Number(process.env.PORT) || 3000;
+const realtimeHub = require('./realtimeHub');
 let server;
 
 async function startServer() {
@@ -174,6 +181,8 @@ async function startServer() {
   server = app.listen(PORT, () => {
     console.log(`✅ Server đang chạy tại http://localhost:${PORT}`);
     console.log('   Giữ terminal mở. Dừng server: Ctrl+C');
+    realtimeHub.attachToHttpServer(server);
+    console.log(`   WebSocket realtime: ws://localhost:${PORT}/ws/realtime`);
   });
 
   server.on('error', (err) => {

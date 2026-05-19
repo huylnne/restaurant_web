@@ -404,7 +404,7 @@ h2 {
 }
 .stats {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
   gap: var(--hl-admin-grid-gap);
   width: 100%;
   max-width: 100%;

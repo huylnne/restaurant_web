@@ -1,19 +1,13 @@
 <template>
-  <el-container class="admin-layout">
-    <el-container direction="vertical" class="right-section admin-right-section">
-      <Navbar />
-      <el-main class="admin-main">
-        <!-- Sidebar chỉ hiển thị ở route admin trên màn đủ rộng -->
-        <Sidebar v-if="showSidebar" />
-        <div class="content-wrapper" :class="{ 'no-sidebar': !showSidebar }">
-          <div class="content-stack">
-            <router-view />
-            <SiteFooter />
-          </div>
-        </div>
-      </el-main>
-    </el-container>
-  </el-container>
+  <div class="admin-layout">
+    <Navbar />
+    <div class="admin-body" :class="{ 'admin-body--with-sidebar': showSidebar }">
+      <Sidebar v-if="showSidebar" class="admin-sidebar-panel" />
+      <main class="content-wrapper" :class="{ 'content-wrapper--full': !showSidebar }">
+        <router-view />
+      </main>
+    </div>
+  </div>
 </template>
 
 <script setup>
@@ -21,8 +15,40 @@ import { ref, onMounted, onUnmounted, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import Sidebar from "../components/AdminSidebar.vue";
 import Navbar from "../components/UserNavbar.vue";
-import SiteFooter from "../components/SiteFooter.vue";
 import { isStaffRole as checkStaffRole } from "@/utils/auth.js";
+import { connectBranchRealtime } from "@/utils/branchRealtime";
+import {
+  canReceiveKitchenDoneAlerts,
+  handleKitchenRealtimeMessage,
+} from "@/utils/kitchenDoneAlert";
+import { getCurrentUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
+
+const HTTP_ORIGIN = "http://localhost:3000";
+let disposeStaffKitchenWs = null;
+
+function stopStaffKitchenWs() {
+  if (typeof disposeStaffKitchenWs === "function") {
+    disposeStaffKitchenWs();
+    disposeStaffKitchenWs = null;
+  }
+}
+
+/** Phục vụ: toast món xong trên mọi trang admin (WS theo chi nhánh cố định) */
+function startStaffKitchenWs() {
+  stopStaffKitchenWs();
+  const user = getCurrentUser();
+  if (!canReceiveKitchenDoneAlerts()) return;
+  if (user?.role === "admin") return;
+  if (!localStorage.getItem("token")) return;
+  disposeStaffKitchenWs = connectBranchRealtime(
+    HTTP_ORIGIN,
+    getDefaultBranchIdForUser(user),
+    (msg) => {
+      handleKitchenRealtimeMessage(msg);
+      window.dispatchEvent(new CustomEvent("branch-realtime", { detail: msg }));
+    }
+  );
+}
 
 const isStaffRole = ref(false);
 const isCompactViewport = ref(typeof window !== "undefined" ? window.innerWidth <= 992 : false);
@@ -43,85 +69,77 @@ const showSidebar = computed(
   () => isStaffRole.value && route.path.startsWith("/admin") && !isCompactViewport.value
 );
 
+function syncAdminBodyClass() {
+  document.body.classList.toggle("admin-route-active", route.path.startsWith("/admin"));
+}
+
+function onAuthStorageChange() {
+  checkStaff();
+  startStaffKitchenWs();
+}
+
 onMounted(() => {
   checkStaff();
   handleResize();
+  syncAdminBodyClass();
+  startStaffKitchenWs();
   window.addEventListener("resize", handleResize);
 });
 watch(
   () => router.currentRoute.value.path,
   () => {
     checkStaff();
+    syncAdminBodyClass();
+    startStaffKitchenWs();
   }
 );
-window.addEventListener("storage", checkStaff);
+window.addEventListener("storage", onAuthStorageChange);
 
 onUnmounted(() => {
+  stopStaffKitchenWs();
+  document.body.classList.remove("admin-route-active");
   window.removeEventListener("resize", handleResize);
-  window.removeEventListener("storage", checkStaff);
+  window.removeEventListener("storage", onAuthStorageChange);
 });
 </script>
 
 <style scoped>
 .admin-layout {
-  width: 100%;
-  max-width: 100%;
-  min-height: 100vh;
-  height: 100vh;
-  overflow: hidden;
   display: flex;
   flex-direction: column;
+  width: 100%;
+  max-width: 100%;
+  height: 100vh;
+  height: 100dvh;
+  overflow: hidden;
+  background: var(--hl-admin-bg);
 }
 
-.admin-right-section {
+.admin-body {
   flex: 1;
   min-height: 0;
-  min-width: 0;
-  max-width: 100%;
-  display: flex !important;
-  flex-direction: column !important;
-  overflow: hidden;
-}
-
-.admin-right-section :deep(.header-wrapper) {
-  flex-shrink: 0;
-}
-
-.admin-main {
-  flex: 1;
-  min-height: 0 !important;
-  height: auto !important;
-  background-color: var(--hl-bg-section);
-  padding: 0 !important;
   display: flex;
   align-items: stretch;
-  min-width: 0;
   width: 100%;
   overflow: hidden;
+}
+
+.admin-body--with-sidebar :deep(.admin-sidebar-panel) {
+  flex-shrink: 0;
 }
 
 .content-wrapper {
   flex: 1;
   min-width: 0;
   min-height: 0;
-  width: 0;
-  max-width: 100%;
-  box-sizing: border-box;
-  padding: var(--hl-space-lg);
-  padding-bottom: var(--hl-space-2xl);
-  overflow-x: auto;
+  overflow-x: hidden;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
+  padding: var(--hl-space-md) var(--hl-space-lg);
+  box-sizing: border-box;
 }
 
-.content-wrapper.no-sidebar {
-  width: 100%;
-}
-
-.content-stack {
-  display: flex;
-  flex-direction: column;
-  min-height: 100%;
+.content-wrapper--full {
   width: 100%;
 }
 
@@ -129,22 +147,16 @@ onUnmounted(() => {
   .admin-layout {
     height: auto;
     min-height: 100vh;
+    min-height: 100dvh;
     overflow: visible;
   }
 
-  .admin-right-section {
-    overflow: visible;
-  }
-
-  .admin-main {
+  .admin-body {
     flex-direction: column;
     overflow: visible;
   }
 
-  .content-wrapper,
-  .content-wrapper.no-sidebar {
-    width: 100%;
-    min-height: auto;
+  .content-wrapper {
     overflow: visible;
     padding: var(--hl-space-md);
   }

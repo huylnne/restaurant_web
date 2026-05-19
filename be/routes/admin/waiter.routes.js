@@ -43,4 +43,19 @@ router.patch(
 
 router.get('/tables/:id/bill', waiterController.getTableBill);
 
+router.get('/tables/:id/payment', waiterController.getTablePayment);
+
+router.post(
+  '/tables/:id/checkout',
+  auditLog({
+    action: 'WAITER_PAYMENT_CHECKOUT',
+    module: 'payments',
+    description: (req) => `Xác nhận thanh toán bàn #${req.params.id}`,
+    entityType: 'payment',
+  }),
+  waiterController.finalizePayment
+);
+
+router.get('/reservations/:id/invoice.pdf', waiterController.getInvoicePdf);
+
 module.exports = router;

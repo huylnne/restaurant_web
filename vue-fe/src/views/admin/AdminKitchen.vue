@@ -13,7 +13,6 @@
         placeholder="Chọn chi nhánh"
         class="filter-branch-select"
         :disabled="!isSuperAdmin"
-        @change="fetchOrderItems"
       >
         <el-option
           v-for="branch in branches"
@@ -82,14 +81,18 @@
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted, watch } from "vue";
 import { ElMessage } from "element-plus";
 import { Refresh } from "@element-plus/icons-vue";
 import axios from "axios";
 import PaginationBar from "@/components/PaginationBar.vue";
 import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
+import { connectBranchRealtime } from "@/utils/branchRealtime";
 
-const API_BASE = "http://localhost:3000/api/admin/kitchen";
+const HTTP_ORIGIN = "http://localhost:3000";
+const API_BASE = `${HTTP_ORIGIN}/api/admin/kitchen`;
+/** UC08: polling ngắn bếp + WebSocket */
+const KITCHEN_POLL_MS = 4000;
 const KITCHEN_PAGE_SIZE = 12;
 
 const currentStatus = ref("pending");
@@ -173,7 +176,7 @@ const getTableLabel = (item) => {
 
 const fetchBranches = async () => {
   try {
-    const res = await axios.get("http://localhost:3000/api/home/branches");
+    const res = await axios.get(`${HTTP_ORIGIN}/api/home/branches`);
     branches.value = Array.isArray(res.data) ? res.data : [];
     if (!isSuperAdmin && currentUser?.branch_id) {
       selectedBranchId.value = Number(currentUser.branch_id);
@@ -183,8 +186,46 @@ const fetchBranches = async () => {
   }
 };
 
+let kitchenPollTimer = null;
+let disposeKitchenWs = null;
+
+function stopKitchenRealtime() {
+  if (kitchenPollTimer) {
+    clearInterval(kitchenPollTimer);
+    kitchenPollTimer = null;
+  }
+  if (typeof disposeKitchenWs === "function") {
+    disposeKitchenWs();
+    disposeKitchenWs = null;
+  }
+}
+
+function startKitchenRealtime() {
+  stopKitchenRealtime();
+  kitchenPollTimer = setInterval(() => {
+    fetchOrderItems();
+  }, KITCHEN_POLL_MS);
+  disposeKitchenWs = connectBranchRealtime(HTTP_ORIGIN, selectedBranchId.value, (msg) => {
+    if (msg?.type === "order_item_status" || msg?.type === "order_flow") {
+      fetchOrderItems();
+    }
+  });
+}
+
+watch(selectedBranchId, () => {
+  fetchOrderItems();
+  startKitchenRealtime();
+});
+
 onMounted(() => {
-  fetchBranches().then(fetchOrderItems);
+  fetchBranches().then(() => {
+    fetchOrderItems();
+    startKitchenRealtime();
+  });
+});
+
+onUnmounted(() => {
+  stopKitchenRealtime();
 });
 </script>
 

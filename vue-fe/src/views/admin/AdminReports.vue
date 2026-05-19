@@ -5,7 +5,7 @@
         <h2>Báo cáo & Thống kê</h2>
         <p>Theo dõi doanh thu và hiệu suất hoạt động của chi nhánh</p>
       </div>
-      <div class="filter-section">
+      <div class="filter-section admin-toolbar">
         <el-select
           v-model="selectedBranchId"
           placeholder="Chọn chi nhánh"
@@ -35,8 +35,7 @@
           Làm mới
         </el-button>
         <el-button
-          type="success"
-          plain
+          type="primary"
           :loading="exportLoading === 'xlsx'"
           :disabled="!!exportLoading && exportLoading !== 'xlsx'"
           @click="downloadReport('xlsx')"
@@ -45,8 +44,7 @@
           Xuất Excel
         </el-button>
         <el-button
-          type="danger"
-          plain
+          type="primary"
           :loading="exportLoading === 'pdf'"
           :disabled="!!exportLoading && exportLoading !== 'pdf'"
           @click="downloadReport('pdf')"
@@ -113,10 +111,6 @@
         <h3>Doanh thu theo danh mục</h3>
         <div ref="categoryChart" class="chart-container"></div>
       </div>
-    </div>
-
-    <!-- Biểu đồ theo giờ và theo tháng -->
-    <div class="charts-section">
       <div class="chart-card">
         <h3>Đơn hàng theo giờ (hôm nay)</h3>
         <div ref="hourChart" class="chart-container"></div>
@@ -197,7 +191,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted, nextTick } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 import {
@@ -247,6 +241,20 @@ const revenueChart = ref(null);
 const categoryChart = ref(null);
 const hourChart = ref(null);
 const monthlyChart = ref(null);
+const chartInstances = [];
+
+function renderChart(el, option) {
+  if (!el) return null;
+  const existing = echarts.getInstanceByDom(el);
+  const chart = existing || echarts.init(el);
+  chart.setOption(option, true);
+  if (!chartInstances.includes(chart)) chartInstances.push(chart);
+  return chart;
+}
+
+function resizeAllCharts() {
+  chartInstances.forEach((c) => c?.resize());
+}
 const fetchBranches = async () => {
   try {
     const res = await axios.get(`${API_BASE}/api/home/branches`);
@@ -407,7 +415,6 @@ const drawCharts = () => {
 
 // Biểu đồ doanh thu theo ngày
 const drawRevenueChart = () => {
-  const chart = echarts.init(revenueChart.value);
   const option = {
     tooltip: {
       trigger: "axis",
@@ -440,12 +447,11 @@ const drawRevenueChart = () => {
       },
     ],
   };
-  chart.setOption(option);
+  renderChart(revenueChart.value, option);
 };
 
 // Biểu đồ doanh thu theo danh mục
 const drawCategoryChart = () => {
-  const chart = echarts.init(categoryChart.value);
   const option = {
     tooltip: {
       trigger: "item",
@@ -454,33 +460,39 @@ const drawCategoryChart = () => {
       },
     },
     legend: {
-      orient: "vertical",
-      left: "left",
+      orient: "horizontal",
+      bottom: 0,
+      left: "center",
+      type: "scroll",
     },
     series: [
       {
         type: "pie",
-        radius: "60%",
+        radius: ["38%", "62%"],
+        center: ["50%", "44%"],
+        avoidLabelOverlap: true,
+        label: { show: false },
+        labelLine: { show: false },
         data: revenueByCategory.value.map((item) => ({
           name: item.category,
           value: parseFloat(item.revenue),
         })),
         emphasis: {
+          label: { show: true, fontSize: 13, fontWeight: "bold" },
           itemStyle: {
             shadowBlur: 10,
             shadowOffsetX: 0,
-            shadowColor: "rgba(0, 0, 0, 0.5)",
+            shadowColor: "rgba(0, 0, 0, 0.2)",
           },
         },
       },
     ],
   };
-  chart.setOption(option);
+  renderChart(categoryChart.value, option);
 };
 
 // Biểu đồ đơn hàng theo giờ
 const drawHourChart = () => {
-  const chart = echarts.init(hourChart.value);
   const option = {
     tooltip: {
       trigger: "axis",
@@ -500,12 +512,11 @@ const drawHourChart = () => {
       },
     ],
   };
-  chart.setOption(option);
+  renderChart(hourChart.value, option);
 };
 
 // Biểu đồ doanh thu theo tháng
 const drawMonthlyChart = () => {
-  const chart = echarts.init(monthlyChart.value);
   const option = {
     tooltip: {
       trigger: "axis",
@@ -531,13 +542,20 @@ const drawMonthlyChart = () => {
       },
     ],
   };
-  chart.setOption(option);
+  renderChart(monthlyChart.value, option);
 };
 
 onMounted(async () => {
   selectedBranchId.value = getDefaultBranchIdForUser(currentUser);
   await fetchBranches();
   fetchAllData();
+  window.addEventListener("resize", resizeAllCharts);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", resizeAllCharts);
+  chartInstances.forEach((c) => c.dispose());
+  chartInstances.length = 0;
 });
 </script>
 
@@ -574,11 +592,6 @@ onMounted(async () => {
   font-size: 14px;
 }
 
-.filter-section {
-  display: flex;
-  gap: var(--hl-space-md);
-  flex-wrap: wrap;
-}
 .filter-branch-select {
   width: 220px;
 }
@@ -586,9 +599,10 @@ onMounted(async () => {
 /* Cards tổng quan */
 .overview-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: var(--hl-admin-grid-gap);
   margin-bottom: var(--hl-space-lg);
+  width: 100%;
 }
 
 .stat-card {
@@ -599,12 +613,7 @@ onMounted(async () => {
   align-items: center;
   gap: var(--hl-space-lg);
   box-shadow: var(--hl-shadow-md);
-  border: 3px solid var(--hl-admin-border);
-  transition: transform 0.2s ease;
-}
-
-.stat-card:hover {
-  transform: translateY(-4px);
+  border: 1px solid var(--hl-admin-border);
 }
 
 .stat-card.revenue {
@@ -661,11 +670,10 @@ onMounted(async () => {
 /* Biểu đồ */
 .charts-section {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 320px), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--hl-admin-grid-gap);
   margin-bottom: var(--hl-space-lg);
   width: 100%;
-  max-width: 100%;
 }
 
 .chart-card {
@@ -674,6 +682,9 @@ onMounted(async () => {
   padding: var(--hl-space-lg);
   box-shadow: var(--hl-shadow-md);
   border: 1px solid var(--hl-admin-border);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .chart-card h3 {
@@ -685,7 +696,8 @@ onMounted(async () => {
 
 .chart-container {
   width: 100%;
-  height: 300px;
+  height: 260px;
+  min-height: 220px;
 }
 
 /* Bảng */
@@ -731,8 +743,9 @@ onMounted(async () => {
 
 .table-stats-cards {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 180px), 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
   gap: var(--hl-space-md);
+  width: 100%;
 }
 
 .stat-item {
@@ -790,7 +803,7 @@ onMounted(async () => {
   }
 
   .charts-section {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .charts-section .chart-card {
