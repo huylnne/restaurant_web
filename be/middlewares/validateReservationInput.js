@@ -10,7 +10,7 @@ function rejectUnexpectedKeys(body, allowedKeys) {
 }
 
 const validateCreateReservationBody = (req, res, next) => {
-  const allowed = ['reservation_time', 'number_of_guests', 'table_id', 'branch_id', 'note'];
+  const allowed = ['reservation_time', 'number_of_guests', 'branch_id', 'note'];
   const extraErr = rejectUnexpectedKeys(req.body, allowed);
   if (extraErr) return res.status(400).json({ message: extraErr });
 
@@ -27,16 +27,6 @@ const validateCreateReservationBody = (req, res, next) => {
   const guests = Number(req.body.number_of_guests);
   if (!Number.isFinite(guests) || guests < 1 || guests > MAX_GUESTS) {
     return res.status(400).json({ message: `Số khách phải từ 1 đến ${MAX_GUESTS}` });
-  }
-
-  if (req.body.table_id != null && req.body.table_id !== '') {
-    const tableId = Number(req.body.table_id);
-    if (!Number.isInteger(tableId) || tableId < 1) {
-      return res.status(400).json({ message: 'Bàn không hợp lệ' });
-    }
-    req.body.table_id = tableId;
-  } else {
-    req.body.table_id = undefined;
   }
 
   if (req.body.branch_id != null && req.body.branch_id !== '') {

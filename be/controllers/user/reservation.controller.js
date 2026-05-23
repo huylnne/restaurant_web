@@ -3,11 +3,73 @@ const Reservation = db.Reservation;
 const Table = db.Table;
 const { Op } = db.Sequelize;
 
+const CONFLICT_WINDOW_MS = 60 * 60 * 1000;
+
+/** Bàn đã có đặt chỗ trong khung ±1 giờ quanh giờ khách chọn */
+async function getConflictTableIds(branch_id, reservationTime) {
+  const resTime = new Date(reservationTime);
+  const windowStart = new Date(resTime.getTime() - CONFLICT_WINDOW_MS);
+  const windowEnd = new Date(resTime.getTime() + CONFLICT_WINDOW_MS);
+  const rows = await Reservation.findAll({
+    where: {
+      branch_id,
+      reservation_time: { [Op.between]: [windowStart, windowEnd] },
+      status: { [Op.notIn]: ["cancelled", "completed"] },
+    },
+    attributes: ["table_id"],
+  });
+  return rows.map((r) => r.table_id).filter(Boolean);
+}
+
+/** Tự chọn bàn nhỏ nhất đủ chỗ; trả { table } hoặc { message } */
+async function pickAvailableTable(branch_id, number_of_guests, reservationTime) {
+  const guests = Number(number_of_guests);
+  const conflictIds = await getConflictTableIds(branch_id, reservationTime);
+
+  const table = await Table.findOne({
+    where: {
+      branch_id,
+      capacity: { [Op.gte]: guests },
+      status: "available",
+      ...(conflictIds.length > 0 ? { table_id: { [Op.notIn]: conflictIds } } : {}),
+    },
+    order: [["capacity", "ASC"]],
+  });
+  if (table) return { table };
+
+  const hasCapacity = await Table.findOne({
+    where: { branch_id, capacity: { [Op.gte]: guests } },
+  });
+  if (!hasCapacity) {
+    return {
+      message: `Chi nhánh không có bàn đủ chỗ cho ${guests} khách. Vui lòng giảm số khách hoặc chọn chi nhánh khác.`,
+    };
+  }
+
+  const bookedInSlot = await Table.findOne({
+    where: {
+      branch_id,
+      capacity: { [Op.gte]: guests },
+      status: "available",
+      ...(conflictIds.length > 0 ? { table_id: { [Op.in]: conflictIds } } : { table_id: -1 }),
+    },
+  });
+  if (bookedInSlot) {
+    return {
+      message: "Đã kín bàn trong khung giờ này. Vui lòng chọn ngày hoặc giờ khác.",
+    };
+  }
+
+  return {
+    message: "Hiện không còn bàn trống. Vui lòng thử thời gian khác hoặc liên hệ nhà hàng.",
+  };
+}
+
 //  API: Tạo đặt bàn mới
 const createReservation = async (req, res) => {
   try {
     const user_id = req.userId;
-    const { reservation_time, number_of_guests, table_id, note } = req.body;
+    const { reservation_time, number_of_guests, note } = req.body;
     const branch_id = parseInt(req.body.branch_id, 10) || 1;
 
     // Từ chối đặt bàn với thời gian đã qua hoặc quá gần hiện tại (< 15 phút)
@@ -21,59 +83,11 @@ const createReservation = async (req, res) => {
       return res.status(400).json({ message: "Số lượng khách không hợp lệ." });
     }
 
-    let table = null;
-
-    // Khoảng thời gian coi là conflict: ±1 giờ quanh giờ đặt
-    const resTime = new Date(reservation_time);
-    const windowStart = new Date(resTime.getTime() - 60 * 60 * 1000);
-    const windowEnd   = new Date(resTime.getTime() + 60 * 60 * 1000);
-
-    // Helper: lấy danh sách table_id đang có reservation trùng khung giờ
-    const conflictingReservations = await Reservation.findAll({
-      where: {
-        branch_id,
-        reservation_time: { [Op.between]: [windowStart, windowEnd] },
-        status: { [Op.notIn]: ["cancelled", "completed"] },
-      },
-      attributes: ["table_id"],
-    });
-    const conflictIds = conflictingReservations.map((r) => r.table_id).filter(Boolean);
-
-    // 1a. Nếu user chọn bàn cụ thể → kiểm tra còn trống và không trùng lịch
-    if (table_id) {
-      table = await Table.findOne({
-        where: {
-          status: "available",
-          branch_id,
-          capacity: { [Op.gte]: number_of_guests },
-          [Op.and]: [
-            { table_id },
-            ...(conflictIds.length > 0 ? [{ table_id: { [Op.notIn]: conflictIds } }] : []),
-          ],
-        },
-      });
-      if (!table) {
-        return res.status(400).json({
-          message: "Bàn đã được đặt trong khung giờ này hoặc không đủ chỗ. Vui lòng chọn bàn khác.",
-        });
-      }
-    } else {
-      // 1b. Auto-pick: bàn nhỏ nhất còn trống và không trùng lịch
-      table = await Table.findOne({
-        where: {
-          branch_id,
-          capacity: { [Op.gte]: number_of_guests },
-          status: "available",
-          ...(conflictIds.length > 0 ? { table_id: { [Op.notIn]: conflictIds } } : {}),
-        },
-        order: [["capacity", "ASC"]],
-      });
-      if (!table) {
-        return res
-          .status(400)
-          .json({ message: "Hết bàn trong khung giờ này, vui lòng chọn thời gian khác." });
-      }
+    const picked = await pickAvailableTable(branch_id, number_of_guests, reservation_time);
+    if (!picked.table) {
+      return res.status(400).json({ message: picked.message });
     }
+    const table = picked.table;
 
     // 2. Tạo reservation — KHÔNG đổi table sang pre-ordered ngay,
     //    hàm syncTableStatuses sẽ tự chuyển khi còn 15 phút trước giờ đặt
@@ -100,7 +114,7 @@ const createReservation = async (req, res) => {
   }
 };
 
-//  API: Lấy danh sách bàn trống
+//  API: Kiểm tra còn bàn phù hợp (khách không cần chọn bàn)
 const getAvailableTables = async (req, res) => {
   try {
     const { reservation_time, guests } = req.query;
@@ -110,36 +124,16 @@ const getAvailableTables = async (req, res) => {
       return res.status(400).json({ message: "Thiếu thông tin yêu cầu" });
     }
 
-    const targetTime = new Date(reservation_time);
-    const startTime = new Date(targetTime.getTime() - 60 * 60 * 1000); // trước 1h
-    const endTime = new Date(targetTime.getTime() + 60 * 60 * 1000); // sau 1h
-
-    const reservedTableIds = await Reservation.findAll({
-      where: {
-        branch_id,
-        reservation_time: {
-          [Op.between]: [startTime, endTime],
-        },
-        status: { [Op.notIn]: ["cancelled"] },
-      },
-      attributes: ["table_id"],
-    });
-
-    const usedIds = reservedTableIds.map((r) => r.table_id);
-
-    const tables = await Table.findAll({
-      where: {
-        branch_id,
-        capacity: { [Op.gte]: guests },
-        table_id: { [Op.notIn]: usedIds },
-        status: "available",
-      },
-      order: [["capacity", "ASC"]],
-    });
-
-    res.json({ tables });
+    const picked = await pickAvailableTable(branch_id, guests, reservation_time);
+    if (picked.table) {
+      return res.json({
+        available: true,
+        message: "Còn bàn phù hợp. Bạn có thể gửi yêu cầu đặt bàn.",
+      });
+    }
+    return res.json({ available: false, message: picked.message });
   } catch (err) {
-    console.error("Lỗi lấy bàn trống:", err);
+    console.error("Lỗi kiểm tra bàn trống:", err);
     res.status(500).json({ message: "Lỗi server" });
   }
 };

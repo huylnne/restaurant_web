@@ -18,34 +18,31 @@
       </el-form-item>
 
       <el-form-item label="Giờ">
-        <el-time-picker v-model="form.time" placeholder="Chọn giờ" />
+        <el-time-picker
+          v-model="form.time"
+          placeholder="Chọn giờ"
+          format="HH:mm"
+        />
       </el-form-item>
 
       <el-form-item label="Số lượng khách">
         <el-input-number v-model="form.guests" :min="1" />
       </el-form-item>
 
-      <el-form-item label="Chọn bàn">
-        <el-select
-          v-model="form.table_id"
-          placeholder="Chọn bàn"
-          :disabled="availableTables.length === 0"
-        >
-          <el-option
-            v-for="table in availableTables"
-            :key="table.table_id"
-            :label="`Bàn số ${table.table_number} (Tối đa ${table.capacity} khách)`"
-            :value="table.table_id"
-          />
-        </el-select>
-      </el-form-item>
+      <p
+        v-if="availabilityMessage"
+        class="availability-hint"
+        :class="canSubmit ? 'availability-hint--ok' : 'availability-hint--warn'"
+      >
+        {{ availabilityMessage }}
+      </p>
 
       <el-form-item label="Ghi chú">
         <el-input type="textarea" v-model="form.note" rows="2" />
       </el-form-item>
 
       <el-form-item>
-        <el-button type="primary" @click="submitForm">Đặt bàn</el-button>
+        <el-button type="primary" :disabled="!canSubmit" @click="submitForm">Đặt bàn</el-button>
       </el-form-item>
     </el-form>
   </el-card>
@@ -64,10 +61,18 @@ const form = ref({
   time: "",
   guests: 1,
   note: "",
-  table_id: null,
 });
 
-const availableTables = ref([]);
+const availabilityMessage = ref("");
+const canSubmit = ref(false);
+
+const buildReservationDate = () => {
+  if (!form.value.date || !form.value.time) return null;
+  const d = new Date(form.value.date);
+  const t = new Date(form.value.time);
+  d.setHours(t.getHours(), t.getMinutes(), 0, 0);
+  return d;
+};
 
 const fetchBranches = async () => {
   try {
@@ -83,16 +88,16 @@ const fetchBranches = async () => {
 
 fetchBranches();
 
-// Tự động fetch bàn mỗi khi thay đổi ngày, giờ, số lượng khách
 watch(
   [() => form.value.branch_id, () => form.value.date, () => form.value.time, () => form.value.guests],
   async () => {
+    availabilityMessage.value = "";
+    canSubmit.value = false;
+
     if (!form.value.branch_id || !form.value.date || !form.value.time || !form.value.guests) return;
 
-    const date = new Date(form.value.date);
-    const time = new Date(form.value.time);
-    date.setHours(time.getHours());
-    date.setMinutes(time.getMinutes());
+    const date = buildReservationDate();
+    if (!date) return;
 
     try {
       const res = await axios.get("/api/reservations/available", {
@@ -102,31 +107,35 @@ watch(
           guests: form.value.guests,
         },
       });
-      availableTables.value = res.data.tables || [];
+      canSubmit.value = !!res.data.available;
+      availabilityMessage.value = res.data.message || "";
     } catch (err) {
-      availableTables.value = [];
+      availabilityMessage.value =
+        err.response?.data?.message || "Không kiểm tra được bàn trống. Vui lòng thử lại.";
       console.error(err);
     }
   }
 );
 
 const submitForm = async () => {
-  if (!form.value.branch_id || !form.value.date || !form.value.time || !form.value.table_id) {
-    ElMessage.error("Vui lòng điền đầy đủ thông tin và chọn bàn");
+  if (!form.value.branch_id || !form.value.date || !form.value.time) {
+    ElMessage.error("Vui lòng điền đầy đủ thông tin");
     return;
   }
 
-  const date = new Date(form.value.date);
-  const time = new Date(form.value.time);
-  date.setHours(time.getHours());
-  date.setMinutes(time.getMinutes());
+  const date = buildReservationDate();
+  if (!date) return;
+
+  if (!canSubmit.value) {
+    ElMessage.error(availabilityMessage.value || "Hiện không còn bàn phù hợp trong khung giờ này");
+    return;
+  }
 
   const payload = {
     branch_id: form.value.branch_id,
     reservation_time: date.toISOString(),
     number_of_guests: form.value.guests,
     note: form.value.note,
-    table_id: form.value.table_id,
   };
 
   try {
@@ -138,7 +147,6 @@ const submitForm = async () => {
       },
     });
 
-    // Lấy reservation_id từ response (thường backend trả về)
     const reservation_id = res.data.reservation.reservation_id;
     const reservation = res.data.reservation;
     if (reservation_id) {
@@ -150,16 +158,13 @@ const submitForm = async () => {
       })
         .then(() => {
           ElMessage.success("Chuyển sang bước đặt món!");
-          // Chuyển sang màn đặt món trước, truyền reservation_id
           router.push({ name: "OrderMenu", query: { reservation_id } });
         })
         .catch(() => {
           ElMessage.success("Đặt bàn thành công!");
-          // Không đặt món luôn, quay về profile hoặc trang chủ
           router.push("/dashboard");
         });
     } else {
-      // fallback nếu không lấy được reservation_id
       ElMessage.error("Không lấy được mã đặt bàn! Vui lòng thử lại.");
       router.push("/profile");
     }
@@ -190,5 +195,25 @@ const submitForm = async () => {
   color: var(--hl-primary);
   font-weight: 600;
   font-size: 1.25rem;
+}
+
+.availability-hint {
+  margin: 0 0 var(--hl-space-md);
+  padding: var(--hl-space-sm) var(--hl-space-md);
+  border-radius: var(--hl-radius-md);
+  font-size: 0.9rem;
+  line-height: 1.45;
+}
+
+.availability-hint--ok {
+  background: #eef7f0;
+  color: #2e6b3e;
+  border: 1px solid #c8e6d0;
+}
+
+.availability-hint--warn {
+  background: #fff8e8;
+  color: #8a6d1d;
+  border: 1px solid #f0e0b8;
 }
 </style>
