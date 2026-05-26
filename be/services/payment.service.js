@@ -5,6 +5,7 @@ const billService = require("./bill.service");
 const momo = require("../utils/momo");
 const { generateVietQR } = require("vietqr-ts");
 const { TABLE_STATUS } = require("../utils/tableStatus");
+const { ORDER_STATUS, notTerminalOrderStatusWhere } = require("../utils/orderStatus");
 
 const PAYMENT_METHODS = {
   CASH: "CASH",
@@ -25,7 +26,7 @@ const OFFLINE_METHODS = new Set([
 ]);
 const now = () => new Date();
 
-const ACTIVE_RESERVATION_STATUSES = ["confirmed", "pre-ordered", "waiting_payment"];
+const { ACTIVE_RESERVATION_STATUSES } = require("../utils/reservationStatus");
 
 // Legacy: tính tổng theo 1 order
 async function getOrderAmount(orderId) {
@@ -254,11 +255,11 @@ async function onPaymentSucceededByReservation(reservationId) {
 
   // Hoàn tất mọi orders thuộc phiên hiện tại (reservation + table)
   await Order.update(
-    { status: "COMPLETED" },
+    { status: ORDER_STATUS.COMPLETED },
     {
       where: {
         [Op.or]: [{ reservation_id: reservationId }, { table_id: reservation.table_id }],
-        status: { [Op.notIn]: ["COMPLETED", "CANCELLED"] },
+        status: notTerminalOrderStatusWhere(),
       },
     }
   );

@@ -3,7 +3,14 @@ const { Op } = require('sequelize');
 
 const MAX_ACTIVE_RESERVATIONS = 3;
 const MAX_RESERVATIONS_PER_DAY = 5;
-const ACTIVE_STATUSES = ['pending', 'confirmed', 'pre-ordered', 'waiting_payment'];
+const {
+  RESERVATION_STATUS,
+  ACTIVE_RESERVATION_STATUSES,
+} = require('../utils/reservationStatus');
+const ACTIVE_STATUSES = [
+  RESERVATION_STATUS.PENDING,
+  ...ACTIVE_RESERVATION_STATUSES,
+];
 
 const enforceReservationQuota = async (req, res, next) => {
   try {

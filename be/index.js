@@ -52,6 +52,30 @@ async function initDatabase() {
     .query("UPDATE tables SET status = 'pre-ordered' WHERE status = 'reserved';", { raw: true })
     .catch(() => {});
 
+  // Chuẩn hóa orders.status (legacy → open / in_progress / completed)
+  await db.sequelize
+    .query(
+      `UPDATE orders SET status = 'open'
+       WHERE status IN ('pre-ordered', 'PENDING', 'pending', 'preorder');`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(`UPDATE orders SET status = 'in_progress' WHERE status = 'IN_PROGRESS';`, { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders SET status = 'completed' WHERE status IN ('COMPLETED');`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders SET status = 'cancelled' WHERE status IN ('CANCELLED');`,
+      { raw: true }
+    )
+    .catch(() => {});
+
   await db.sequelize
     .query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS latitude DECIMAL(10, 7);', { raw: true })
     .catch(() => {});
@@ -88,6 +112,11 @@ async function initDatabase() {
   await db.sequelize
     .query('ALTER TABLE reservations ADD COLUMN IF NOT EXISTS note TEXT;', { raw: true })
     .catch(() => {});
+
+  const { ensureMenuForEmptyBranches } = require('./utils/ensureBranchMenus');
+  await ensureMenuForEmptyBranches(db.sequelize).catch((err) => {
+    console.warn('⚠️ ensureMenuForEmptyBranches:', err.message);
+  });
 }
 
 // ========== ROUTES ==========

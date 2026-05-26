@@ -1,90 +1,43 @@
-const { OrderItem, MenuItem, Order, Table, Reservation } = require('../../models');
+const { OrderItem, MenuItem } = require('../../models');
+const {
+  findKitchenOrderItems,
+  syncOrderStatusFromItems,
+  orderTableInclude,
+} = require('../../utils/orderQueries');
+const { normalizeOrderItemStatus, ORDER_ITEM_STATUS } = require('../../utils/orderItemStatus');
 
 const kitchenService = {
-  // Lấy danh sách order items theo trạng thái (pending, processing, done)
-  async getOrderItemsByStatus(status = 'pending', branchId = 1) {
-    const items = await OrderItem.findAll({
-      where: { status },
-      include: [
-        {
-          model: MenuItem,
-          attributes: ['item_id', 'name', 'price', 'category'],
-          where: { branch_id: branchId },
-        },
-        {
-          model: Order,
-          attributes: ['order_id', 'table_id', 'reservation_id'],
-          include: [
-            {
-              model: Table,
-              attributes: ['table_id', 'table_number'],
-            },
-            {
-              model: Reservation,
-              attributes: ['reservation_id', 'table_id'],
-              include: [
-                {
-                  model: Table,
-                  attributes: ['table_id', 'table_number'],
-                },
-              ],
-            },
-          ],
-        },
-      ],
-      order: [['order_item_id', 'ASC']],
-    });
-
-    // Chuẩn hoá thông tin bàn để kitchen/waiter đọc nhanh.
-    return items.map((item) => {
-      const plain = item.toJSON();
-      const directTable = plain.Order?.Table;
-      const reservationTable = plain.Order?.Reservation?.Table;
-      const resolvedTable = directTable || reservationTable || null;
-
-      return {
-        ...plain,
-        table_id: resolvedTable?.table_id ?? plain.Order?.table_id ?? plain.Order?.Reservation?.table_id ?? null,
-        table_number: resolvedTable?.table_number ?? null,
-      };
-    });
+  async getOrderItemsByStatus(status = ORDER_ITEM_STATUS.PENDING, branchId = 1) {
+    return findKitchenOrderItems({ itemStatus: status, branchId });
   },
 
-  // Cập nhật trạng thái 1 order_item
   async updateOrderItemStatus(orderItemId, newStatus, branchId = 1) {
     const item = await OrderItem.findOne({
       where: { order_item_id: orderItemId },
-      include: [{ model: MenuItem, attributes: ["branch_id"] }],
+      include: [{ model: MenuItem, attributes: ['branch_id'] }],
     });
     if (!item) throw new Error('OrderItem not found');
     if (item.MenuItem?.branch_id !== Number(branchId)) {
       throw new Error('Không có quyền cập nhật món của chi nhánh khác');
     }
-    item.status = newStatus;
+
+    const normalized = normalizeOrderItemStatus(newStatus);
+    item.status = normalized;
     await item.save();
+    await syncOrderStatusFromItems(item.order_id);
+
     await item.reload({
       include: [
         { model: MenuItem, attributes: ['name', 'branch_id', 'item_id'] },
-        {
-          model: Order,
-          attributes: ['order_id', 'table_id', 'reservation_id'],
-          include: [
-            { model: Table, attributes: ['table_id', 'table_number'] },
-            {
-              model: Reservation,
-              attributes: ['reservation_id', 'table_id'],
-              include: [{ model: Table, attributes: ['table_id', 'table_number'] }],
-            },
-          ],
-        },
+        ...orderTableInclude(),
       ],
     });
     return item;
   },
 
-  // Lấy các order_items mới (có thể theo branch nếu cần -> add condition)
   async getNewItems(limit = 100) {
-    return this.getOrderItemsByStatus('pending').then((res) => res.slice(0, limit));
+    const res = await this.getOrderItemsByStatus(ORDER_ITEM_STATUS.PENDING);
+    return res.slice(0, limit);
   },
 };
 

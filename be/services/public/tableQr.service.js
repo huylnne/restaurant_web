@@ -2,7 +2,7 @@ const { Table, Reservation } = require("../../models");
 const billService = require("../bill.service");
 const { TABLE_STATUS, isBookableTableStatus } = require("../../utils/tableStatus");
 
-const ACTIVE_RESERVATION_STATUSES = ["confirmed", "pre-ordered", "waiting_payment"];
+const { ACTIVE_RESERVATION_STATUSES, RESERVATION_STATUS } = require("../../utils/reservationStatus");
 
 async function getTableByToken(token) {
   if (!token) return null;
@@ -54,7 +54,7 @@ async function checkinByToken({ token, userId, numberOfGuests }) {
     table_id: table.table_id,
     reservation_time: new Date(),
     number_of_guests: guests,
-    status: "pre-ordered",
+    status: RESERVATION_STATUS.PRE_ORDERED,
     created_at: new Date(),
   });
 

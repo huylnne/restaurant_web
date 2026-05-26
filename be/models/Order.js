@@ -20,7 +20,7 @@ module.exports = (sequelize, DataTypes) => {
     status: {
       type: DataTypes.STRING,
       allowNull: false,
-      defaultValue: 'pre-ordered'
+      defaultValue: 'open',
     },
     created_at: {
       type: DataTypes.DATE,

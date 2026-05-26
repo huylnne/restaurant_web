@@ -1,6 +1,7 @@
 const db = require("../models/db");
 const User = db.User;
-const { Reservation, Order, OrderItem, MenuItem, Table, Payment, Review } = require('../models');
+const { Reservation, Order, OrderItem, MenuItem, Table, Payment, Review, Branch } = require('../models');
+const { ACTIVE_RESERVATION_STATUSES } = require('../utils/reservationStatus');
 const DEFAULT_AVATAR_URL = "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
 
 // ✅ Lấy profile
@@ -87,6 +88,10 @@ exports.getReservationsWithOrders = async (userId) => {
           model: Table,
           as: 'Table',
           attributes: ['table_number', 'capacity', 'status']
+        },
+        {
+          model: Branch,
+          attributes: ['branch_id', 'name', 'address'],
         },
         {
           model: Review,
@@ -181,7 +186,7 @@ exports.getCurrentTableSession = async (userId) => {
     const reservation = await Reservation.findOne({
       where: {
         user_id: userId,
-        status: ['confirmed', 'pre-ordered', 'waiting_payment'],
+        status: ACTIVE_RESERVATION_STATUSES,
       },
       attributes: [
         'reservation_id',

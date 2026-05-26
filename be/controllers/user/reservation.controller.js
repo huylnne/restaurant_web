@@ -1,69 +1,13 @@
 const db = require("../../models");
 const Reservation = db.Reservation;
 const Table = db.Table;
-const { Op } = db.Sequelize;
+const reservationService = require("../../services/reservation.service");
+const {
+  CANCELABLE_RESERVATION_STATUSES,
+  ACTIVE_RESERVATION_STATUSES,
+} = require("../../utils/reservationStatus");
 
-const CONFLICT_WINDOW_MS = 60 * 60 * 1000;
-
-/** Bàn đã có đặt chỗ trong khung ±1 giờ quanh giờ khách chọn */
-async function getConflictTableIds(branch_id, reservationTime) {
-  const resTime = new Date(reservationTime);
-  const windowStart = new Date(resTime.getTime() - CONFLICT_WINDOW_MS);
-  const windowEnd = new Date(resTime.getTime() + CONFLICT_WINDOW_MS);
-  const rows = await Reservation.findAll({
-    where: {
-      branch_id,
-      reservation_time: { [Op.between]: [windowStart, windowEnd] },
-      status: { [Op.notIn]: ["cancelled", "completed"] },
-    },
-    attributes: ["table_id"],
-  });
-  return rows.map((r) => r.table_id).filter(Boolean);
-}
-
-/** Tự chọn bàn nhỏ nhất đủ chỗ; trả { table } hoặc { message } */
-async function pickAvailableTable(branch_id, number_of_guests, reservationTime) {
-  const guests = Number(number_of_guests);
-  const conflictIds = await getConflictTableIds(branch_id, reservationTime);
-
-  const table = await Table.findOne({
-    where: {
-      branch_id,
-      capacity: { [Op.gte]: guests },
-      status: "available",
-      ...(conflictIds.length > 0 ? { table_id: { [Op.notIn]: conflictIds } } : {}),
-    },
-    order: [["capacity", "ASC"]],
-  });
-  if (table) return { table };
-
-  const hasCapacity = await Table.findOne({
-    where: { branch_id, capacity: { [Op.gte]: guests } },
-  });
-  if (!hasCapacity) {
-    return {
-      message: `Chi nhánh không có bàn đủ chỗ cho ${guests} khách. Vui lòng giảm số khách hoặc chọn chi nhánh khác.`,
-    };
-  }
-
-  const bookedInSlot = await Table.findOne({
-    where: {
-      branch_id,
-      capacity: { [Op.gte]: guests },
-      status: "available",
-      ...(conflictIds.length > 0 ? { table_id: { [Op.in]: conflictIds } } : { table_id: -1 }),
-    },
-  });
-  if (bookedInSlot) {
-    return {
-      message: "Đã kín bàn trong khung giờ này. Vui lòng chọn ngày hoặc giờ khác.",
-    };
-  }
-
-  return {
-    message: "Hiện không còn bàn trống. Vui lòng thử thời gian khác hoặc liên hệ nhà hàng.",
-  };
-}
+const MIN_ADVANCE_MS = 15 * 60 * 1000;
 
 //  API: Tạo đặt bàn mới
 const createReservation = async (req, res) => {
@@ -72,8 +16,6 @@ const createReservation = async (req, res) => {
     const { reservation_time, number_of_guests, note } = req.body;
     const branch_id = parseInt(req.body.branch_id, 10) || 1;
 
-    // Từ chối đặt bàn với thời gian đã qua hoặc quá gần hiện tại (< 15 phút)
-    const MIN_ADVANCE_MS = 15 * 60 * 1000;
     if (!reservation_time || new Date(reservation_time).getTime() < Date.now() + MIN_ADVANCE_MS) {
       return res.status(400).json({
         message: "Thời gian đặt bàn phải cách hiện tại ít nhất 15 phút.",
@@ -83,23 +25,12 @@ const createReservation = async (req, res) => {
       return res.status(400).json({ message: "Số lượng khách không hợp lệ." });
     }
 
-    const picked = await pickAvailableTable(branch_id, number_of_guests, reservation_time);
-    if (!picked.table) {
-      return res.status(400).json({ message: picked.message });
-    }
-    const table = picked.table;
-
-    // 2. Tạo reservation — KHÔNG đổi table sang pre-ordered ngay,
-    //    hàm syncTableStatuses sẽ tự chuyển khi còn 15 phút trước giờ đặt
-    const reservation = await Reservation.create({
+    const { reservation, table } = await reservationService.createReservation({
       user_id,
       branch_id,
-      table_id: table.table_id,
       reservation_time,
       number_of_guests,
-      note: note || null,
-      status: "confirmed",
-      created_at: new Date(),
+      note,
     });
 
     req.audit = {
@@ -109,6 +40,9 @@ const createReservation = async (req, res) => {
     };
     return res.status(201).json({ message: "Đặt bàn thành công", reservation });
   } catch (err) {
+    if (err.code === "NO_TABLE") {
+      return res.status(400).json({ message: err.message });
+    }
     console.error("Lỗi đặt bàn:", err);
     res.status(500).json({ message: "Lỗi server" });
   }
@@ -124,7 +58,11 @@ const getAvailableTables = async (req, res) => {
       return res.status(400).json({ message: "Thiếu thông tin yêu cầu" });
     }
 
-    const picked = await pickAvailableTable(branch_id, guests, reservation_time);
+    const picked = await reservationService.pickAvailableTable(
+      branch_id,
+      guests,
+      reservation_time
+    );
     if (picked.table) {
       return res.json({
         available: true,
@@ -167,7 +105,6 @@ const cancelReservation = async (req, res) => {
     const { id } = req.params;
     const userId = req.userId;
 
-    // 1. Tìm đặt bàn thuộc user hiện tại
     const reservation = await Reservation.findOne({
       where: {
         reservation_id: id,
@@ -179,14 +116,12 @@ const cancelReservation = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đặt bàn" });
     }
 
-    // 2. Kiểm tra trạng thái trong DB
-    if (!["pending", "confirmed"].includes(reservation.status)) {
+    if (!CANCELABLE_RESERVATION_STATUSES.includes(reservation.status)) {
       return res
         .status(400)
         .json({ message: "Không thể hủy ở trạng thái này" });
     }
 
-    // 3. Cập nhật trạng thái
     reservation.status = "cancelled";
     await reservation.save();
     const table = await Table.findByPk(reservation.table_id);
@@ -226,7 +161,7 @@ const requestBill = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đặt bàn" });
     }
 
-    if (!["confirmed", "pre-ordered", "waiting_payment"].includes(reservation.status)) {
+    if (!ACTIVE_RESERVATION_STATUSES.includes(reservation.status)) {
       return res
         .status(400)
         .json({ message: "Đặt bàn này không thể yêu cầu thanh toán" });
@@ -246,7 +181,6 @@ const requestBill = async (req, res) => {
   }
 };
 
-//  Export tất cả hàm
 module.exports = {
   createReservation,
   getAvailableTables,

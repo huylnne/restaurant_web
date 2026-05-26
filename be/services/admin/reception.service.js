@@ -2,9 +2,13 @@ const { Reservation, Table, User, sequelize } = require("../../models");
 const { Op } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
 const { TABLE_STATUS, isBookableTableStatus } = require("../../utils/tableStatus");
+const {
+  CHECK_IN_RESERVATION_STATUSES,
+  ACTIVE_SESSION_STATUSES,
+  RESERVATION_STATUS,
+} = require("../../utils/reservationStatus");
 
-const CHECK_IN_STATUSES = ["confirmed", "pending"];
-const ACTIVE_SESSION_STATUSES = ["pre-ordered", "waiting_payment"];
+const CHECK_IN_STATUSES = CHECK_IN_RESERVATION_STATUSES;
 
 function mapArrivalRow(r) {
   const data = r.toJSON();
@@ -178,7 +182,7 @@ async function confirmArrival(reservationId, branchId) {
   }
 
   await sequelize.transaction(async (t) => {
-    await reservation.update({ status: "pre-ordered" }, { transaction: t });
+    await reservation.update({ status: RESERVATION_STATUS.PRE_ORDERED }, { transaction: t });
     await table.update({ status: "occupied" }, { transaction: t });
   });
 
@@ -265,7 +269,7 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
         table_id: tableId,
         reservation_time: now,
         number_of_guests: guests,
-        status: "pre-ordered",
+        status: RESERVATION_STATUS.PRE_ORDERED,
         created_at: now,
       },
       { transaction: t }

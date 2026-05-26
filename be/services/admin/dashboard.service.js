@@ -8,6 +8,7 @@ const {
   Table,
 } = require("../../models");
 const tableSummaryService = require("./tableSummary.service");
+const { completedOrderStatusSqlIn } = require("../../utils/orderStatus");
 
 const dashboardService = {
   //  1. Tổng quan
@@ -29,7 +30,7 @@ const dashboardService = {
       FROM order_items oi
       JOIN menu_items mi ON mi.item_id = oi.item_id
       JOIN orders o ON o.order_id = oi.order_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :today
         AND o.created_at < :tomorrow
         AND mi.branch_id = :branchId
@@ -46,7 +47,7 @@ const dashboardService = {
       FROM order_items oi
       JOIN menu_items mi ON mi.item_id = oi.item_id
       JOIN orders o ON o.order_id = oi.order_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :yesterday
         AND o.created_at <= :yesterdayEnd
         AND mi.branch_id = :branchId
@@ -63,7 +64,7 @@ const dashboardService = {
     const [todayOrdersResult] = await db.sequelize.query(
       `SELECT COUNT(1)::int AS total
        FROM orders o
-       WHERE o.status = 'COMPLETED'
+       WHERE o.status IN (${completedOrderStatusSqlIn()})
          AND o.created_at >= :today
          AND o.created_at < :tomorrow
          AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
@@ -74,7 +75,7 @@ const dashboardService = {
     const [yesterdayOrdersResult] = await db.sequelize.query(
       `SELECT COUNT(1)::int AS total
        FROM orders o
-       WHERE o.status = 'COMPLETED'
+       WHERE o.status IN (${completedOrderStatusSqlIn()})
          AND o.created_at >= :yesterday
          AND o.created_at <= :yesterdayEnd
          AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
@@ -85,7 +86,7 @@ const dashboardService = {
     const [todayCustomersResult] = await db.sequelize.query(
       `SELECT COUNT(DISTINCT o.reservation_id)::int AS total
        FROM orders o
-       WHERE o.status = 'COMPLETED'
+       WHERE o.status IN (${completedOrderStatusSqlIn()})
          AND o.created_at >= :today
          AND o.created_at < :tomorrow
          AND o.reservation_id IS NOT NULL
@@ -97,7 +98,7 @@ const dashboardService = {
     const [yesterdayCustomersResult] = await db.sequelize.query(
       `SELECT COUNT(DISTINCT o.reservation_id)::int AS total
        FROM orders o
-       WHERE o.status = 'COMPLETED'
+       WHERE o.status IN (${completedOrderStatusSqlIn()})
          AND o.created_at >= :yesterday
          AND o.created_at <= :yesterdayEnd
          AND o.reservation_id IS NOT NULL
@@ -111,7 +112,7 @@ const dashboardService = {
       SELECT COALESCE(SUM(quantity), 0) AS total
       FROM order_items oi
       JOIN orders o ON o.order_id = oi.order_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :today
         AND o.created_at < :tomorrow
         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)
@@ -127,7 +128,7 @@ const dashboardService = {
       SELECT COALESCE(SUM(quantity), 0) AS total
       FROM order_items oi
       JOIN orders o ON o.order_id = oi.order_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :yesterday
         AND o.created_at <= :yesterdayEnd
         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)
@@ -177,7 +178,7 @@ const dashboardService = {
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :startOfWeek
         AND o.created_at <= :endOfWeek
         AND mi.branch_id = :branchId
@@ -222,7 +223,7 @@ const dashboardService = {
       FROM order_items oi
       JOIN menu_items mi ON oi.item_id = mi.item_id
       JOIN orders o ON oi.order_id = o.order_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = :branchId
       GROUP BY mi.item_id, mi.name, mi.category
       ORDER BY total_quantity DESC

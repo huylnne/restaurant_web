@@ -1,0 +1,39 @@
+@startuml
+skinparam defaultFontSize 12
+skinparam sequenceMessageAlign center
+
+actor "Khách hàng" as C
+actor "NV phục vụ" as W
+participant "Vue Client" as FE #4A90D9
+participant "Express API" as API #E74C3C
+participant "Order Service" as SVC #F39C12
+participant "Repository" as REPO #3498DB
+database "PostgreSQL" as DB #9B59B6
+
+C -> FE : Nhập chi nhánh, giờ đến, số khách
+FE -> API : GET /orders/availability
+API -> SVC : checkAvailability()
+SVC -> REPO : SELECT tables, orders
+REPO -> DB : query conflict arrival_time
+DB --> REPO : rows
+SVC -> SVC : pickTable (capacity >= guests)
+SVC --> API : available
+API --> FE : 200 OK
+
+FE -> API : POST /orders (JWT)
+API -> SVC : createBookingOrder()
+SVC -> REPO : INSERT orders
+REPO -> DB : order_type=reservation, confirmed
+DB --> REPO : order_id
+API --> FE : 201 Created
+
+W -> FE : Tiếp nhận khách
+FE -> API : POST /orders/{id}/check-in
+API -> SVC : confirmArrival()
+SVC -> REPO : BEGIN transaction
+REPO -> DB : UPDATE orders.status
+REPO -> DB : UPDATE tables.status=occupied
+DB --> REPO : COMMIT
+API --> FE : 200 OK
+
+@enduml

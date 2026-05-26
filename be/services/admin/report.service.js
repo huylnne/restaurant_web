@@ -2,6 +2,11 @@ const { Order, OrderItem, MenuItem, Reservation, Table, User, Payment } = requir
 const { Sequelize, Op } = require('sequelize');
 const db = require('../../models/db');
 const tableSummaryService = require('./tableSummary.service');
+const {
+  completedOrderStatusSqlIn,
+  activeOrderStatusSqlIn,
+  inProgressOrderStatusSqlIn,
+} = require('../../utils/orderStatus');
 
 const reportService = {
   // Thống kê tổng quan
@@ -19,7 +24,7 @@ const reportService = {
       FROM order_items oi
       JOIN menu_items mi ON oi.item_id = mi.item_id
       JOIN orders o ON oi.order_id = o.order_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
     `;
     
@@ -46,8 +51,9 @@ const reportService = {
 
     const orderCountQuery = `
       SELECT
-        COUNT(*) FILTER (WHERE o.status = 'COMPLETED') AS total_completed_orders,
-        COUNT(*) FILTER (WHERE o.status = 'IN_PROGRESS') AS total_in_progress_orders
+        COUNT(*) FILTER (WHERE o.status IN (${completedOrderStatusSqlIn()})) AS total_completed_orders,
+        COUNT(*) FILTER (WHERE o.status IN (${activeOrderStatusSqlIn()})) AS total_active_orders,
+        COUNT(*) FILTER (WHERE o.status IN (${inProgressOrderStatusSqlIn()})) AS total_in_progress_orders
       FROM orders o
       LEFT JOIN reservations r ON o.reservation_id = r.reservation_id
       LEFT JOIN tables t ON o.table_id = t.table_id
@@ -108,7 +114,7 @@ const reportService = {
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
         AND o.created_at >= CURRENT_DATE - INTERVAL '${days} days'
       GROUP BY DATE(o.created_at)
@@ -137,7 +143,7 @@ const reportService = {
       FROM order_items oi
       JOIN menu_items mi ON oi.item_id = mi.item_id
       JOIN orders o ON oi.order_id = o.order_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
       GROUP BY mi.item_id, mi.name, mi.category, mi.price, mi.image_url
       ORDER BY total_sold DESC
@@ -162,7 +168,7 @@ const reportService = {
       FROM order_items oi
       JOIN menu_items mi ON oi.item_id = mi.item_id
       JOIN orders o ON oi.order_id = o.order_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
       GROUP BY mi.category
       ORDER BY revenue DESC
@@ -186,7 +192,7 @@ const reportService = {
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
         AND DATE(o.created_at) = CURRENT_DATE
       GROUP BY EXTRACT(HOUR FROM o.created_at)
@@ -215,7 +221,7 @@ const reportService = {
       LEFT JOIN orders o ON r.reservation_id = o.reservation_id
       LEFT JOIN order_items oi ON o.order_id = oi.order_id
       LEFT JOIN menu_items mi ON oi.item_id = mi.item_id
-      WHERE (o.status = 'COMPLETED' OR o.status IS NULL)
+      WHERE (o.status IN (${completedOrderStatusSqlIn()}) OR o.status IS NULL)
         AND r.branch_id = $1
       GROUP BY u.user_id, u.full_name, u.phone
       HAVING COALESCE(SUM(oi.quantity * mi.price), 0) > 0
@@ -259,7 +265,7 @@ const reportService = {
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
         AND o.created_at >= CURRENT_DATE - INTERVAL '${months} months'
       GROUP BY TO_CHAR(o.created_at, 'YYYY-MM')

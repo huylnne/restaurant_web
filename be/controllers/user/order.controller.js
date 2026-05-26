@@ -1,8 +1,10 @@
-const db = require("../../models/db"); 
+const db = require("../../models/db");
 const Order = db.Order;
 const OrderItem = db.OrderItem;
 const Reservation = db.Reservation;
 const realtimeHub = require("../../realtimeHub");
+const { ORDER_STATUS } = require("../../utils/orderStatus");
+const { ORDER_ITEM_STATUS } = require("../../utils/orderItemStatus");
 
 const createOrder = async (req, res) => {
   try {
@@ -14,16 +16,16 @@ const createOrder = async (req, res) => {
     // Tạo order mới
     const newOrder = await Order.create({
       reservation_id,
-      status: "pre-ordered", // hoặc 'pending'
+      status: ORDER_STATUS.OPEN,
       created_at: new Date(),
     });
 
-    // Thêm từng order_item
     for (const item of items) {
       await OrderItem.create({
         order_id: newOrder.order_id,
         item_id: item.item_id,
         quantity: item.quantity,
+        status: ORDER_ITEM_STATUS.PENDING,
       });
     }
 

@@ -15,6 +15,12 @@ const {
   shouldEndTableSession,
   normalizeTableStatus,
 } = require("../../utils/tableStatus");
+const { activeReservationStatusWhere } = require("../../utils/reservationStatus");
+const {
+  ORDER_STATUS,
+  notTerminalOrderStatusWhere,
+  completedOrderStatusSqlIn,
+} = require("../../utils/orderStatus");
 
 const DEFAULT_BRANCH_ID = tableSummaryService.DEFAULT_BRANCH_ID;
 
@@ -38,8 +44,7 @@ const tableService = {
     await tableSummaryService.expireReservationsForBranch(branchId);
 
     // Chỉ load reservation ĐANG HOẠT ĐỘNG để tránh join toàn bộ lịch sử
-    const ACTIVE_RESERVATION_STATUSES = ["confirmed", "pre-ordered", "waiting_payment"];
-    const ACTIVE_ORDER_STATUSES       = { [Op.notIn]: ["COMPLETED", "CANCELLED"] };
+    const ACTIVE_ORDER_STATUSES = notTerminalOrderStatusWhere();
 
     const tables = await Table.findAll({
       where: { branch_id: branchId },
@@ -47,7 +52,7 @@ const tableService = {
         {
           model: Reservation,
           required: false,
-          where: { status: { [Op.in]: ACTIVE_RESERVATION_STATUSES } },
+          where: { status: activeReservationStatusWhere() },
           include: [
             {
               model: Order,
@@ -218,11 +223,11 @@ const tableService = {
 
       // Hoàn tất đơn gắn trực tiếp với bàn
       await Order.update(
-        { status: "COMPLETED" },
+        { status: ORDER_STATUS.COMPLETED },
         {
           where: {
             table_id: table.table_id,
-            status: { [Op.notIn]: ["COMPLETED", "CANCELLED"] },
+            status: notTerminalOrderStatusWhere(),
           },
         }
       );
@@ -240,11 +245,11 @@ const tableService = {
       // Hoàn tất đơn qua reservation
       if (reservationIds.length > 0) {
         await Order.update(
-          { status: "COMPLETED" },
+          { status: ORDER_STATUS.COMPLETED },
           {
             where: {
               reservation_id: { [Op.in]: reservationIds },
-              status: { [Op.notIn]: ["COMPLETED", "CANCELLED"] },
+              status: notTerminalOrderStatusWhere(),
             },
           }
         );
@@ -329,7 +334,7 @@ const tableService = {
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
-      WHERE o.status = 'COMPLETED'
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :today
         AND mi.branch_id = :branchId
     `;

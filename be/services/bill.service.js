@@ -1,7 +1,8 @@
 const { Reservation, Order, OrderItem, MenuItem, Table } = require("../models");
 const { Op } = require("sequelize");
 
-const ACTIVE_RESERVATION_STATUSES = ["confirmed", "pre-ordered", "waiting_payment"];
+const { ACTIVE_RESERVATION_STATUSES } = require("../utils/reservationStatus");
+const { notTerminalOrderStatusWhere } = require("../utils/orderStatus");
 
 async function findActiveReservationByUser(userId) {
   const reservations = await Reservation.findAll({
@@ -63,11 +64,11 @@ async function buildBill({ reservation, tableId }) {
   }
   whereOrders.push({ table_id });
 
-  // Chỉ lấy đơn của PHIÊN HIỆN TẠI (loại trừ COMPLETED / CANCELLED)
+  // Chỉ lấy đơn của PHIÊN HIỆN TẠI (loại trừ completed / cancelled — mọi biến thể legacy)
   const orders = await Order.findAll({
     where: {
       [Op.or]: whereOrders,
-      status: { [Op.notIn]: ["COMPLETED", "CANCELLED"] },
+      status: notTerminalOrderStatusWhere(),
     },
     include: [
       {
