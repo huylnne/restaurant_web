@@ -206,7 +206,10 @@ const submitForm = async () => {
         .then(() => {
           ElMessage.success("Chuyển sang bước đặt món!");
 
-          router.push({ name: "OrderMenu", query: { reservation_id } });
+          router.push({
+            name: "OrderMenu",
+            query: { reservation_id, branch_id: form.value.branch_id },
+          });
         })
         .catch(() => {
           ElMessage.success("Đặt bàn thành công!");

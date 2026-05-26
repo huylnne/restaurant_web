@@ -242,7 +242,10 @@ const handleOrderClick = () => {
   if (reservation && reservation.status === "confirmed") {
     router.push({
       name: "OrderMenu",
-      query: { reservation_id: reservation.reservation_id },
+      query: {
+        reservation_id: reservation.reservation_id,
+        branch_id: reservation.branch_id,
+      },
     });
   } else {
     ElMessage.warning("Vui lòng đặt bàn trước khi gọi món.");

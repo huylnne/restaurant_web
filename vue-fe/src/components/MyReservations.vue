@@ -9,6 +9,24 @@
         </template>
       </el-table-column>
 
+      <el-table-column label="Chi nhánh" min-width="240">
+        <template #default="{ row }">
+          <el-tooltip
+            v-if="formatBranchName(row) !== '-'"
+            :content="formatBranchTooltip(row)"
+            placement="top"
+          >
+            <div class="branch-cell">
+              <div class="branch-name">{{ formatBranchName(row) }}</div>
+              <div v-if="row.Branch?.address" class="branch-address">
+                {{ row.Branch.address }}
+              </div>
+            </div>
+          </el-tooltip>
+          <span v-else>-</span>
+        </template>
+      </el-table-column>
+
       <el-table-column prop="number_of_guests" label="Số khách" width="100" />
       <el-table-column label="Bàn số" width="120">
         <template #default="{ row }">
@@ -269,6 +287,19 @@ function formatTableNumber(row) {
   return `B${tableNumber}`;
 }
 
+function formatBranchName(row) {
+  const name = row?.Branch?.name;
+  if (name) return name;
+  if (row?.branch_id) return `Chi nhánh #${row.branch_id}`;
+  return "-";
+}
+
+function formatBranchTooltip(row) {
+  const name = formatBranchName(row);
+  const addr = row?.Branch?.address;
+  return addr ? `${name}\n${addr}` : name;
+}
+
 onMounted(fetchReservations);
 </script>
 
@@ -348,7 +379,26 @@ onMounted(fetchReservations);
 
 .reservations-table {
   width: 100%;
-  min-width: 1100px;
+  min-width: 1280px;
+}
+
+.branch-cell {
+  line-height: 1.35;
+}
+
+.branch-name {
+  font-weight: 600;
+  color: var(--hl-text);
+  white-space: normal;
+  word-break: break-word;
+}
+
+.branch-address {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--hl-text-muted);
+  white-space: normal;
+  word-break: break-word;
 }
 
 :deep(.el-card) {

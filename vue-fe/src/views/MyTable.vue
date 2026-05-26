@@ -56,7 +56,10 @@
             <router-link
               :to="{
                 name: 'OrderMenu',
-                query: { reservation_id: activeSession.reservation?.reservation_id },
+                query: {
+                  reservation_id: activeSession.reservation?.reservation_id,
+                  branch_id: activeSession.reservation?.branch_id,
+                },
               }"
               class="link-primary"
             >

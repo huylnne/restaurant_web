@@ -295,12 +295,30 @@
             </el-button>
           </div>
           <div v-loading="tableOrdersLoading" class="orders-list">
-            <template v-if="activeOrders.length === 0 && !tableOrdersLoading">
+            <template v-if="tableOrders.length === 0 && !tableOrdersLoading">
               <p class="text-muted">Chưa có đơn nào trong phiên này.</p>
             </template>
             <template v-else>
-              <div v-for="order in activeOrders" :key="order.order_id" class="order-block">
-                <div class="order-meta">Đơn #{{ order.order_id }}</div>
+              <div v-for="order in tableOrders" :key="order.order_id" class="order-block">
+                <div class="order-meta">
+                  Đơn #{{ order.order_id }}
+                  <el-tag
+                    v-if="isLegacyPreorderOrderStatus(order.status)"
+                    type="info"
+                    size="small"
+                    style="margin-left: 6px"
+                  >
+                    Đặt món trước
+                  </el-tag>
+                  <el-tag
+                    v-else-if="normalizeOrderStatus(order.status) === 'in_progress'"
+                    type="warning"
+                    size="small"
+                    style="margin-left: 6px"
+                  >
+                    {{ getOrderStatusLabel(order.status) }}
+                  </el-tag>
+                </div>
                 <div
                   v-for="oi in order.OrderItems || []"
                   :key="oi.order_item_id"
@@ -685,6 +703,11 @@ import {
   getTableStatusClass,
   getTableTagType,
 } from "@/constants/tableStatus";
+import {
+  isLegacyPreorderOrderStatus,
+  normalizeOrderStatus,
+  getOrderStatusLabel,
+} from "@/constants/orderStatus";
 import PaginationBar from "@/components/PaginationBar.vue";
 import QRCode from "qrcode";
 import { connectBranchRealtime } from "@/utils/branchRealtime";
@@ -804,13 +827,11 @@ const hasOrderItemsSelected = computed(() =>
   Object.values(orderQuantities.value).some((qty) => qty > 0)
 );
 
-// Tách đơn hiện tại (PENDING/IN_PROGRESS) vs đơn đặt trước chưa tới giờ (pre-ordered)
-const activeOrders = computed(() =>
-  tableOrders.value.filter((o) => o.status !== "pre-ordered")
+/** Đơn cũ trong DB còn status pre-ordered — hiển thị badge, không ẩn khỏi danh sách */
+const legacyPreOrders = computed(() =>
+  tableOrders.value.filter((o) => isLegacyPreorderOrderStatus(o.status))
 );
-const preOrders = computed(() =>
-  tableOrders.value.filter((o) => o.status === "pre-ordered")
-);
+const preOrders = legacyPreOrders;
 
 const newTable = ref({
   table_number: null,

@@ -2,7 +2,15 @@
   <div>
     <el-card class="order-menu-card">
       <h2>Đặt món trước cho bàn đã đặt</h2>
-      <el-row :gutter="16">
+      <p v-if="branchLabel" class="branch-banner">
+        Chi nhánh: <strong>{{ branchLabel }}</strong>
+      </p>
+      <el-empty
+        v-if="!menuLoading && menu.length === 0"
+        class="menu-empty"
+        description="Chi nhánh này chưa có thực đơn. Vui lòng liên hệ nhà hàng hoặc thử lại sau khi quản trị cập nhật menu."
+      />
+      <el-row v-else :gutter="16">
         <el-col v-for="item in menu" :key="item.item_id" :xs="24" :sm="12" :md="8" class="menu-col">
           <el-card class="menu-item-card">
             <div class="menu-item-content">
@@ -26,10 +34,11 @@
         </el-col>
       </el-row>
       <el-button
+        v-if="menu.length > 0"
         type="primary"
         style="margin-top: 24px"
         @click="submitOrder"
-        :disabled="!hasItemSelected"
+        :disabled="!hasItemSelected || menuLoading"
         >Đặt món</el-button
       >
     </el-card>
@@ -49,17 +58,74 @@ const reservation_id = route.query.reservation_id;
 
 const menu = ref([]);
 const order = ref({});
+const menuLoading = ref(true);
+const branchId = ref(1);
+const branchLabel = ref("");
+
+async function loadBranchLabel(id) {
+  try {
+    const res = await axios.get("/api/home/branches");
+    const list = Array.isArray(res.data) ? res.data : [];
+    const b = list.find((x) => Number(x.branch_id) === Number(id));
+    branchLabel.value = b?.name || `Chi nhánh #${id}`;
+  } catch {
+    branchLabel.value = `Chi nhánh #${id}`;
+  }
+}
+
+async function resolveBranchForReservation() {
+  const fromQuery = Number(route.query.branch_id);
+  if (fromQuery > 0) {
+    branchId.value = fromQuery;
+    await loadBranchLabel(fromQuery);
+    return;
+  }
+  if (!reservation_id) return;
+
+  const token = localStorage.getItem("token");
+  if (!token) return;
+
+  try {
+    const res = await axios.get("/api/users/reservations", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    const list = res.data?.reservations || res.data || [];
+    const found = list.find((r) => String(r.reservation_id) === String(reservation_id));
+    if (found?.branch_id) {
+      branchId.value = Number(found.branch_id);
+      branchLabel.value = found.Branch?.name || `Chi nhánh #${found.branch_id}`;
+    }
+  } catch {
+    /* fallback branch_id = 1 */
+  }
+}
 
 onMounted(async () => {
+  menuLoading.value = true;
   try {
-    const res = await axios.get("/api/menu-items", { params: { page: 1, limit: 100 } });
+    await resolveBranchForReservation();
+    const res = await axios.get("/api/menu-items", {
+      params: { page: 1, limit: 100, branch_id: branchId.value },
+    });
     menu.value = res.data.items || [];
+
+    if (!branchLabel.value && menu.value[0]?.branch_id) {
+      branchLabel.value = `Chi nhánh #${branchId.value}`;
+    }
+
+    if (menu.value.length === 0) {
+      ElMessage.warning(
+        `Chi nhánh "${branchLabel.value}" chưa có thực đơn. Mỗi chi nhánh có menu riêng — liên hệ quản trị để cập nhật.`
+      );
+    }
 
     menu.value.forEach((item) => {
       order.value[item.item_id] = 0;
     });
   } catch (err) {
     ElMessage.error("Không lấy được thực đơn!");
+  } finally {
+    menuLoading.value = false;
   }
 });
 
@@ -109,6 +175,24 @@ const submitOrder = async () => {
   color: var(--hl-primary);
   font-weight: 600;
   margin-bottom: var(--hl-space-lg);
+}
+
+.branch-banner {
+  margin: 0 0 var(--hl-space-md);
+  padding: 10px 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: var(--hl-radius-md);
+  color: var(--hl-text-secondary);
+  font-size: 14px;
+}
+
+.branch-banner strong {
+  color: var(--hl-primary);
+}
+
+.menu-empty {
+  margin: var(--hl-space-xl) 0;
 }
 
 .menu-item-card {
