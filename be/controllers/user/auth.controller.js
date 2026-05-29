@@ -153,13 +153,7 @@ const getCaptchaConfig = (req, res) => {
 };
 
 const getCaptchaChallenge = (req, res) => {
-  const config = captchaService.getPublicConfig();
-  if (config.provider !== "math") {
-    return res.status(400).json({
-      message: "CAPTCHA dạng phép tính chỉ dùng khi chưa cấu hình reCAPTCHA/Turnstile",
-    });
-  }
-  res.json(captchaService.createMathChallenge());
+  res.json(captchaService.createCodeChallenge());
 };
 
 module.exports = { register, login, checkPhone, getCaptchaConfig, getCaptchaChallenge };

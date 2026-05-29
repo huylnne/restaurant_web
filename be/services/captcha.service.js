@@ -1,50 +1,85 @@
 const crypto = require('crypto');
-const axios = require('axios');
 
 const CHALLENGE_TTL_MS = 10 * 60 * 1000;
-const mathStore = new Map();
+const challengeStore = new Map();
+const CAPTCHA_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
-function pruneMathStore() {
+function pruneChallengeStore() {
   const now = Date.now();
-  for (const [id, entry] of mathStore.entries()) {
-    if (entry.expiresAt <= now) mathStore.delete(id);
+  for (const [id, entry] of challengeStore.entries()) {
+    if (entry.expiresAt <= now) challengeStore.delete(id);
   }
 }
 
 function detectProvider() {
-  const forced = String(process.env.CAPTCHA_PROVIDER || '').trim().toLowerCase();
-  if (['math', 'recaptcha', 'turnstile'].includes(forced)) return forced;
-  if (process.env.RECAPTCHA_SECRET_KEY) return 'recaptcha';
-  if (process.env.TURNSTILE_SECRET_KEY) return 'turnstile';
-  return 'math';
+  return 'code';
 }
 
 function getPublicConfig() {
-  const provider = detectProvider();
-  if (provider === 'recaptcha') {
-    return {
-      provider,
-      siteKey: process.env.RECAPTCHA_SITE_KEY || '',
-      enabled: !!(process.env.RECAPTCHA_SITE_KEY && process.env.RECAPTCHA_SECRET_KEY),
-    };
+  return { provider: 'code', siteKey: null, enabled: true };
+}
+
+function createCaptchaCode(length = 5) {
+  let code = '';
+  for (let i = 0; i < length; i += 1) {
+    code += CAPTCHA_CHARS[crypto.randomInt(0, CAPTCHA_CHARS.length)];
   }
-  if (provider === 'turnstile') {
-    return {
-      provider,
-      siteKey: process.env.TURNSTILE_SITE_KEY || '',
-      enabled: !!(process.env.TURNSTILE_SITE_KEY && process.env.TURNSTILE_SECRET_KEY),
-    };
-  }
-  return { provider: 'math', siteKey: null, enabled: true };
+  return code;
+}
+
+function createCaptchaSvg(code) {
+  const width = 150;
+  const height = 48;
+  const noise = Array.from({ length: 10 }, () => {
+    const x1 = crypto.randomInt(0, width);
+    const y1 = crypto.randomInt(0, height);
+    const x2 = crypto.randomInt(0, width);
+    const y2 = crypto.randomInt(0, height);
+    return `<line x1="${x1}" y1="${y1}" x2="${x2}" y2="${y2}" stroke="#c9c9c9" stroke-width="1"/>`;
+  }).join('');
+  const chars = code
+    .split('')
+    .map((char, index) => {
+      const x = 18 + index * 24;
+      const y = 32 + crypto.randomInt(-4, 5);
+      const rotate = crypto.randomInt(-14, 15);
+      return `<text x="${x}" y="${y}" transform="rotate(${rotate} ${x} ${y})">${char}</text>`;
+    })
+    .join('');
+
+  return `
+<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
+  <rect width="100%" height="100%" rx="8" fill="#f6f1e8"/>
+  ${noise}
+  <g font-family="Arial, sans-serif" font-size="26" font-weight="700" fill="#4b2e1f" letter-spacing="3">
+    ${chars}
+  </g>
+</svg>`.trim();
+}
+
+function createCodeChallenge() {
+  pruneChallengeStore();
+  const code = createCaptchaCode();
+  const captchaId = crypto.randomBytes(16).toString('hex');
+  challengeStore.set(captchaId, {
+    answer: code,
+    expiresAt: Date.now() + CHALLENGE_TTL_MS,
+  });
+  const svg = createCaptchaSvg(code);
+  return {
+    captchaId,
+    imageData: `data:image/svg+xml;base64,${Buffer.from(svg).toString('base64')}`,
+    expiresInSeconds: Math.floor(CHALLENGE_TTL_MS / 1000),
+  };
 }
 
 function createMathChallenge() {
-  pruneMathStore();
+  pruneChallengeStore();
   const a = crypto.randomInt(2, 12);
   const b = crypto.randomInt(2, 12);
   const captchaId = crypto.randomBytes(16).toString('hex');
-  const answer = a + b;
-  mathStore.set(captchaId, {
+  const answer = String(a + b);
+  challengeStore.set(captchaId, {
     answer,
     expiresAt: Date.now() + CHALLENGE_TTL_MS,
   });
@@ -55,86 +90,29 @@ function createMathChallenge() {
   };
 }
 
-async function verifyRecaptcha(token, remoteIp) {
-  const secret = process.env.RECAPTCHA_SECRET_KEY;
-  if (!secret) return { ok: false, message: 'reCAPTCHA chưa được cấu hình trên server' };
-
-  const params = new URLSearchParams({
-    secret,
-    response: token,
-  });
-  if (remoteIp) params.append('remoteip', remoteIp);
-
-  const { data } = await axios.post(
-    'https://www.google.com/recaptcha/api/siteverify',
-    params.toString(),
-    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 8000 }
-  );
-
-  if (!data.success) {
-    return { ok: false, message: 'Xác minh reCAPTCHA thất bại. Vui lòng thử lại.' };
-  }
-  return { ok: true };
-}
-
-async function verifyTurnstile(token, remoteIp) {
-  const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) return { ok: false, message: 'Turnstile chưa được cấu hình trên server' };
-
-  const body = new URLSearchParams({
-    secret,
-    response: token,
-  });
-  if (remoteIp) body.append('remoteip', remoteIp);
-
-  const { data } = await axios.post(
-    'https://challenges.cloudflare.com/turnstile/v0/siteverify',
-    body.toString(),
-    { headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, timeout: 8000 }
-  );
-
-  if (!data.success) {
-    return { ok: false, message: 'Xác minh CAPTCHA thất bại. Vui lòng thử lại.' };
-  }
-  return { ok: true };
-}
-
-function verifyMathChallenge(captchaId, captchaAnswer) {
-  pruneMathStore();
-  const entry = mathStore.get(String(captchaId || ''));
+function verifyStoredChallenge(captchaId, captchaAnswer) {
+  pruneChallengeStore();
+  const entry = challengeStore.get(String(captchaId || ''));
   if (!entry) {
     return { ok: false, message: 'CAPTCHA đã hết hạn. Vui lòng tải lại.' };
   }
-  mathStore.delete(String(captchaId));
+  challengeStore.delete(String(captchaId));
 
-  const parsed = Number(String(captchaAnswer ?? '').trim());
-  if (!Number.isFinite(parsed) || parsed !== entry.answer) {
-    return { ok: false, message: 'Kết quả CAPTCHA không đúng' };
+  const normalizedAnswer = String(captchaAnswer ?? '').trim().replace(/\s+/g, '').toUpperCase();
+  if (!normalizedAnswer || normalizedAnswer !== String(entry.answer).toUpperCase()) {
+    return { ok: false, message: 'Mã CAPTCHA không đúng' };
   }
   return { ok: true };
 }
 
-async function verifyRegistrationCaptcha(payload, remoteIp) {
-  const provider = detectProvider();
-
-  if (provider === 'recaptcha') {
-    const token = payload.captcha_token;
-    if (!token) return { ok: false, message: 'Vui lòng hoàn thành reCAPTCHA' };
-    return verifyRecaptcha(token, remoteIp);
-  }
-
-  if (provider === 'turnstile') {
-    const token = payload.captcha_token;
-    if (!token) return { ok: false, message: 'Vui lòng hoàn thành xác minh CAPTCHA' };
-    return verifyTurnstile(token, remoteIp);
-  }
-
-  return verifyMathChallenge(payload.captcha_id, payload.captcha_answer);
+async function verifyRegistrationCaptcha(payload) {
+  return verifyStoredChallenge(payload.captcha_id, payload.captcha_answer);
 }
 
 module.exports = {
   detectProvider,
   getPublicConfig,
+  createCodeChallenge,
   createMathChallenge,
   verifyRegistrationCaptcha,
 };

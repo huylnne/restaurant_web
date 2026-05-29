@@ -41,8 +41,12 @@
         <el-input type="textarea" v-model="form.note" rows="2" />
       </el-form-item>
 
+      <CaptchaField ref="captchaRef" @update:valid="(v) => (captchaValid = v)" />
+
       <el-form-item>
-        <el-button type="primary" :disabled="!canSubmit" @click="submitForm">Đặt bàn</el-button>
+        <el-button type="primary" :disabled="!canSubmit || !captchaValid" @click="submitForm">
+          Đặt bàn
+        </el-button>
       </el-form-item>
     </el-form>
   </el-card>
@@ -53,7 +57,11 @@ import { ref, watch } from "vue";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter } from "vue-router";
+import CaptchaField from "@/components/CaptchaField.vue";
+
 const router = useRouter();
+const captchaRef = ref(null);
+const captchaValid = ref(false);
 const branches = ref([]);
 const form = ref({
   branch_id: 1,
@@ -131,11 +139,17 @@ const submitForm = async () => {
     return;
   }
 
+  if (!captchaRef.value?.isReady?.()) {
+    ElMessage.error("Vui lòng hoàn thành xác minh CAPTCHA");
+    return;
+  }
+
   const payload = {
     branch_id: form.value.branch_id,
     reservation_time: date.toISOString(),
     number_of_guests: form.value.guests,
     note: form.value.note,
+    ...captchaRef.value.getPayload(),
   };
 
   try {
@@ -172,6 +186,7 @@ const submitForm = async () => {
       router.push("/profile");
     }
   } catch (err) {
+    captchaRef.value?.reset?.();
     ElMessage.error(err.response?.data?.message || "Đặt bàn thất bại");
   }
 };

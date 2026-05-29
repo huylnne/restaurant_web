@@ -10,7 +10,14 @@ function rejectUnexpectedKeys(body, allowedKeys) {
 }
 
 const validateCreateReservationBody = (req, res, next) => {
-  const allowed = ['reservation_time', 'number_of_guests', 'branch_id', 'note'];
+  const allowed = [
+    'reservation_time',
+    'number_of_guests',
+    'branch_id',
+    'note',
+    'captcha_id',
+    'captcha_answer',
+  ];
   const extraErr = rejectUnexpectedKeys(req.body, allowed);
   if (extraErr) return res.status(400).json({ message: extraErr });
 

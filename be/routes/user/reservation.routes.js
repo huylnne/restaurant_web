@@ -4,7 +4,7 @@ const reservationController = require('../../controllers/user/reservation.contro
 const { verifyToken } = require('../../middlewares/auth');
 const { auditLog } = require('../../middlewares/operationLog');
 const { reservationCreateLimiter } = require('../../middlewares/rateLimit');
-const { enforceReservationQuota } = require('../../middlewares/reservationLimits');
+const { verifyReservationCaptcha } = require('../../middlewares/verifyCaptcha');
 const { validateCreateReservationBody } = require('../../middlewares/validateReservationInput');
 
 router.post(
@@ -12,7 +12,7 @@ router.post(
   verifyToken,
   reservationCreateLimiter,
   validateCreateReservationBody,
-  enforceReservationQuota,
+  verifyReservationCaptcha,
   auditLog({
     action: 'RESERVATION_CREATE',
     module: 'reservations',

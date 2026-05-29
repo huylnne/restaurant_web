@@ -1,6 +1,6 @@
 const { verifyRegistrationCaptcha } = require('../services/captcha.service');
 
-const verifyRegisterCaptcha = async (req, res, next) => {
+async function verifyCaptchaPayload(req, res, next, logLabel) {
   try {
     const result = await verifyRegistrationCaptcha(req.body, req.ip);
     if (!result.ok) {
@@ -8,9 +8,15 @@ const verifyRegisterCaptcha = async (req, res, next) => {
     }
     next();
   } catch (err) {
-    console.error('verifyRegisterCaptcha:', err);
+    console.error(`${logLabel}:`, err);
     res.status(500).json({ message: 'Không thể xác minh CAPTCHA' });
   }
-};
+}
 
-module.exports = { verifyRegisterCaptcha };
+const verifyRegisterCaptcha = (req, res, next) =>
+  verifyCaptchaPayload(req, res, next, 'verifyRegisterCaptcha');
+
+const verifyReservationCaptcha = (req, res, next) =>
+  verifyCaptchaPayload(req, res, next, 'verifyReservationCaptcha');
+
+module.exports = { verifyRegisterCaptcha, verifyReservationCaptcha };

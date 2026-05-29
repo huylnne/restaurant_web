@@ -12,7 +12,7 @@ function rejectUnexpectedKeys(body, allowedKeys) {
   return null;
 }
 
-const REGISTER_CAPTCHA_KEYS = ['captcha_token', 'captcha_id', 'captcha_answer'];
+const REGISTER_CAPTCHA_KEYS = ['captcha_id', 'captcha_answer'];
 
 const validateRegisterBody = (req, res, next) => {
   const allowed = ['username', 'password', 'full_name', 'phone', ...REGISTER_CAPTCHA_KEYS];
