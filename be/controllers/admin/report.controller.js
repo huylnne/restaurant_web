@@ -2,10 +2,23 @@ const reportService = require('../../services/admin/report.service');
 const reportExportService = require('../../services/admin/reportExport.service');
 const { resolveBranchId } = require('../../utils/branchScope');
 
+function parseReportQuery(req) {
+  const branchId = resolveBranchId(req, req.query.branchId, 1);
+  const startDate = req.query.startDate || null;
+  const endDate = req.query.endDate || null;
+  return {
+    branchId,
+    startDate,
+    endDate,
+    days: parseInt(req.query.days, 10) || 7,
+    months: parseInt(req.query.months, 10) || 6,
+    limit: parseInt(req.query.limit, 10) || 10,
+  };
+}
+
 exports.getOverviewStats = async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
-    const branchId = resolveBranchId(req, req.query.branchId, 1);
+    const { branchId, startDate, endDate } = parseReportQuery(req);
     const stats = await reportService.getOverviewStats(branchId, startDate, endDate);
     res.json(stats);
   } catch (error) {
@@ -16,9 +29,8 @@ exports.getOverviewStats = async (req, res) => {
 
 exports.getRevenueByDay = async (req, res) => {
   try {
-    const { days = 7 } = req.query;
-    const branchId = resolveBranchId(req, req.query.branchId, 1);
-    const data = await reportService.getRevenueByDay(branchId, days);
+    const { branchId, startDate, endDate, days } = parseReportQuery(req);
+    const data = await reportService.getRevenueByDay(branchId, days, startDate, endDate);
     res.json(data);
   } catch (error) {
     console.error('Lỗi getRevenueByDay:', error);
@@ -28,9 +40,8 @@ exports.getRevenueByDay = async (req, res) => {
 
 exports.getTopSellingItems = async (req, res) => {
   try {
-    const { limit = 10 } = req.query;
-    const branchId = resolveBranchId(req, req.query.branchId, 1);
-    const data = await reportService.getTopSellingItems(branchId, limit);
+    const { branchId, startDate, endDate, limit } = parseReportQuery(req);
+    const data = await reportService.getTopSellingItems(branchId, limit, startDate, endDate);
     res.json(data);
   } catch (error) {
     console.error('Lỗi getTopSellingItems:', error);
@@ -40,8 +51,8 @@ exports.getTopSellingItems = async (req, res) => {
 
 exports.getRevenueByCategory = async (req, res) => {
   try {
-    const branchId = resolveBranchId(req, req.query.branchId, 1);
-    const data = await reportService.getRevenueByCategory(branchId);
+    const { branchId, startDate, endDate } = parseReportQuery(req);
+    const data = await reportService.getRevenueByCategory(branchId, startDate, endDate);
     res.json(data);
   } catch (error) {
     console.error('Lỗi getRevenueByCategory:', error);
@@ -51,8 +62,8 @@ exports.getRevenueByCategory = async (req, res) => {
 
 exports.getOrdersByHour = async (req, res) => {
   try {
-    const branchId = resolveBranchId(req, req.query.branchId, 1);
-    const data = await reportService.getOrdersByHour(branchId);
+    const { branchId, startDate, endDate } = parseReportQuery(req);
+    const data = await reportService.getOrdersByHour(branchId, startDate, endDate);
     res.json(data);
   } catch (error) {
     console.error('Lỗi getOrdersByHour:', error);
@@ -62,9 +73,8 @@ exports.getOrdersByHour = async (req, res) => {
 
 exports.getTopCustomers = async (req, res) => {
   try {
-    const { limit = 10 } = req.query;
-    const branchId = resolveBranchId(req, req.query.branchId, 1);
-    const data = await reportService.getTopCustomers(branchId, limit);
+    const { branchId, startDate, endDate, limit } = parseReportQuery(req);
+    const data = await reportService.getTopCustomers(branchId, limit, startDate, endDate);
     res.json(data);
   } catch (error) {
     console.error('Lỗi getTopCustomers:', error);
@@ -74,7 +84,7 @@ exports.getTopCustomers = async (req, res) => {
 
 exports.getTableStats = async (req, res) => {
   try {
-    const branchId = resolveBranchId(req, req.query.branchId, 1);
+    const { branchId } = parseReportQuery(req);
     const data = await reportService.getTableStats(branchId);
     res.json(data);
   } catch (error) {
@@ -85,9 +95,8 @@ exports.getTableStats = async (req, res) => {
 
 exports.getMonthlyRevenue = async (req, res) => {
   try {
-    const { months = 6 } = req.query;
-    const branchId = resolveBranchId(req, req.query.branchId, 1);
-    const data = await reportService.getMonthlyRevenue(branchId, months);
+    const { branchId, startDate, endDate, months } = parseReportQuery(req);
+    const data = await reportService.getMonthlyRevenue(branchId, months, startDate, endDate);
     res.json(data);
   } catch (error) {
     console.error('Lỗi getMonthlyRevenue:', error);
@@ -99,12 +108,7 @@ exports.getMonthlyRevenue = async (req, res) => {
 exports.exportReport = async (req, res) => {
   try {
     const format = String(req.query.format || 'xlsx').toLowerCase();
-    const branchId = resolveBranchId(req, req.query.branchId, 1);
-    const startDate = req.query.startDate || null;
-    const endDate = req.query.endDate || null;
-    const days = parseInt(req.query.days, 10) || 7;
-    const months = parseInt(req.query.months, 10) || 6;
-    const limit = parseInt(req.query.limit, 10) || 10;
+    const { branchId, startDate, endDate, days, months, limit } = parseReportQuery(req);
 
     const data = await reportExportService.gatherReportData({
       branchId,

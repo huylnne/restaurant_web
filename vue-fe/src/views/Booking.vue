@@ -211,7 +211,10 @@ const submitForm = async () => {
     const reservation = res.data.reservation;
     if (reservation_id) {
       localStorage.setItem("reservation", JSON.stringify(reservation));
-      ElMessageBox.confirm("Bạn có muốn đặt món trước không?", "Đặt bàn thành công!", {
+      const successTitle = res.data.multiTable
+        ? `Đặt bàn thành công (${res.data.tables?.length || 0} bàn ghép)!`
+        : "Đặt bàn thành công!";
+      ElMessageBox.confirm("Bạn có muốn đặt món trước không?", successTitle, {
         confirmButtonText: "Có, đặt món luôn",
         cancelButtonText: "Không, để sau",
         type: "info",

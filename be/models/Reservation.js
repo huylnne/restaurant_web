@@ -20,6 +20,10 @@ module.exports = (sequelize, DataTypes) => {
         type: DataTypes.TEXT,
         allowNull: true,
       },
+      booking_group_id: {
+        type: DataTypes.STRING(36),
+        allowNull: true,
+      },
       created_at: DataTypes.DATE,
     },
     {

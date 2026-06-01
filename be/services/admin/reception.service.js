@@ -10,32 +10,73 @@ const {
 
 const CHECK_IN_STATUSES = CHECK_IN_RESERVATION_STATUSES;
 
-function mapArrivalRow(r) {
+function mapArrivalRow(r, { groupTables } = {}) {
   const data = r.toJSON();
   const canCheckIn = CHECK_IN_STATUSES.includes(data.status);
   const alreadyCheckedIn = ACTIVE_SESSION_STATUSES.includes(data.status);
+  const tables = groupTables?.length
+    ? groupTables
+    : data.Table
+      ? [
+          {
+            table_id: data.Table.table_id,
+            table_number: data.Table.table_number,
+            capacity: data.Table.capacity,
+            status: data.Table.status,
+          },
+        ]
+      : [];
+
   return {
     reservation_id: data.reservation_id,
+    booking_group_id: data.booking_group_id || null,
     reservation_time: data.reservation_time,
     number_of_guests: data.number_of_guests,
     status: data.status,
     canCheckIn,
     alreadyCheckedIn,
+    multiTable: tables.length > 1,
     guest: data.User
       ? {
           full_name: data.User.full_name,
           phone: data.User.phone,
         }
       : null,
-    table: data.Table
-      ? {
-          table_id: data.Table.table_id,
-          table_number: data.Table.table_number,
-          capacity: data.Table.capacity,
-          status: data.Table.status,
-        }
-      : null,
+    table: tables[0] || null,
+    tables,
   };
+}
+
+/** Gộp các đặt bàn cùng booking_group_id thành một dòng tiếp nhận. */
+function dedupeArrivalRows(rows) {
+  const seenGroups = new Set();
+  const result = [];
+
+  for (const r of rows) {
+    const data = r.toJSON();
+    const gid = data.booking_group_id;
+    if (!gid) {
+      result.push(mapArrivalRow(r));
+      continue;
+    }
+    if (seenGroups.has(gid)) continue;
+    seenGroups.add(gid);
+
+    const groupRows = rows.filter((x) => x.toJSON().booking_group_id === gid);
+    const groupTables = groupRows
+      .map((x) => x.toJSON().Table)
+      .filter(Boolean)
+      .map((t) => ({
+        table_id: t.table_id,
+        table_number: t.table_number,
+        capacity: t.capacity,
+        status: t.status,
+      }));
+
+    result.push(mapArrivalRow(groupRows[0], { groupTables }));
+  }
+
+  return result;
 }
 
 const arrivalIncludes = [
@@ -77,7 +118,7 @@ async function listUpcomingArrivals(branchId) {
     limit: 30,
   });
 
-  return rows.map(mapArrivalRow);
+  return dedupeArrivalRows(rows);
 }
 
 /**
@@ -119,7 +160,7 @@ async function searchArrivals(branchId, query) {
     subQuery: false,
   });
 
-  return rows.map(mapArrivalRow);
+  return dedupeArrivalRows(rows);
 }
 
 /**
@@ -139,7 +180,18 @@ async function confirmArrival(reservationId, branchId) {
     throw err;
   }
 
-  if (ACTIVE_SESSION_STATUSES.includes(reservation.status)) {
+  const groupId = reservation.booking_group_id;
+  const partyReservations = groupId
+    ? await Reservation.findAll({
+        where: { booking_group_id: groupId, branch_id: branchId },
+        include: [{ model: Table }],
+      })
+    : [reservation];
+
+  const allCheckedIn = partyReservations.every((r) =>
+    ACTIVE_SESSION_STATUSES.includes(r.status)
+  );
+  if (allCheckedIn) {
     return {
       reservation: reservation.toJSON(),
       table: reservation.Table?.toJSON?.() ?? reservation.Table,
@@ -147,43 +199,49 @@ async function confirmArrival(reservationId, branchId) {
     };
   }
 
-  if (!CHECK_IN_STATUSES.includes(reservation.status)) {
+  const toCheckIn = partyReservations.filter((r) => CHECK_IN_STATUSES.includes(r.status));
+  if (!toCheckIn.length) {
     const err = new Error("Đặt bàn này không thể tiếp nhận (đã hủy hoặc hoàn tất)");
     err.code = "INVALID_STATUS";
     throw err;
   }
 
-  if (!reservation.table_id) {
-    const err = new Error("Đặt bàn chưa gán bàn");
-    err.code = "NO_TABLE";
-    throw err;
-  }
-
-  const table = await Table.findByPk(reservation.table_id);
-  if (!table || table.branch_id !== branchId) {
-    const err = new Error("Bàn không hợp lệ");
-    err.code = "NO_TABLE";
-    throw err;
-  }
-
-  if (table.status === "occupied") {
-    const activeOnTable = await Reservation.findOne({
-      where: {
-        table_id: table.table_id,
-        reservation_id: { [Op.ne]: reservation.reservation_id },
-        status: { [Op.in]: ACTIVE_SESSION_STATUSES },
-      },
-    });
-    if (activeOnTable) {
-      const err = new Error("Bàn đang phục vụ khách khác");
-      err.code = "TABLE_BUSY";
+  for (const res of toCheckIn) {
+    if (!res.table_id) {
+      const err = new Error("Đặt bàn chưa gán bàn");
+      err.code = "NO_TABLE";
       throw err;
+    }
+    const table = await Table.findByPk(res.table_id);
+    if (!table || table.branch_id !== branchId) {
+      const err = new Error("Bàn không hợp lệ");
+      err.code = "NO_TABLE";
+      throw err;
+    }
+    if (table.status === "occupied") {
+      const activeOnTable = await Reservation.findOne({
+        where: {
+          table_id: table.table_id,
+          reservation_id: { [Op.ne]: res.reservation_id },
+          status: { [Op.in]: ACTIVE_SESSION_STATUSES },
+        },
+      });
+      if (activeOnTable) {
+        const err = new Error(`Bàn ${table.table_number} đang phục vụ khách khác`);
+        err.code = "TABLE_BUSY";
+        throw err;
+      }
     }
   }
 
   await sequelize.transaction(async (t) => {
-    await reservation.update({ status: RESERVATION_STATUS.PRE_ORDERED }, { transaction: t });
-    await table.update({ status: "occupied" }, { transaction: t });
+    for (const res of toCheckIn) {
+      await res.update({ status: RESERVATION_STATUS.PRE_ORDERED }, { transaction: t });
+      const table = await Table.findByPk(res.table_id, { transaction: t });
+      if (table && isBookableTableStatus(table.status)) {
+        await table.update({ status: TABLE_STATUS.OCCUPIED }, { transaction: t });
+      }
+    }
   });
 
   await reservation.reload({ include: [{ model: Table }, { model: User, attributes: ["full_name", "phone"] }] });
@@ -191,6 +249,7 @@ async function confirmArrival(reservationId, branchId) {
   return {
     reservation: reservation.toJSON(),
     table: reservation.Table?.toJSON?.() ?? reservation.Table,
+    checkedInCount: toCheckIn.length,
     alreadyCheckedIn: false,
   };
 }

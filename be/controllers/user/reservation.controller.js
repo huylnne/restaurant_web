@@ -25,20 +25,36 @@ const createReservation = async (req, res) => {
       return res.status(400).json({ message: "Số lượng khách không hợp lệ." });
     }
 
-    const { reservation, table } = await reservationService.createReservation({
+    const result = await reservationService.createReservation({
       user_id,
       branch_id,
       reservation_time,
       number_of_guests,
       note,
     });
+    const { reservation, tables, multi, booking_group_id } = result;
 
+    const tableIds = tables.map((t) => t.table_id);
     req.audit = {
       entityId: reservation.reservation_id,
-      description: `Đặt bàn #${reservation.reservation_id}, bàn ${table.table_id}`,
-      metadata: { branch_id, table_id: table.table_id },
+      description: multi
+        ? `Đặt bàn nhóm #${reservation.reservation_id} (${tables.length} bàn)`
+        : `Đặt bàn #${reservation.reservation_id}, bàn ${tableIds[0]}`,
+      metadata: { branch_id, table_ids: tableIds, booking_group_id },
     };
-    return res.status(201).json({ message: "Đặt bàn thành công", reservation });
+    return res.status(201).json({
+      message: multi
+        ? `Đặt bàn thành công — ${tables.length} bàn cho ${number_of_guests} khách`
+        : "Đặt bàn thành công",
+      reservation,
+      tables: tables.map((t) => ({
+        table_id: t.table_id,
+        table_number: t.table_number,
+        capacity: t.capacity,
+      })),
+      multiTable: !!multi,
+      booking_group_id,
+    });
   } catch (err) {
     if (err.code === "NO_TABLE") {
       return res.status(400).json({ message: err.message });
@@ -63,10 +79,19 @@ const getAvailableTables = async (req, res) => {
       guests,
       reservation_time
     );
-    if (picked.table) {
+    if (picked.tables?.length) {
+      const multi = picked.tables.length > 1;
+      const tableNums = picked.tables
+        .map((t) => t.table_number)
+        .filter((n) => n != null)
+        .join(", ");
       return res.json({
         available: true,
-        message: "Còn bàn phù hợp. Bạn có thể gửi yêu cầu đặt bàn.",
+        multiTable: multi,
+        tableCount: picked.tables.length,
+        message: multi
+          ? `Còn ${picked.tables.length} bàn liền kề (B${tableNums}) cho ${guests} khách. Bạn có thể gửi yêu cầu đặt bàn.`
+          : "Còn bàn phù hợp. Bạn có thể gửi yêu cầu đặt bàn.",
       });
     }
     return res.json({ available: false, message: picked.message });
@@ -122,17 +147,23 @@ const cancelReservation = async (req, res) => {
         .json({ message: "Không thể hủy ở trạng thái này" });
     }
 
-    reservation.status = "cancelled";
-    await reservation.save();
-    const table = await Table.findByPk(reservation.table_id);
-    if (table && ["pre-ordered", "reserved"].includes(table.status)) {
-      table.status = "available";
-      await table.save();
+    const cancelled = await reservationService.cancelReservationGroup(reservation);
+    const tableIds = [...new Set(cancelled.map((r) => r.table_id).filter(Boolean))];
+    for (const tableId of tableIds) {
+      const table = await Table.findByPk(tableId);
+      if (table && ["pre-ordered", "reserved"].includes(table.status)) {
+        table.status = "available";
+        await table.save();
+      }
     }
     req.audit = { entityId: reservation.reservation_id };
     return res.json({
-      message: "Đã hủy đặt bàn thành công",
-      reservation,
+      message:
+        cancelled.length > 1
+          ? `Đã hủy đặt bàn thành công (${cancelled.length} bàn trong nhóm)`
+          : "Đã hủy đặt bàn thành công",
+      reservation: cancelled[0],
+      cancelledCount: cancelled.length,
     });
   } catch (error) {
     console.error("❌ Error cancelling reservation:", error);

@@ -8,6 +8,7 @@ const {
 } = require("./orderStatus");
 const { ORDER_ITEM_STATUS } = require("./orderItemStatus");
 const { KITCHEN_QUEUE_STATUSES } = require("./orderItemStatus");
+const { resolveKitchenServeContext } = require("./kitchenQueue");
 
 /** Chi nhánh của đơn: reservation → bàn (trực tiếp / qua reservation) → fallback menu */
 function resolveOrderBranchId(plain) {
@@ -25,7 +26,7 @@ function orderTableInclude() {
   return [
     {
       model: Order,
-      attributes: ["order_id", "table_id", "reservation_id", "status"],
+      attributes: ["order_id", "table_id", "reservation_id", "status", "created_at"],
       required: true,
       where: { status: notTerminalOrderStatusWhere() },
       include: [
@@ -36,7 +37,15 @@ function orderTableInclude() {
         },
         {
           model: Reservation,
-          attributes: ["reservation_id", "table_id", "branch_id"],
+          attributes: [
+            "reservation_id",
+            "table_id",
+            "branch_id",
+            "reservation_time",
+            "status",
+            "number_of_guests",
+            "booking_group_id",
+          ],
           required: false,
           include: [
             {
@@ -83,15 +92,21 @@ function mapKitchenItemRow(item) {
   const directTable = plain.Order?.Table;
   const reservationTable = plain.Order?.Reservation?.Table;
   const resolvedTable = directTable || reservationTable || null;
+  const reservation = plain.Order?.Reservation ?? null;
+  const serve_context = resolveKitchenServeContext(plain.Order, reservation);
 
   return {
     ...plain,
+    order_id: plain.Order?.order_id ?? plain.order_id,
+    order_created_at: plain.Order?.created_at ?? null,
+    reservation_id: plain.Order?.reservation_id ?? null,
     table_id:
       resolvedTable?.table_id ??
       plain.Order?.table_id ??
       plain.Order?.Reservation?.table_id ??
       null,
     table_number: resolvedTable?.table_number ?? null,
+    serve_context,
   };
 }
 

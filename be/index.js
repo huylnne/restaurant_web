@@ -101,6 +101,17 @@ async function initDatabase() {
     .query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;', { raw: true })
     .catch(() => {});
   await db.sequelize
+    .query('ALTER TABLE reservations ADD COLUMN IF NOT EXISTS booking_group_id VARCHAR(36);', {
+      raw: true,
+    })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      'CREATE INDEX IF NOT EXISTS reservations_booking_group_id_idx ON reservations(booking_group_id) WHERE booking_group_id IS NOT NULL;',
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
     .query('ALTER TABLE users ADD COLUMN IF NOT EXISTS locked BOOLEAN DEFAULT false;', { raw: true })
     .catch(() => {});
   await db.sequelize

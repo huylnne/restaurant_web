@@ -31,13 +31,13 @@ async function gatherReportData({ branchId, startDate, endDate, days, months, li
     monthlyRevenue,
   ] = await Promise.all([
     reportService.getOverviewStats(branchId, startDate, endDate),
-    reportService.getRevenueByDay(branchId, days),
-    reportService.getTopSellingItems(branchId, limit),
-    reportService.getRevenueByCategory(branchId),
-    reportService.getOrdersByHour(branchId),
-    reportService.getTopCustomers(branchId, limit),
+    reportService.getRevenueByDay(branchId, days, startDate, endDate),
+    reportService.getTopSellingItems(branchId, limit, startDate, endDate),
+    reportService.getRevenueByCategory(branchId, startDate, endDate),
+    reportService.getOrdersByHour(branchId, startDate, endDate),
+    reportService.getTopCustomers(branchId, limit, startDate, endDate),
     reportService.getTableStats(branchId),
-    reportService.getMonthlyRevenue(branchId, months),
+    reportService.getMonthlyRevenue(branchId, months, startDate, endDate),
   ]);
 
   return {
@@ -86,9 +86,14 @@ async function buildExcel(data) {
   ws0.getColumn(2).width = 22;
   ws0.getRow(6).font = { bold: true };
 
+  const revenueDayTitle =
+    data.startDate && data.endDate
+      ? `Doanh thu theo ngày (${data.startDate} → ${data.endDate})`
+      : `Doanh thu ${data.days} ngày gần nhất`;
+
   // --- Sheet: Doanh thu theo ngày ---
   const ws1 = wb.addWorksheet('Doanh thu theo ngày');
-  ws1.addRow([`Doanh thu ${data.days} ngày gần nhất`]);
+  ws1.addRow([revenueDayTitle]);
   ws1.addRow(['Ngày', 'Doanh thu (VND)']);
   for (const row of data.revenueByDay) {
     ws1.addRow([formatDateCell(row.date), Number(row.revenue) || 0]);
@@ -119,13 +124,19 @@ async function buildExcel(data) {
   }
   ws3.getRow(1).font = { bold: true };
 
+  const hourSheetTitle =
+    data.startDate && data.endDate
+      ? `Đơn theo giờ (${data.startDate} → ${data.endDate})`
+      : 'Đơn theo giờ (hôm nay)';
+
   // --- Sheet: Đơn theo giờ ---
-  const ws4 = wb.addWorksheet('Đơn theo giờ (hôm nay)');
+  const ws4 = wb.addWorksheet('Đơn theo giờ');
+  ws4.addRow([hourSheetTitle]);
   ws4.addRow(['Giờ', 'Số đơn', 'Doanh thu (VND)']);
   for (const row of data.ordersByHour) {
     ws4.addRow([Number(row.hour), Number(row.order_count) || 0, Number(row.revenue) || 0]);
   }
-  ws4.getRow(1).font = { bold: true };
+  ws4.getRow(2).font = { bold: true };
 
   // --- Sheet: Top khách ---
   const ws5 = wb.addWorksheet('Top khách hàng');
@@ -152,9 +163,14 @@ async function buildExcel(data) {
   ws6.addRow(['Tỷ lệ sử dụng (%)', ts.occupancyRate]);
   ws6.getRow(1).font = { bold: true };
 
+  const monthlyTitle =
+    data.startDate && data.endDate
+      ? `Doanh thu theo tháng (${data.startDate} → ${data.endDate})`
+      : `${data.months} tháng gần nhất`;
+
   // --- Sheet: Doanh thu theo tháng ---
   const ws7 = wb.addWorksheet('Doanh thu theo tháng');
-  ws7.addRow([`${data.months} tháng gần nhất`]);
+  ws7.addRow([monthlyTitle]);
   ws7.addRow(['Tháng', 'Doanh thu (VND)', 'Số đơn']);
   for (const row of data.monthlyRevenue) {
     ws7.addRow([row.month, Number(row.revenue) || 0, Number(row.order_count) || 0]);
@@ -295,7 +311,14 @@ async function buildPdf(data) {
         layout: 'lightHorizontalLines',
         table: { widths: ['*', 'auto'], body: overviewBody },
       },
-      { text: `Doanh thu theo ngày (${data.days} ngày)`, style: 'h2', pageBreak: 'before' },
+      {
+        text:
+          data.startDate && data.endDate
+            ? `Doanh thu theo ngày (${data.startDate} → ${data.endDate})`
+            : `Doanh thu theo ngày (${data.days} ngày)`,
+        style: 'h2',
+        pageBreak: 'before',
+      },
       { layout: 'lightHorizontalLines', table: { widths: ['*', 'auto'], body: revenueDayBody } },
       { text: 'Top món bán chạy', style: 'h2', pageBreak: 'before' },
       {
@@ -304,7 +327,14 @@ async function buildPdf(data) {
       },
       { text: 'Doanh thu theo danh mục', style: 'h2' },
       { layout: 'lightHorizontalLines', table: { widths: ['*', 'auto'], body: catBody } },
-      { text: 'Đơn hàng theo giờ (hôm nay)', style: 'h2', pageBreak: 'before' },
+      {
+        text:
+          data.startDate && data.endDate
+            ? `Đơn hàng theo giờ (${data.startDate} → ${data.endDate})`
+            : 'Đơn hàng theo giờ (hôm nay)',
+        style: 'h2',
+        pageBreak: 'before',
+      },
       { layout: 'lightHorizontalLines', table: { widths: [60, '*'], body: hourBody } },
       { text: 'Top khách hàng', style: 'h2' },
       {
@@ -313,7 +343,14 @@ async function buildPdf(data) {
       },
       { text: 'Thống kê bàn', style: 'h2', pageBreak: 'before' },
       { layout: 'lightHorizontalLines', table: { widths: ['*', 'auto'], body: tableBodyStats } },
-      { text: `Doanh thu theo tháng (${data.months} tháng)`, style: 'h2', pageBreak: 'before' },
+      {
+        text:
+          data.startDate && data.endDate
+            ? `Doanh thu theo tháng (${data.startDate} → ${data.endDate})`
+            : `Doanh thu theo tháng (${data.months} tháng)`,
+        style: 'h2',
+        pageBreak: 'before',
+      },
       { layout: 'lightHorizontalLines', table: { widths: [70, '*'], body: monthBody } },
     ],
     styles: {

@@ -8,8 +8,8 @@ const kitchenController = {
     try {
       const status = req.query.status || 'pending';
       const branchId = resolveBranchId(req, req.query.branchId, 1);
-      const items = await kitchenService.getOrderItemsByStatus(status, branchId);
-      return res.json(items);
+      const queue = await kitchenService.getOrderItemsByStatus(status, branchId);
+      return res.json(queue);
     } catch (err) {
       console.error('kitchen.listOrderItems', err);
       return res.status(500).json({ message: err.message || 'Server error' });

@@ -555,7 +555,8 @@
               </div>
               <div class="reception-result-meta">
                 <span>
-                  B{{ item.table?.table_number ?? "?" }} · {{ item.number_of_guests }} khách
+                  {{ formatReceptionTables(item) }} · {{ item.number_of_guests }} khách
+                  <el-tag v-if="item.multiTable" size="small" type="info" class="ml-1">Bàn liền kề</el-tag>
                 </span>
                 <span>{{ formatReceptionTime(item.reservation_time) }}</span>
                 <el-tag :type="item.canCheckIn ? 'warning' : 'success'" size="small">
@@ -1387,6 +1388,14 @@ const formatReceptionTime = (datetime) => {
     hour: "2-digit",
     minute: "2-digit",
   });
+};
+
+const formatReceptionTables = (item) => {
+  const tables = item?.tables?.length ? item.tables : item?.table ? [item.table] : [];
+  if (!tables.length) return "B?";
+  return tables
+    .map((t) => `B${t.table_number ?? "?"}`)
+    .join(", ");
 };
 
 const searchReception = async () => {

@@ -2,7 +2,7 @@
   <el-card class="reservations-card">
     <h2 class="title">Lịch sử dùng bữa</h2>
     <div class="reservations-table-wrap">
-    <el-table :data="reservations" v-loading="loading" class="reservations-table">
+    <el-table :data="displayReservations" v-loading="loading" class="reservations-table">
       <el-table-column prop="reservation_time" label="Thời gian" width="200">
         <template #default="{ row }">
           {{ new Date(row.reservation_time).toLocaleString("vi-VN") }}
@@ -33,7 +33,11 @@
           {{ formatTableNumber(row) }}
         </template>
       </el-table-column>
-      <el-table-column prop="Table.capacity" label="Sức chứa" />
+      <el-table-column label="Sức chứa">
+        <template #default="{ row }">
+          {{ formatCapacity(row) }}
+        </template>
+      </el-table-column>
       <el-table-column label="Trạng thái" width="140">
         <template #default="{ row }">
           {{ getDiningStatusLabel(row) }}
@@ -128,13 +132,47 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, computed, onMounted } from "vue";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { normalizeTableStatus, getTableStatusLabel } from "@/constants/tableStatus";
 
 const reservations = ref([]);
 const loading = ref(true);
+
+/** Gộp các bản ghi cùng booking_group_id thành một dòng hiển thị */
+const displayReservations = computed(() => groupReservationsForDisplay(reservations.value));
+
+function groupReservationsForDisplay(rows) {
+  if (!rows?.length) return [];
+  const seen = new Set();
+  const result = [];
+
+  for (const row of rows) {
+    const gid = row.booking_group_id;
+    if (!gid) {
+      result.push(row);
+      continue;
+    }
+    if (seen.has(gid)) continue;
+    seen.add(gid);
+
+    const group = rows.filter((r) => r.booking_group_id === gid);
+    const tables = group.map((r) => r.Table).filter(Boolean);
+    const primary = group.reduce((a, b) =>
+      a.reservation_id < b.reservation_id ? a : b
+    );
+    result.push({
+      ...primary,
+      groupTables: tables,
+      groupReservationIds: group.map((r) => r.reservation_id),
+    });
+  }
+
+  return result.sort(
+    (a, b) => new Date(b.reservation_time) - new Date(a.reservation_time)
+  );
+}
 const reviewDialogVisible = ref(false);
 const submittingReview = ref(false);
 const reviewForm = ref({
@@ -279,7 +317,23 @@ async function submitReview() {
   }
 }
 
+function formatCapacity(row) {
+  if (row?.groupTables?.length) {
+    const total = row.groupTables.reduce((s, t) => s + Number(t.capacity || 0), 0);
+    return `${total} (${row.groupTables.length} bàn)`;
+  }
+  return row?.Table?.capacity ?? "-";
+}
+
 function formatTableNumber(row) {
+  if (row?.groupTables?.length) {
+    return row.groupTables
+      .map((t) => t.table_number)
+      .filter((n) => n != null && n !== "")
+      .sort((a, b) => a - b)
+      .map((n) => `B${n}`)
+      .join(", ");
+  }
   const tableNumber = row?.Table?.table_number;
   if (tableNumber === null || tableNumber === undefined || tableNumber === "") {
     return "-";

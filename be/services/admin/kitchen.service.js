@@ -4,11 +4,14 @@ const {
   syncOrderStatusFromItems,
   orderTableInclude,
 } = require('../../utils/orderQueries');
+const { groupKitchenItemsByTable } = require('../../utils/kitchenQueue');
 const { normalizeOrderItemStatus, ORDER_ITEM_STATUS } = require('../../utils/orderItemStatus');
 
 const kitchenService = {
   async getOrderItemsByStatus(status = ORDER_ITEM_STATUS.PENDING, branchId = 1) {
-    return findKitchenOrderItems({ itemStatus: status, branchId });
+    const items = await findKitchenOrderItems({ itemStatus: status, branchId });
+    const tables = groupKitchenItemsByTable(items);
+    return { tables, items, total_items: items.length, total_tables: tables.length };
   },
 
   async updateOrderItemStatus(orderItemId, newStatus, branchId = 1) {
@@ -37,7 +40,7 @@ const kitchenService = {
 
   async getNewItems(limit = 100) {
     const res = await this.getOrderItemsByStatus(ORDER_ITEM_STATUS.PENDING);
-    return res.slice(0, limit);
+    return res.items.slice(0, limit);
   },
 };
 

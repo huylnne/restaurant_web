@@ -62,6 +62,8 @@ exports.getReservationsWithOrders = async (userId) => {
         'status',
         'table_id',
         'branch_id',
+        'booking_group_id',
+        'note',
         'created_at'
       ],
       include: [

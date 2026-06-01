@@ -3,7 +3,7 @@
     <div class="header">
       <div class="title-section">
         <h2>Bếp</h2>
-        <p>Xem và cập nhật trạng thái món theo đơn</p>
+        <p>Danh sách món theo từng bàn — cập nhật trạng thái từng món</p>
       </div>
     </div>
 
@@ -21,53 +21,84 @@
           :value="branch.branch_id"
         />
       </el-select>
-      <el-radio-group v-model="currentStatus" @change="fetchOrderItems">
+      <el-radio-group v-model="currentStatus" @change="fetchKitchenQueue">
         <el-radio-button value="pending">Chờ chế biến</el-radio-button>
         <el-radio-button value="processing">Đang chế biến</el-radio-button>
         <el-radio-button value="done">Hoàn thành</el-radio-button>
       </el-radio-group>
-      <el-button :icon="Refresh" circle @click="fetchOrderItems" title="Làm mới" />
+      <el-button :icon="Refresh" circle @click="fetchKitchenQueue" title="Làm mới" />
+      <span v-if="queueSummary" class="queue-summary">{{ queueSummary }}</span>
     </div>
 
-    <div v-loading="loading" class="order-items-section">
-      <el-empty v-if="!loading && orderItems.length === 0" description="Không có món nào" />
-      <div v-else class="items-grid">
-        <div
-          v-for="item in displayedOrderItems"
-          :key="item.order_item_id"
-          :class="['item-card', `status-${item.status}`]"
+    <div v-loading="loading" class="tables-section">
+      <el-empty v-if="!loading && tableGroups.length === 0" description="Không có món nào" />
+      <div v-else class="tables-grid">
+        <section
+          v-for="group in displayedTableGroups"
+          :key="groupKey(group)"
+          :class="['table-group-card', group.serve_mode === 'scheduled' ? 'table-group-card--scheduled' : 'table-group-card--active']"
         >
-          <div class="item-header">
-            <span class="item-name">{{ item.MenuItem?.name || 'N/A' }}</span>
-            <el-tag :type="getStatusTagType(item.status)" size="small">
-              {{ getStatusText(item.status) }}
-            </el-tag>
-          </div>
-          <div class="item-meta">
-            <span>SL: {{ item.quantity }}</span>
-            <span class="table-info">
-              Bàn: {{ getTableLabel(item) }}
-            </span>
-            <span v-if="item.MenuItem?.price" class="price">
-              {{ formatCurrency(item.MenuItem.price * item.quantity) }}
-            </span>
-          </div>
-          <div class="item-actions">
-            <template v-if="item.status === 'pending'">
-              <el-button type="warning" size="small" @click="changeStatus(item, 'processing')">
-                Bắt đầu chế biến
-              </el-button>
-            </template>
-            <template v-else-if="item.status === 'processing'">
-              <el-button type="success" size="small" @click="changeStatus(item, 'done')">
-                Hoàn thành
-              </el-button>
-            </template>
-            <template v-else>
-              <el-tag type="success">Đã xong</el-tag>
-            </template>
-          </div>
-        </div>
+          <header class="table-group-header">
+            <div class="table-group-title">
+              <h3>Bàn {{ formatTableNumber(group) }}</h3>
+              <el-tag v-if="group.booking_group_id" size="small" type="info">Nhóm đặt</el-tag>
+            </div>
+            <div class="table-group-serve">
+              <el-tag
+                :type="serveTagType(group)"
+                size="small"
+                effect="dark"
+              >
+                {{ group.serve_label }}
+              </el-tag>
+              <span class="serve-time">{{ formatServeTime(group) }}</span>
+              <el-tag v-if="group.is_soon" type="danger" size="small" effect="plain">
+                Sắp phục vụ
+              </el-tag>
+            </div>
+            <div class="table-group-meta">
+              <span v-if="group.number_of_guests">{{ group.number_of_guests }} khách</span>
+              <span>{{ group.items.length }} món</span>
+            </div>
+          </header>
+
+          <ul class="dish-list">
+            <li
+              v-for="item in group.items"
+              :key="item.order_item_id"
+              :class="['dish-row', `dish-row--${item.status}`]"
+            >
+              <div class="dish-main">
+                <span class="dish-name">{{ item.MenuItem?.name || "N/A" }}</span>
+                <span class="dish-qty">×{{ item.quantity }}</span>
+                <el-tag :type="getStatusTagType(item.status)" size="small">
+                  {{ getStatusText(item.status) }}
+                </el-tag>
+              </div>
+              <div class="dish-sub">
+                <span v-if="item.order_created_at" class="dish-ordered-at">
+                  Gọi món: {{ formatDateTime(item.order_created_at) }}
+                </span>
+                <span v-if="item.order_id" class="dish-order-id">Đơn #{{ item.order_id }}</span>
+              </div>
+              <div class="dish-actions">
+                <template v-if="item.status === 'pending'">
+                  <el-button type="warning" size="small" @click="changeStatus(item, 'processing')">
+                    Bắt đầu
+                  </el-button>
+                </template>
+                <template v-else-if="item.status === 'processing'">
+                  <el-button type="success" size="small" @click="changeStatus(item, 'done')">
+                    Xong
+                  </el-button>
+                </template>
+                <template v-else>
+                  <el-tag type="success" size="small">Đã xong</el-tag>
+                </template>
+              </div>
+            </li>
+          </ul>
+        </section>
       </div>
     </div>
 
@@ -91,12 +122,12 @@ import { connectBranchRealtime } from "@/utils/branchRealtime";
 
 const HTTP_ORIGIN = "http://localhost:3000";
 const API_BASE = `${HTTP_ORIGIN}/api/admin/kitchen`;
-/** UC08: polling ngắn bếp + WebSocket */
 const KITCHEN_POLL_MS = 4000;
-const KITCHEN_PAGE_SIZE = 12;
+const KITCHEN_PAGE_SIZE = 8;
 
 const currentStatus = ref("pending");
-const orderItems = ref([]);
+const tableGroups = ref([]);
+const totalItems = ref(0);
 const branches = ref([]);
 const currentUser = getCurrentUser();
 const isSuperAdmin = isSuperAdminUser(currentUser);
@@ -105,15 +136,21 @@ const kitchenCurrentPage = ref(1);
 const loading = ref(false);
 
 const kitchenPaginationTotalPages = computed(() =>
-  Math.max(1, Math.ceil((orderItems.value?.length || 0) / KITCHEN_PAGE_SIZE))
+  Math.max(1, Math.ceil((tableGroups.value?.length || 0) / KITCHEN_PAGE_SIZE))
 );
-const displayedOrderItems = computed(() => {
-  const list = orderItems.value || [];
+
+const displayedTableGroups = computed(() => {
+  const list = tableGroups.value || [];
   const start = (kitchenCurrentPage.value - 1) * KITCHEN_PAGE_SIZE;
   return list.slice(start, start + KITCHEN_PAGE_SIZE);
 });
 
-const fetchOrderItems = async () => {
+const queueSummary = computed(() => {
+  if (!tableGroups.value.length) return "";
+  return `${tableGroups.value.length} bàn · ${totalItems.value} món`;
+});
+
+const fetchKitchenQueue = async () => {
   loading.value = true;
   try {
     const token = localStorage.getItem("token");
@@ -121,16 +158,45 @@ const fetchOrderItems = async () => {
       params: { status: currentStatus.value, branchId: selectedBranchId.value },
       headers: { Authorization: `Bearer ${token}` },
     });
-    orderItems.value = Array.isArray(res.data) ? res.data : res.data.items || [];
+    const data = res.data;
+    if (Array.isArray(data)) {
+      tableGroups.value = groupLegacyFlatItems(data);
+      totalItems.value = data.length;
+    } else {
+      tableGroups.value = data.tables || [];
+      totalItems.value = data.total_items ?? (data.items?.length || 0);
+    }
     kitchenCurrentPage.value = 1;
   } catch (err) {
-    console.error("Lỗi lấy order items:", err);
+    console.error("Lỗi lấy hàng đợi bếp:", err);
     ElMessage.error(err.response?.data?.message || "Không thể tải danh sách món");
-    orderItems.value = [];
+    tableGroups.value = [];
+    totalItems.value = 0;
   } finally {
     loading.value = false;
   }
 };
+
+/** Tương thích response phẳng cũ (nếu có). */
+function groupLegacyFlatItems(items) {
+  const map = new Map();
+  for (const item of items) {
+    const tid = item.table_id ?? "unknown";
+    if (!map.has(tid)) {
+      map.set(tid, {
+        table_id: item.table_id,
+        table_number: item.table_number,
+        serve_mode: item.serve_context?.serve_mode || "active",
+        serve_label: item.serve_context?.serve_label || "Đang phục vụ",
+        serve_at: item.serve_context?.serve_at_iso,
+        is_soon: item.serve_context?.is_soon,
+        items: [],
+      });
+    }
+    map.get(tid).items.push(item);
+  }
+  return [...map.values()];
+}
 
 const changeStatus = async (item, status) => {
   try {
@@ -141,10 +207,52 @@ const changeStatus = async (item, status) => {
       { headers: { Authorization: `Bearer ${token}` } }
     );
     ElMessage.success("Đã cập nhật trạng thái");
-    fetchOrderItems();
+    fetchKitchenQueue();
   } catch (err) {
     ElMessage.error(err.response?.data?.message || "Cập nhật thất bại");
   }
+};
+
+const groupKey = (group) =>
+  `${group.table_id ?? "x"}-${group.reservation_id ?? ""}-${group.items?.[0]?.order_item_id ?? ""}`;
+
+const formatTableNumber = (group) => {
+  if (group.table_number != null && group.table_number !== "") return group.table_number;
+  if (group.table_id != null) return `#${group.table_id}`;
+  return "?";
+};
+
+const serveTagType = (group) => {
+  if (group.serve_mode === "scheduled") return group.is_soon ? "danger" : "warning";
+  return "success";
+};
+
+const formatServeTime = (group) => {
+  if (!group.serve_at) return "";
+  const d = new Date(group.serve_at);
+  if (group.serve_mode === "scheduled") {
+    const mins = group.minutes_until_serve;
+    const timeStr = d.toLocaleString("vi-VN", {
+      day: "2-digit",
+      month: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+    if (mins != null && mins > 0) return `${timeStr} (còn ~${mins} phút)`;
+    if (mins != null && mins <= 0) return `${timeStr} (đã tới giờ)`;
+    return timeStr;
+  }
+  return `Gọi từ ${d.toLocaleTimeString("vi-VN", { hour: "2-digit", minute: "2-digit" })}`;
+};
+
+const formatDateTime = (iso) => {
+  if (!iso) return "";
+  return new Date(iso).toLocaleString("vi-VN", {
+    day: "2-digit",
+    month: "2-digit",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 };
 
 const getStatusTagType = (status) => {
@@ -154,24 +262,12 @@ const getStatusTagType = (status) => {
 
 const getStatusText = (status) => {
   const map = {
-    pending: "Chờ chế biến",
-    processing: "Đang chế biến",
-    done: "Hoàn thành",
-    served: "Đã phục vụ",
+    pending: "Chờ",
+    processing: "Đang làm",
+    done: "Xong",
+    served: "Đã ra",
   };
   return map[status] || status;
-};
-
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
-    amount || 0
-  );
-};
-
-const getTableLabel = (item) => {
-  if (item?.table_number !== null && item?.table_number !== undefined) return item.table_number;
-  if (item?.table_id !== null && item?.table_id !== undefined) return `#${item.table_id}`;
-  return "Chưa gán bàn";
 };
 
 const fetchBranches = async () => {
@@ -203,23 +299,23 @@ function stopKitchenRealtime() {
 function startKitchenRealtime() {
   stopKitchenRealtime();
   kitchenPollTimer = setInterval(() => {
-    fetchOrderItems();
+    fetchKitchenQueue();
   }, KITCHEN_POLL_MS);
   disposeKitchenWs = connectBranchRealtime(HTTP_ORIGIN, selectedBranchId.value, (msg) => {
     if (msg?.type === "order_item_status" || msg?.type === "order_flow") {
-      fetchOrderItems();
+      fetchKitchenQueue();
     }
   });
 }
 
 watch(selectedBranchId, () => {
-  fetchOrderItems();
+  fetchKitchenQueue();
   startKitchenRealtime();
 });
 
 onMounted(() => {
   fetchBranches().then(() => {
-    fetchOrderItems();
+    fetchKitchenQueue();
     startKitchenRealtime();
   });
 });
@@ -264,75 +360,143 @@ onUnmounted(() => {
   margin-bottom: var(--hl-space-lg);
   flex-wrap: wrap;
 }
+
 .filter-branch-select {
   width: 220px;
 }
 
-.order-items-section {
+.queue-summary {
+  color: var(--hl-text-muted);
+  font-size: 14px;
+  margin-left: auto;
+}
+
+.tables-section {
   min-height: 200px;
 }
 
-.items-grid {
+.tables-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, var(--hl-admin-grid-min)), 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 360px), 1fr));
   gap: var(--hl-admin-grid-gap);
-  width: 100%;
-  max-width: 100%;
 }
 
-.item-card {
+.table-group-card {
   background: var(--hl-admin-card);
   border-radius: var(--hl-radius-lg);
-  padding: var(--hl-space-md);
-  border-left: 4px solid var(--hl-admin-border);
   box-shadow: var(--hl-shadow-sm);
+  border: 1px solid var(--hl-admin-border);
+  overflow: hidden;
 }
 
-.item-card.status-pending {
-  border-left-color: var(--hl-admin-warning);
-  background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+.table-group-card--active {
+  border-top: 4px solid var(--hl-admin-success);
 }
 
-.item-card.status-processing {
-  border-left-color: var(--hl-admin-info);
-  background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%);
+.table-group-card--scheduled {
+  border-top: 4px solid var(--hl-admin-warning);
 }
 
-.item-card.status-done {
-  border-left-color: var(--hl-admin-success);
-  background: linear-gradient(135deg, var(--hl-success-bg) 0%, #d1fae5 100%);
+.table-group-header {
+  padding: var(--hl-space-md);
+  background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+  border-bottom: 1px solid var(--hl-admin-border);
 }
 
-.item-header {
+.table-group-title {
   display: flex;
-  justify-content: space-between;
   align-items: center;
-  margin-bottom: var(--hl-space-sm);
+  gap: var(--hl-space-sm);
+  margin-bottom: var(--hl-space-xs);
 }
 
-.item-name {
-  font-weight: 600;
-  font-size: 1rem;
-  color: var(--hl-text);
+.table-group-title h3 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--hl-primary);
 }
 
-.item-meta {
+.table-group-serve {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--hl-space-sm);
+  margin-bottom: var(--hl-space-xs);
+}
+
+.serve-time {
+  font-size: 13px;
+  color: var(--hl-text-secondary);
+  font-weight: 500;
+}
+
+.table-group-meta {
   display: flex;
   gap: var(--hl-space-md);
-  margin-bottom: var(--hl-space-md);
+  font-size: 13px;
   color: var(--hl-text-muted);
-  font-size: 14px;
 }
 
-.item-meta .price {
-  color: var(--hl-admin-success);
+.dish-list {
+  list-style: none;
+  margin: 0;
+  padding: var(--hl-space-sm);
+}
+
+.dish-row {
+  padding: var(--hl-space-sm) var(--hl-space-md);
+  border-radius: var(--hl-radius-md);
+  margin-bottom: var(--hl-space-xs);
+  border-left: 3px solid var(--hl-admin-border);
+  background: #fff;
+}
+
+.dish-row--pending {
+  border-left-color: var(--hl-admin-warning);
+  background: #fffbeb;
+}
+
+.dish-row--processing {
+  border-left-color: var(--hl-admin-info);
+  background: #eff6ff;
+}
+
+.dish-row--done {
+  border-left-color: var(--hl-admin-success);
+  background: var(--hl-success-bg);
+}
+
+.dish-main {
+  display: flex;
+  align-items: center;
+  gap: var(--hl-space-sm);
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+
+.dish-name {
   font-weight: 600;
+  color: var(--hl-text);
+  flex: 1;
+  min-width: 120px;
 }
 
-.item-actions {
-  margin-top: var(--hl-space-md);
-  padding-top: var(--hl-space-md);
-  border-top: 1px solid var(--hl-admin-border);
+.dish-qty {
+  font-weight: 700;
+  color: var(--hl-primary);
+}
+
+.dish-sub {
+  display: flex;
+  gap: var(--hl-space-md);
+  font-size: 12px;
+  color: var(--hl-text-muted);
+  margin-bottom: var(--hl-space-xs);
+}
+
+.dish-actions {
+  display: flex;
+  justify-content: flex-end;
 }
 
 @media (max-width: 768px) {
@@ -344,19 +508,13 @@ onUnmounted(() => {
     width: 100%;
   }
 
-  .filter-section :deep(.el-radio-group) {
-    display: flex;
+  .queue-summary {
+    margin-left: 0;
     width: 100%;
-    overflow-x: auto;
   }
 
-  .items-grid {
+  .tables-grid {
     grid-template-columns: 1fr;
-  }
-
-  .item-meta {
-    flex-wrap: wrap;
-    gap: var(--hl-space-sm);
   }
 }
 </style>

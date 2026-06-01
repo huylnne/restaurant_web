@@ -1,24 +1,24 @@
-const { Order, OrderItem, MenuItem, Reservation, Table, User, Payment } = require('../../models');
+const { Reservation } = require('../../models');
 const { Sequelize, Op } = require('sequelize');
 const db = require('../../models/db');
 const tableSummaryService = require('./tableSummary.service');
 const {
   completedOrderStatusSqlIn,
-  activeOrderStatusSqlIn,
   inProgressOrderStatusSqlIn,
 } = require('../../utils/orderStatus');
+const { hasDateRange, inclusiveDateClause } = require('../../utils/reportDateRange');
 
 const reportService = {
-  // Thống kê tổng quan
   async getOverviewStats(branchId = 1, startDate, endDate) {
     const whereClause = {};
-    if (startDate && endDate) {
+    if (hasDateRange(startDate, endDate)) {
       whereClause.created_at = {
-        [Op.between]: [new Date(startDate), new Date(endDate)]
+        [Op.gte]: new Date(startDate),
+        [Op.lt]: new Date(new Date(endDate).getTime() + 24 * 60 * 60 * 1000),
       };
     }
 
-    // Tổng doanh thu từ order_items
+    const revenueParams = [branchId];
     let revenueQuery = `
       SELECT COALESCE(SUM(oi.quantity * mi.price), 0) as total_revenue
       FROM order_items oi
@@ -27,38 +27,23 @@ const reportService = {
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
     `;
-    
-    const revenueParams = [branchId];
-    
-    if (startDate && endDate) {
-      revenueQuery += ` AND o.created_at BETWEEN $2 AND $3`;
-      revenueParams.push(startDate, endDate);
-    }
+    revenueQuery += inclusiveDateClause('o.created_at', revenueParams, startDate, endDate);
 
     const [revenueResult] = await db.sequelize.query(revenueQuery, {
       bind: revenueParams,
-      type: Sequelize.QueryTypes.SELECT
+      type: Sequelize.QueryTypes.SELECT,
     });
 
-    // Tổng số đơn hoàn thành / đang xử lý (lọc đúng theo chi nhánh)
-    // Dùng COALESCE theo branch từ reservation hoặc table để không phụ thuộc menu_items.
-    let orderCountDateClause = '';
     const orderCountParams = [branchId];
-    if (startDate && endDate) {
-      orderCountDateClause = ' AND o.created_at BETWEEN $2 AND $3';
-      orderCountParams.push(startDate, endDate);
-    }
-
     const orderCountQuery = `
       SELECT
         COUNT(*) FILTER (WHERE o.status IN (${completedOrderStatusSqlIn()})) AS total_completed_orders,
-        COUNT(*) FILTER (WHERE o.status IN (${activeOrderStatusSqlIn()})) AS total_active_orders,
         COUNT(*) FILTER (WHERE o.status IN (${inProgressOrderStatusSqlIn()})) AS total_in_progress_orders
       FROM orders o
       LEFT JOIN reservations r ON o.reservation_id = r.reservation_id
       LEFT JOIN tables t ON o.table_id = t.table_id
       WHERE COALESCE(r.branch_id, t.branch_id) = $1
-      ${orderCountDateClause}
+      ${inclusiveDateClause('o.created_at', orderCountParams, startDate, endDate)}
     `;
 
     const [orderCountResult] = await db.sequelize.query(orderCountQuery, {
@@ -69,31 +54,24 @@ const reportService = {
     const totalOrders = parseInt(orderCountResult.total_completed_orders, 10) || 0;
     const pendingOrders = parseInt(orderCountResult.total_in_progress_orders, 10) || 0;
 
-    // Tổng số reservation
     const totalReservations = await Reservation.count({
       where: {
         branch_id: branchId,
-        ...whereClause
-      }
+        ...whereClause,
+      },
     });
 
-    // Số khách hàng unique
+    const customerParams = [branchId];
     let customerQuery = `
       SELECT COUNT(DISTINCT r.user_id) as total
       FROM reservations r
       WHERE r.branch_id = $1
     `;
-    
-    const customerParams = [branchId];
-    
-    if (startDate && endDate) {
-      customerQuery += ` AND r.created_at BETWEEN $2 AND $3`;
-      customerParams.push(startDate, endDate);
-    }
+    customerQuery += inclusiveDateClause('r.created_at', customerParams, startDate, endDate);
 
     const [customerResult] = await db.sequelize.query(customerQuery, {
       bind: customerParams,
-      type: Sequelize.QueryTypes.SELECT
+      type: Sequelize.QueryTypes.SELECT,
     });
 
     return {
@@ -101,14 +79,19 @@ const reportService = {
       totalOrders,
       pendingOrders,
       totalReservations,
-      totalCustomers: parseInt(customerResult.total) || 0
+      totalCustomers: parseInt(customerResult.total, 10) || 0,
     };
   },
 
-  // Doanh thu theo ngày (7 ngày gần nhất)
-  async getRevenueByDay(branchId = 1, days = 7) {
+  async getRevenueByDay(branchId = 1, days = 7, startDate, endDate) {
+    const params = [branchId];
+    let dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
+    if (!dateFilter) {
+      dateFilter = ` AND o.created_at >= CURRENT_DATE - INTERVAL '${Number(days) || 7} days'`;
+    }
+
     const query = `
-      SELECT 
+      SELECT
         DATE(o.created_at) as date,
         COALESCE(SUM(oi.quantity * mi.price), 0) as revenue
       FROM orders o
@@ -116,23 +99,24 @@ const reportService = {
       JOIN menu_items mi ON oi.item_id = mi.item_id
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
-        AND o.created_at >= CURRENT_DATE - INTERVAL '${days} days'
+        ${dateFilter}
       GROUP BY DATE(o.created_at)
       ORDER BY date ASC
     `;
 
-    const result = await db.sequelize.query(query, {
-      bind: [branchId],
-      type: Sequelize.QueryTypes.SELECT
+    return db.sequelize.query(query, {
+      bind: params,
+      type: Sequelize.QueryTypes.SELECT,
     });
-
-    return result;
   },
 
-  // Món ăn bán chạy nhất
-  async getTopSellingItems(branchId = 1, limit = 10) {
+  async getTopSellingItems(branchId = 1, limit = 10, startDate, endDate) {
+    const params = [branchId];
+    const dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
+    params.push(limit);
+
     const query = `
-      SELECT 
+      SELECT
         mi.item_id,
         mi.name,
         mi.category,
@@ -145,23 +129,24 @@ const reportService = {
       JOIN orders o ON oi.order_id = o.order_id
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
+        ${dateFilter}
       GROUP BY mi.item_id, mi.name, mi.category, mi.price, mi.image_url
       ORDER BY total_sold DESC
-      LIMIT $2
+      LIMIT $${params.length}
     `;
 
-    const result = await db.sequelize.query(query, {
-      bind: [branchId, limit],
-      type: Sequelize.QueryTypes.SELECT
+    return db.sequelize.query(query, {
+      bind: params,
+      type: Sequelize.QueryTypes.SELECT,
     });
-
-    return result;
   },
 
-  // Doanh thu theo danh mục món ăn
-  async getRevenueByCategory(branchId = 1) {
+  async getRevenueByCategory(branchId = 1, startDate, endDate) {
+    const params = [branchId];
+    const dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
+
     const query = `
-      SELECT 
+      SELECT
         mi.category,
         COALESCE(SUM(oi.quantity * mi.price), 0) as revenue,
         SUM(oi.quantity) as total_sold
@@ -170,74 +155,79 @@ const reportService = {
       JOIN orders o ON oi.order_id = o.order_id
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
+        ${dateFilter}
       GROUP BY mi.category
       ORDER BY revenue DESC
     `;
 
-    const result = await db.sequelize.query(query, {
-      bind: [branchId],
-      type: Sequelize.QueryTypes.SELECT
+    return db.sequelize.query(query, {
+      bind: params,
+      type: Sequelize.QueryTypes.SELECT,
     });
-
-    return result;
   },
 
-  // Thống kê theo giờ trong ngày
-  async getOrdersByHour(branchId = 1) {
+  /** Gộp theo giờ (0–23) trong khoảng đã chọn; mặc định chỉ hôm nay */
+  async getOrdersByHour(branchId = 1, startDate, endDate) {
+    const params = [branchId];
+    let dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
+    if (!dateFilter) {
+      dateFilter = ' AND DATE(o.created_at) = CURRENT_DATE';
+    }
+
     const query = `
-      SELECT 
-        EXTRACT(HOUR FROM o.created_at) as hour,
-        COUNT(o.order_id) as order_count,
+      SELECT
+        EXTRACT(HOUR FROM o.created_at)::int as hour,
+        COUNT(DISTINCT o.order_id) as order_count,
         COALESCE(SUM(oi.quantity * mi.price), 0) as revenue
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
-        AND DATE(o.created_at) = CURRENT_DATE
+        ${dateFilter}
       GROUP BY EXTRACT(HOUR FROM o.created_at)
       ORDER BY hour ASC
     `;
 
-    const result = await db.sequelize.query(query, {
-      bind: [branchId],
-      type: Sequelize.QueryTypes.SELECT
+    return db.sequelize.query(query, {
+      bind: params,
+      type: Sequelize.QueryTypes.SELECT,
     });
-
-    return result;
   },
 
-  // Khách hàng thân thiết (top customers)
-  async getTopCustomers(branchId = 1, limit = 10) {
+  async getTopCustomers(branchId = 1, limit = 10, startDate, endDate) {
+    const params = [branchId];
+    const dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
+    params.push(limit);
+
     const query = `
-      SELECT 
+      SELECT
         u.user_id,
         u.full_name,
         u.phone,
-        COUNT(DISTINCT r.reservation_id) as total_orders,
+        COUNT(DISTINCT o.order_id) as total_orders,
         COALESCE(SUM(oi.quantity * mi.price), 0) as total_spent
       FROM users u
       JOIN reservations r ON u.user_id = r.user_id
-      LEFT JOIN orders o ON r.reservation_id = o.reservation_id
-      LEFT JOIN order_items oi ON o.order_id = oi.order_id
-      LEFT JOIN menu_items mi ON oi.item_id = mi.item_id
-      WHERE (o.status IN (${completedOrderStatusSqlIn()}) OR o.status IS NULL)
+      JOIN orders o ON r.reservation_id = o.reservation_id
+      JOIN order_items oi ON o.order_id = oi.order_id
+      JOIN menu_items mi ON oi.item_id = mi.item_id
+      WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND r.branch_id = $1
+        AND mi.branch_id = $1
+        ${dateFilter}
       GROUP BY u.user_id, u.full_name, u.phone
       HAVING COALESCE(SUM(oi.quantity * mi.price), 0) > 0
       ORDER BY total_spent DESC
-      LIMIT $2
+      LIMIT $${params.length}
     `;
 
-    const result = await db.sequelize.query(query, {
-      bind: [branchId, limit],
-      type: Sequelize.QueryTypes.SELECT
+    return db.sequelize.query(query, {
+      bind: params,
+      type: Sequelize.QueryTypes.SELECT,
     });
-
-    return result;
   },
 
-  // Thống kê bàn ăn — cùng nguồn với Dashboard / Quản lý bàn
   async getTableStats(branchId = 1) {
     const summary = await tableSummaryService.getTableSummary(branchId);
     const occupiedTables = summary.servingTables;
@@ -255,10 +245,15 @@ const reportService = {
     };
   },
 
-  // So sánh doanh thu theo tháng
-  async getMonthlyRevenue(branchId = 1, months = 6) {
+  async getMonthlyRevenue(branchId = 1, months = 6, startDate, endDate) {
+    const params = [branchId];
+    let dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
+    if (!dateFilter) {
+      dateFilter = ` AND o.created_at >= CURRENT_DATE - INTERVAL '${Number(months) || 6} months'`;
+    }
+
     const query = `
-      SELECT 
+      SELECT
         TO_CHAR(o.created_at, 'YYYY-MM') as month,
         COALESCE(SUM(oi.quantity * mi.price), 0) as revenue,
         COUNT(DISTINCT o.order_id) as order_count
@@ -267,18 +262,16 @@ const reportService = {
       JOIN menu_items mi ON oi.item_id = mi.item_id
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
-        AND o.created_at >= CURRENT_DATE - INTERVAL '${months} months'
+        ${dateFilter}
       GROUP BY TO_CHAR(o.created_at, 'YYYY-MM')
       ORDER BY month ASC
     `;
 
-    const result = await db.sequelize.query(query, {
-      bind: [branchId],
-      type: Sequelize.QueryTypes.SELECT
+    return db.sequelize.query(query, {
+      bind: params,
+      type: Sequelize.QueryTypes.SELECT,
     });
-
-    return result;
-  }
+  },
 };
 
 module.exports = reportService;

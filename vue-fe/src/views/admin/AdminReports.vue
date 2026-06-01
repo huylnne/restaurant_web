@@ -4,6 +4,7 @@
       <div class="title-section">
         <h2>Báo cáo & Thống kê</h2>
         <p>Theo dõi doanh thu và hiệu suất hoạt động của chi nhánh</p>
+        <p v-if="periodLabel" class="period-hint">Khoảng thống kê: {{ periodLabel }}</p>
       </div>
       <div class="filter-section admin-toolbar">
         <el-select
@@ -28,6 +29,7 @@
           end-placeholder="Đến ngày"
           format="DD/MM/YYYY"
           value-format="YYYY-MM-DD"
+          clearable
           @change="fetchAllData"
         />
         <el-button type="primary" @click="fetchAllData">
@@ -102,29 +104,29 @@
     <div class="charts-section">
       <!-- Doanh thu theo ngày -->
       <div class="chart-card">
-        <h3>Doanh thu 7 ngày gần nhất</h3>
+        <h3>{{ chartTitles.revenueByDay }}</h3>
         <div ref="revenueChart" class="chart-container"></div>
       </div>
 
       <!-- Doanh thu theo danh mục -->
       <div class="chart-card">
-        <h3>Doanh thu theo danh mục</h3>
+        <h3>{{ chartTitles.revenueByCategory }}</h3>
         <div ref="categoryChart" class="chart-container"></div>
       </div>
       <div class="chart-card">
-        <h3>Đơn hàng theo giờ (hôm nay)</h3>
+        <h3>{{ chartTitles.ordersByHour }}</h3>
         <div ref="hourChart" class="chart-container"></div>
       </div>
 
       <div class="chart-card">
-        <h3>Doanh thu 6 tháng gần nhất</h3>
+        <h3>{{ chartTitles.monthlyRevenue }}</h3>
         <div ref="monthlyChart" class="chart-container"></div>
       </div>
     </div>
 
     <!-- Bảng món bán chạy -->
     <div class="table-section">
-      <h3>Top 10 món bán chạy nhất</h3>
+      <h3>{{ tableTitles.topSelling }}</h3>
       <el-table :data="topSellingItems" stripe style="width: 100%">
         <el-table-column prop="name" label="Tên món" width="250" />
         <el-table-column prop="category" label="Danh mục" width="150" />
@@ -144,7 +146,7 @@
 
     <!-- Bảng khách hàng thân thiết -->
     <div class="table-section">
-      <h3>Top 10 khách hàng thân thiết</h3>
+      <h3>{{ tableTitles.topCustomers }}</h3>
       <el-table :data="topCustomers" stripe style="width: 100%">
         <el-table-column prop="full_name" label="Họ tên" width="200" />
         <el-table-column prop="phone" label="Số điện thoại" width="150" />
@@ -157,9 +159,9 @@
       </el-table>
     </div>
 
-    <!-- Thống kê bàn -->
+    <!-- Thống kê bàn (trạng thái hiện tại, không lọc theo ngày) -->
     <div class="table-stats-section">
-      <h3>Thống kê bàn ăn</h3>
+      <h3>Thống kê bàn ăn <span class="section-note">(hiện tại)</span></h3>
       <div class="table-stats-cards">
         <div class="stat-item">
           <span class="label">Tổng số bàn:</span>
@@ -191,7 +193,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, nextTick } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 import {
@@ -210,6 +212,47 @@ const API_BASE = "http://localhost:3000";
 
 const dateRange = ref(null);
 const exportLoading = ref(null);
+
+const formatDisplayDate = (iso) => {
+  if (!iso) return "";
+  const [y, m, d] = String(iso).split("-");
+  return d && m && y ? `${d}/${m}/${y}` : iso;
+};
+
+const periodLabel = computed(() => {
+  if (dateRange.value?.length === 2) {
+    return `${formatDisplayDate(dateRange.value[0])} – ${formatDisplayDate(dateRange.value[1])}`;
+  }
+  return null;
+});
+
+const chartTitles = computed(() => {
+  const p = periodLabel.value;
+  return {
+    revenueByDay: p ? `Doanh thu theo ngày (${p})` : "Doanh thu 7 ngày gần nhất",
+    revenueByCategory: p ? `Doanh thu theo danh mục (${p})` : "Doanh thu theo danh mục (toàn thời gian)",
+    ordersByHour: p ? `Đơn hàng theo giờ (${p})` : "Đơn hàng theo giờ (hôm nay)",
+    monthlyRevenue: p ? `Doanh thu theo tháng (${p})` : "Doanh thu 6 tháng gần nhất",
+  };
+});
+
+const tableTitles = computed(() => {
+  const p = periodLabel.value;
+  const suffix = p ? ` — ${p}` : "";
+  return {
+    topSelling: `Top 10 món bán chạy nhất${suffix}`,
+    topCustomers: `Top 10 khách hàng thân thiết${suffix}`,
+  };
+});
+
+const buildReportParams = (extra = {}) => {
+  const params = { branchId: selectedBranchId.value, days: 7, months: 6, limit: 10, ...extra };
+  if (dateRange.value?.length === 2) {
+    params.startDate = dateRange.value[0];
+    params.endDate = dateRange.value[1];
+  }
+  return params;
+};
 const branches = ref([]);
 const selectedBranchId = ref(1);
 const currentUser = getCurrentUser();
@@ -286,13 +329,8 @@ const fetchAllData = async () => {
     const token = getToken();
     const headers = { Authorization: `Bearer ${token}` };
 
-    let params = { branchId: selectedBranchId.value };
-    if (dateRange.value && dateRange.value.length === 2) {
-      params.startDate = dateRange.value[0];
-      params.endDate = dateRange.value[1];
-    }
+    const params = buildReportParams();
 
-    // Gọi các API
     const [
       overviewRes,
       revenueByDayRes,
@@ -303,38 +341,17 @@ const fetchAllData = async () => {
       tableStatsRes,
       monthlyRes,
     ] = await Promise.all([
-      axios.get(`${API_BASE}/api/admin/reports/overview`, {
-        headers,
-        params,
-      }),
-      axios.get(`${API_BASE}/api/admin/reports/revenue-by-day`, {
-        headers,
-        params: { branchId: selectedBranchId.value, days: 7 },
-      }),
-      axios.get(`${API_BASE}/api/admin/reports/top-selling`, {
-        headers,
-        params: { branchId: selectedBranchId.value, limit: 10 },
-      }),
-      axios.get(`${API_BASE}/api/admin/reports/revenue-by-category`, {
-        headers,
-        params: { branchId: selectedBranchId.value },
-      }),
-      axios.get(`${API_BASE}/api/admin/reports/orders-by-hour`, {
-        headers,
-        params: { branchId: selectedBranchId.value },
-      }),
-      axios.get(`${API_BASE}/api/admin/reports/top-customers`, {
-        headers,
-        params: { branchId: selectedBranchId.value, limit: 10 },
-      }),
+      axios.get(`${API_BASE}/api/admin/reports/overview`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/revenue-by-day`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/top-selling`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/revenue-by-category`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/orders-by-hour`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/top-customers`, { headers, params }),
       axios.get(`${API_BASE}/api/admin/reports/table-stats`, {
         headers,
         params: { branchId: selectedBranchId.value },
       }),
-      axios.get(`${API_BASE}/api/admin/reports/monthly-revenue`, {
-        headers,
-        params: { branchId: selectedBranchId.value, months: 6 },
-      }),
+      axios.get(`${API_BASE}/api/admin/reports/monthly-revenue`, { headers, params }),
     ]);
 
     overview.value = overviewRes.data;
@@ -358,17 +375,7 @@ const downloadReport = async (format) => {
   try {
     exportLoading.value = format;
     const token = getToken();
-    const params = {
-      format,
-      branchId: selectedBranchId.value,
-      days: 7,
-      months: 6,
-      limit: 10,
-    };
-    if (dateRange.value && dateRange.value.length === 2) {
-      params.startDate = dateRange.value[0];
-      params.endDate = dateRange.value[1];
-    }
+    const params = { format, ...buildReportParams() };
     const res = await axios.get(`${API_BASE}/api/admin/reports/export`, {
       headers: { Authorization: `Bearer ${token}` },
       params,
@@ -592,6 +599,12 @@ onUnmounted(() => {
   font-size: 14px;
 }
 
+.title-section .period-hint {
+  margin-top: 6px;
+  color: var(--hl-primary);
+  font-weight: 500;
+}
+
 .filter-branch-select {
   width: 220px;
 }
@@ -739,6 +752,12 @@ onUnmounted(() => {
   font-size: 1.125rem;
   font-weight: 600;
   color: var(--hl-text);
+}
+
+.table-stats-section .section-note {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--hl-text-muted);
 }
 
 .table-stats-cards {
