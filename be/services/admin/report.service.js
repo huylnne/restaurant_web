@@ -121,6 +121,7 @@ const reportService = {
         mi.name,
         mi.category,
         mi.price,
+        mi.sale_price,
         mi.image_url,
         SUM(oi.quantity) as total_sold,
         COALESCE(SUM(oi.quantity * mi.price), 0) as total_revenue
@@ -130,7 +131,7 @@ const reportService = {
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND mi.branch_id = $1
         ${dateFilter}
-      GROUP BY mi.item_id, mi.name, mi.category, mi.price, mi.image_url
+      GROUP BY mi.item_id, mi.name, mi.category, mi.price, mi.sale_price, mi.image_url
       ORDER BY total_sold DESC
       LIMIT $${params.length}
     `;

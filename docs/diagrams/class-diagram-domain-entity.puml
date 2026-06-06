@@ -1,0 +1,62 @@
+@startuml class-diagram-domain-entity
+' Biểu đồ quan hệ entity — tách riêng để tránh rối
+skinparam defaultFontSize 11
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam nodesep 35
+skinparam ranksep 30
+top to bottom direction
+
+title Quan hệ Entity (domain)
+
+class Branch <<entity>> {
+  branch_id
+  name
+}
+
+class User <<entity>> {
+  user_id
+  role
+}
+
+class Table <<entity>> {
+  table_id
+  capacity
+  status
+}
+
+class MenuItem <<entity>> {
+  item_id
+  price
+}
+
+class Reservation <<entity>> {
+  reservation_id
+  status
+}
+
+class Order <<entity>> {
+  order_id
+  status
+}
+
+class OrderItem <<entity>> {
+  order_item_id
+  quantity
+}
+
+Branch -down-> User : 1..*
+Branch -down-> Table : 1..*
+Branch -down-> MenuItem : 1..*
+
+User -down-> Reservation : 1..*
+Table -down-> Reservation : 1..*
+
+Reservation -down-> Order : 1..*
+User -down-> Order : 1..*
+Table -down-> Order : 1..*
+
+Order -down-> OrderItem : 1..*
+MenuItem -down-> OrderItem : 1..*
+
+@enduml

@@ -1,0 +1,101 @@
+@startuml class-diagram-layered
+' Biểu đồ tổng quan theo tầng — mỗi tầng chỉ hiện đại diện + ghi chú
+skinparam defaultFontSize 11
+skinparam packageStyle rectangle
+skinparam classAttributeIconSize 0
+skinparam shadowing false
+skinparam nodesep 25
+skinparam ranksep 30
+top to bottom direction
+
+package "presentation\n(be/controllers)" as PRES #E8F4FD {
+  together {
+    class AuthController
+    class OrderController
+    class ReservationController
+    class WaiterController
+    class KitchenController
+    class DashboardController
+  }
+  note right of AuthController
+    **21 controller**
+    user: Auth, Order, Reservation, Payment...
+    admin: Waiter, Kitchen, Report, Branch...
+    public: Tables (QR)
+  end note
+}
+
+package "application\n(be/services)" as APP #FFF8E1 {
+  together {
+    class userService
+    class reservationService
+    class waiterService
+    class kitchenService
+    class paymentService
+    class reportService
+  }
+  note right of userService
+    **23 service module**
+    Không có interface riêng.
+    Chứa logic nghiệp vụ, transaction.
+  end note
+}
+
+package "infrastructure\n(be/models, realtimeHub)" as INFRA #F3E5F5 {
+  class SequelizeConnection <<db.js>>
+  class SequelizeModels <<ORM + Repository>> {
+    CRUD / transaction
+  }
+  class realtimeHub <<WebSocket>>
+}
+
+package "domain — entity\n(be/models)" as DOM #E8F5E9 {
+  together {
+    class Branch
+    class User
+    class Table
+    class Reservation
+    class Order
+    class OrderItem
+    class MenuItem
+    class Payment
+    class Employee
+    class Review
+    class OperationLog
+  }
+  note right of Branch
+    **11 entity**
+    Quan hệ khai báo tại models/index.js
+  end note
+}
+
+package "crosscutting\n(middlewares, utils)" as CC #FFEBEE {
+  together {
+    class JwtService
+    class Validator
+    class AuthMiddleware
+    class BranchScope
+    class StatusConstants
+  }
+  note right of JwtService
+    JWT, validate input, bcrypt,
+    phân quyền chi nhánh, hằng số trạng thái
+  end note
+}
+
+' ── Phụ thuộc giữa các tầng (một mũi tên / tầng) ──────────
+PRES -down-> APP : gọi service
+PRES -down-> INFRA : controller gọi ORM
+APP -down-> INFRA : truy cập dữ liệu
+INFRA -down-> DOM : map entity
+PRES .down.> CC : dùng chung
+APP .down.> CC : dùng chung
+
+note as RULE
+  **Nguyên tắc phụ thuộc**
+  Presentation → Application → Infrastructure → Domain
+  Crosscutting được dùng xuyên tầng (JWT, validate, status...)
+  Domain không phụ thuộc tầng khác
+end note
+
+@enduml

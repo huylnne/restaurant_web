@@ -5,6 +5,11 @@
       <p v-if="branchLabel" class="branch-banner">
         Chi nhánh: <strong>{{ branchLabel }}</strong>
       </p>
+      <MenuHighlightSections
+        :branch-id="branchId"
+        :show-order-button="false"
+        class="order-menu-highlights"
+      />
       <el-empty
         v-if="!menuLoading && menu.length === 0"
         class="menu-empty"
@@ -20,7 +25,7 @@
               />
               <h3>{{ item.name }}</h3>
               <p>{{ item.description }}</p>
-              <p>Giá: {{ parseInt(item.price).toLocaleString("vi-VN") }} đ</p>
+              <MenuItemPrice :dish="item" />
 
               <el-input-number
                 v-model="order[item.item_id]"
@@ -50,7 +55,8 @@ import { ref, onMounted, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import { ElMessage } from "element-plus";
-import UserNavbar from "@/components/UserNavbar.vue";
+import MenuHighlightSections from "@/components/MenuHighlightSections.vue";
+import MenuItemPrice from "@/components/MenuItemPrice.vue";
 
 const route = useRoute();
 const router = useRouter();
@@ -157,6 +163,10 @@ const submitOrder = async () => {
 </script>
 
 <style scoped>
+.order-menu-highlights {
+  margin-bottom: var(--hl-space-lg);
+}
+
 .order-menu-card {
   max-width: 900px;
   margin: var(--hl-space-2xl) auto;

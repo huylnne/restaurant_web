@@ -1,5 +1,9 @@
-const db = require("../../models/db"); // hoặc đúng path bạn đã dùng
+const db = require("../../models/db");
 const MenuItem = db.MenuItem;
+const {
+  getHighlights: getMenuHighlightsData,
+  formatMenuItem,
+} = require("../../services/menuHighlight.service");
 
 const getFeaturedMenuItems = async (req, res) => {
     try {
@@ -22,7 +26,20 @@ const getFeaturedMenuItems = async (req, res) => {
   };
 
 
-  const getAllMenuItems = async (req, res) => {
+const getMenuHighlights = async (req, res) => {
+  try {
+    const branch_id = parseInt(req.query.branch_id || req.query.branchId, 10) || 1;
+    const limit = parseInt(req.query.limit, 10) || 8;
+    const days = parseInt(req.query.days, 10) || 30;
+    const data = await getMenuHighlightsData(branch_id, { limit, days });
+    res.json(data);
+  } catch (error) {
+    console.error("❌ Lỗi khi lấy gợi ý menu:", error);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+const getAllMenuItems = async (req, res) => {
   try {
     // Lấy query params: ?page=1&limit=8&category=starter
     const page = parseInt(req.query.page) || 1;
@@ -49,7 +66,7 @@ const getFeaturedMenuItems = async (req, res) => {
       currentPage: page,
       totalPages: Math.ceil(count / limit),
       totalItems: count,
-      items: rows
+      items: rows.map((row) => formatMenuItem(row.get({ plain: true }))),
     });
   } catch (error) {
     console.error("❌ Lỗi khi lấy danh sách món ăn:", error);
@@ -58,8 +75,9 @@ const getFeaturedMenuItems = async (req, res) => {
 };
   
   
-  module.exports = {
-    getFeaturedMenuItems,
-    getAllMenuItems,
-  };
+module.exports = {
+  getFeaturedMenuItems,
+  getMenuHighlights,
+  getAllMenuItems,
+};
   

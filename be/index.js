@@ -123,6 +123,22 @@ async function initDatabase() {
   await db.sequelize
     .query('ALTER TABLE reservations ADD COLUMN IF NOT EXISTS note TEXT;', { raw: true })
     .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS sale_price DECIMAL(10, 2);', {
+      raw: true,
+    })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE menu_items
+       SET sale_price = ROUND(price * 0.85, -3)
+       WHERE is_featured = true
+         AND is_active = true
+         AND sale_price IS NULL
+         AND price > 0;`,
+      { raw: true }
+    )
+    .catch(() => {});
 
   const { ensureMenuForEmptyBranches } = require('./utils/ensureBranchMenus');
   await ensureMenuForEmptyBranches(db.sequelize).catch((err) => {

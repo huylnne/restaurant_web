@@ -36,8 +36,8 @@ async function ensureMenuForEmptyBranches(sequelize) {
     if ((existing?.cnt ?? 0) > 0) continue;
 
     await sequelize.query(
-      `INSERT INTO menu_items (branch_id, name, description, price, category, is_active, is_featured, created_at, image_url)
-       SELECT :branchId, name, description, price, category, is_active, is_featured, NOW(), image_url
+      `INSERT INTO menu_items (branch_id, name, description, price, sale_price, category, is_active, is_featured, created_at, image_url)
+       SELECT :branchId, name, description, price, sale_price, category, is_active, is_featured, NOW(), image_url
        FROM menu_items
        WHERE branch_id = :source AND is_active = true`,
       {

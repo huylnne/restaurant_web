@@ -14,13 +14,13 @@
         Thêm món
       </button>
     </div>
-    <div v-if="isAdminView" class="branch-selector">
+    <div v-if="isAdminView || branches.length > 1" class="branch-selector">
       <el-select
         v-model="selectedBranchId"
         placeholder="Chọn chi nhánh"
         style="width: 220px"
-        :disabled="!isSuperAdmin"
-        @change="fetchAllMenuItems"
+        :disabled="isAdminView && !isSuperAdmin"
+        @change="onBranchChange"
       >
         <el-option
           v-for="branch in branches"
@@ -30,6 +30,12 @@
         />
       </el-select>
     </div>
+
+    <MenuHighlightSections
+      v-if="!isAdminView"
+      :branch-id="selectedBranchId"
+      @order="handleOrderClick"
+    />
 
     <div class="menu-content" ref="allDishesSection">
       <!-- Thanh lọc danh mục -->
@@ -59,11 +65,7 @@
               <div class="dish-content">
                 <h3>{{ dish.name }}</h3>
                 <p class="desc">{{ dish.description }}</p>
-                <p class="dish-price">
-                  <strong class="price-num">
-                    {{ parseInt(dish.price).toLocaleString("vi-VN") }} đ
-                  </strong>
-                </p>
+                <MenuItemPrice :dish="dish" />
               </div>
               <!-- Hiện nút đặt món khi KHÔNG phải admin view (trang công khai) -->
               <el-button
@@ -136,6 +138,15 @@
             />
           </div>
           <div class="form-group">
+            <label>Giá khuyến mãi (để trống nếu không giảm)</label>
+            <input
+              v-model.number="formState.sale_price"
+              type="number"
+              min="0"
+              placeholder="VD: 38000"
+            />
+          </div>
+          <div class="form-group">
             <label>Danh mục <span class="required">*</span></label>
             <select v-model="formState.category" required>
               <option value="Khai vị">Khai vị</option>
@@ -173,6 +184,8 @@ import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { CoffeeCup, KnifeFork, IceCream, GobletFull, Plus, Edit, Delete } from "@element-plus/icons-vue";
 import PaginationBar from "@/components/PaginationBar.vue";
+import MenuHighlightSections from "@/components/MenuHighlightSections.vue";
+import MenuItemPrice from "@/components/MenuItemPrice.vue";
 import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
 
 const router = useRouter();
@@ -262,6 +275,7 @@ const formState = reactive({
   name: "",
   description: "",
   price: 0,
+  sale_price: null,
   category: "Món chính",
   image_url: "",
   branch_id: 1,
@@ -293,7 +307,7 @@ onUnmounted(() => {
 
 const fetchBranches = async () => {
   try {
-    const res = await axios.get("http://localhost:3000/api/home/branches");
+    const res = await axios.get("/api/home/branches");
     branches.value = Array.isArray(res.data) ? res.data : [];
     if (!isSuperAdmin) {
       selectedBranchId.value = getDefaultBranchIdForUser(user);
@@ -310,10 +324,14 @@ const fetchBranches = async () => {
 };
 
 // Lấy toàn bộ menu từ API
+const onBranchChange = () => {
+  fetchAllMenuItems();
+};
+
 const fetchAllMenuItems = async () => {
   try {
-    const res = await axios.get("http://localhost:3000/api/menu-items?limit=1000", {
-      params: { branchId: selectedBranchId.value },
+    const res = await axios.get("/api/menu-items", {
+      params: { limit: 1000, branch_id: selectedBranchId.value },
     });
     allMenuItems.value = res.data.items || [];
     await nextTick();
@@ -371,6 +389,7 @@ const openAddModal = () => {
     name: "",
     description: "",
     price: 0,
+    sale_price: null,
     category: "Món chính",
     image_url: "",
     branch_id: selectedBranchId.value,
@@ -385,6 +404,7 @@ const openEditModal = (dish) => {
     name: dish.name,
     description: dish.description,
     price: dish.price,
+    sale_price: dish.sale_price ?? null,
     category: dish.category,
     image_url: dish.image_url,
     branch_id: dish.branch_id || selectedBranchId.value,
@@ -428,10 +448,25 @@ const handleSubmit = async () => {
       name: formState.name,
       description: formState.description,
       price: formState.price,
+      sale_price:
+        formState.sale_price != null &&
+        formState.sale_price !== "" &&
+        Number(formState.sale_price) > 0
+          ? Number(formState.sale_price)
+          : null,
       category: formState.category,
       image_url: formState.image_url,
       branch_id: selectedBranchId.value,
     };
+    if (
+      payload.sale_price != null &&
+      Number.isFinite(payload.sale_price) &&
+      payload.sale_price >= payload.price
+    ) {
+      ElMessage.warning("Giá khuyến mãi phải nhỏ hơn giá gốc.");
+      submitting.value = false;
+      return;
+    }
     if (modalMode.value === "edit") {
       await axios.put(`http://localhost:3000/api/admin/menu/${formState.id}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -670,18 +705,6 @@ const handleSubmit = async () => {
   display: -webkit-box;
   -webkit-line-clamp: 2;
   -webkit-box-orient: vertical;
-}
-
-.dish-price {
-  font-size: 1.125rem;
-  font-weight: 700;
-  color: var(--hl-primary);
-  margin-top: auto;
-  padding-top: var(--hl-space-sm);
-}
-
-.price-num {
-  color: var(--hl-primary);
 }
 
 .order-button {

@@ -15,6 +15,10 @@ module.exports = (sequelize, DataTypes) => {
     },
     description: DataTypes.TEXT,
     price: DataTypes.DECIMAL(10, 2),
+    sale_price: {
+      type: DataTypes.DECIMAL(10, 2),
+      allowNull: true,
+    },
     category: DataTypes.STRING(100),
     is_active: {
       type: DataTypes.BOOLEAN,
