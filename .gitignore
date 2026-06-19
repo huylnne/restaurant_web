@@ -1,0 +1,6 @@
+node_modules/
+be/node_modules/
+vue-fe/node_modules/
+.env
+be/.env
+vue-fe/.env
