@@ -15,7 +15,7 @@
         <div class="row">
           <div>
             <div class="label">Trạng thái</div>
-            <div class="value">{{ tableInfo?.status ?? "-" }}</div>
+            <div class="value">{{ tableStatusText }}</div>
           </div>
           <div>
             <div class="label">Sức chứa</div>
@@ -131,6 +131,7 @@ import axios from "axios";
 import QRCode from "qrcode";
 import { ElMessage } from "element-plus";
 import { API_ORIGIN } from "@/config/api";
+import { getTableStatusLabel } from "@/constants/tableStatus";
 
 const API_BASE = API_ORIGIN;
 const DEFAULT_DISH_IMAGE =
@@ -199,6 +200,8 @@ const selectedItems = computed(() =>
     }))
     .filter((item) => item.quantity > 0)
 );
+
+const tableStatusText = computed(() => getTableStatusLabel(tableInfo.value?.status));
 
 const refreshBill = async () => {
   billLoading.value = true;
