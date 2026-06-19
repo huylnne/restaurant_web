@@ -26,7 +26,8 @@ export default defineConfig({
   preview: {
     host: '0.0.0.0',
     allowedHosts: [
-      'pleasant-passion-production-4aac.up.railway.app'
+      'pleasant-passion-production-4aac.up.railway.app',
+      'hl-restaurant.com'
     ]
   }
 })
