@@ -1,4 +1,4 @@
-const DEFAULT_API_ORIGIN = "https://restaurantweb-production-8995.up.railway.app";
+const DEFAULT_API_ORIGIN = "https://api.hl-restaurant.com";
 
 export const API_ORIGIN = (import.meta.env.VITE_API_URL || DEFAULT_API_ORIGIN).replace(/\/+$/, "");
 
