@@ -1,10 +1,7 @@
-/**
- * Tạm thời: không dùng GPS trình duyệt (hay lệch sang Trung Quốc).
- * Đặt false khi cần bật lại định vị thật.
- */
-export const USE_FIXED_USER_LOCATION = true;
+/** Bật chỉ khi cần test bằng một tọa độ giả lập. */
+export const USE_FIXED_USER_LOCATION = false;
 
-/** Vị trí cố định — Đại học Bách khoa Hà Nội */
+/** Preset Hà Nội dùng cho test/chọn thủ công, không dùng mặc định cho người dùng thật. */
 export const FIXED_USER_LOCATION = {
   lat: 21.006323402004778,
   lng: 105.84309850970723,
@@ -99,22 +96,15 @@ export function formatDistanceKm(km) {
  * Link Google Maps: từ vị trí bạn (origin) → chi nhánh (destination).
  * @param {number} destLat - vĩ độ chi nhánh
  * @param {number} destLng - kinh độ chi nhánh
- * @param {{ lat: number, lng: number } | null} [origin] - điểm xuất phát; mặc định FIXED_USER_LOCATION khi bật cố định
+ * @param {{ lat: number, lng: number } | null} [origin] - điểm xuất phát từ vị trí người dùng
  */
 export function mapsDirectionsUrl(destLat, destLng, origin = null) {
-  const from =
-    origin?.lat != null && origin?.lng != null
-      ? origin
-      : USE_FIXED_USER_LOCATION
-        ? FIXED_USER_LOCATION
-        : null;
-
   const params = new URLSearchParams({
     api: "1",
     destination: `${destLat},${destLng}`,
   });
-  if (from) {
-    params.set("origin", `${from.lat},${from.lng}`);
+  if (origin?.lat != null && origin?.lng != null) {
+    params.set("origin", `${origin.lat},${origin.lng}`);
   }
   return `https://www.google.com/maps/dir/?${params.toString()}`;
 }

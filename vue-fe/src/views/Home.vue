@@ -413,6 +413,7 @@ const scrollRight = () => scrollByCard("right");
   flex-direction: column;
   align-items: center;
   gap: 15px;
+  box-sizing: border-box;
 }
 
 .section-title {
@@ -447,6 +448,8 @@ const scrollRight = () => scrollByCard("right");
   align-items: center;
   overflow: hidden;
   justify-content: center;
+  width: 100%;
+  max-width: 100%;
 }
 
 .scroll-left,
@@ -552,8 +555,32 @@ const scrollRight = () => scrollByCard("right");
     height: 420px;
   }
 
+  .featured-dishes {
+    padding: var(--hl-space-xl) var(--hl-space-md);
+  }
+
+  .dish-grid-wrapper {
+    overflow: visible;
+  }
+
+  .dish-grid {
+    width: 100%;
+    margin: 0;
+    gap: var(--hl-space-md);
+    overflow-x: auto;
+    padding: 0 0 var(--hl-space-sm);
+    scroll-snap-type: x mandatory;
+  }
+
   .dish-card {
-    flex: 0 0 calc(50% - 12px);
+    flex: 0 0 min(82vw, 360px);
+    max-width: min(82vw, 360px);
+    scroll-snap-align: start;
+  }
+
+  .scroll-left,
+  .scroll-right {
+    display: none;
   }
 
   .section-title_desc {
@@ -594,11 +621,10 @@ const scrollRight = () => scrollByCard("right");
   }
 
   .dish-card {
-    flex: 0 0 85%;
+    flex: 0 0 min(82vw, 320px);
+    max-width: min(82vw, 320px);
   }
 
-  .scroll-left,
-  .scroll-right,
   .arrow {
     display: none;
   }

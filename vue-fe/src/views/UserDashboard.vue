@@ -943,8 +943,32 @@ const handleOrderClick = () => {
     font-size: clamp(1.1rem, 4vw, 1.6rem);
   }
 
+  .featured-dishes {
+    padding: var(--hl-space-xl) var(--hl-space-md);
+  }
+
+  .dish-grid-wrapper {
+    overflow: visible;
+  }
+
+  .dish-grid {
+    width: 100%;
+    margin: 0;
+    gap: var(--hl-space-md);
+    overflow-x: auto;
+    padding: 0 0 var(--hl-space-sm);
+    scroll-snap-type: x mandatory;
+  }
+
   .dish-card {
-    flex: 0 0 calc(33.333% - 16px);
+    flex: 0 0 min(82vw, 360px);
+    max-width: min(82vw, 360px);
+    scroll-snap-align: start;
+  }
+
+  .scroll-left,
+  .scroll-right {
+    display: none;
   }
 }
 
@@ -973,19 +997,6 @@ const handleOrderClick = () => {
     width: 100%;
   }
 
-  .featured-dishes {
-    padding: var(--hl-space-xl) var(--hl-space-md);
-  }
-
-  .dish-grid {
-    width: 100%;
-    margin: 0;
-    gap: var(--hl-space-md);
-    overflow-x: auto;
-    padding: 0 0 var(--hl-space-sm);
-    scroll-snap-type: x mandatory;
-  }
-
   .dish-card {
     flex: 0 0 min(82vw, 320px);
     max-width: min(82vw, 320px);
@@ -996,9 +1007,5 @@ const handleOrderClick = () => {
     height: 180px;
   }
 
-  .scroll-left,
-  .scroll-right {
-    display: none;
-  }
 }
 </style>
