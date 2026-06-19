@@ -13,6 +13,7 @@ const PAYMENT_METHODS = {
   CARD: "CARD",
   WALLET: "WALLET",
   MOMO: "MOMO",
+  SEPAY: "SEPAY",
   COD: "COD",
 };
 
@@ -50,6 +51,47 @@ function isOfflineMethod(method) {
 function generateInvoiceNo(paymentId) {
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   return `INV-${stamp}-${paymentId}`;
+}
+
+function getSePayOrderPrefix() {
+  return String(process.env.SEPAY_ORDER_PREFIX || "HLORD")
+    .replace(/[^a-z0-9]/gi, "")
+    .toUpperCase();
+}
+
+function buildSePayOrderCode(orderId) {
+  return `${getSePayOrderPrefix()}${Number(orderId)}`;
+}
+
+function extractSePayOrderId(payload = {}) {
+  const prefix = getSePayOrderPrefix();
+  const candidates = [
+    payload.code,
+    payload.subAccount,
+    payload.content,
+    payload.description,
+  ]
+    .filter(Boolean)
+    .map((value) => String(value));
+
+  const patterns = [
+    new RegExp(`${prefix}\\s*[-_]?\\s*(\\d+)`, "i"),
+    /\bORD\s*[-_]?\s*(\d+)\b/i,
+    /\bThanh\s*toan\s*ban\s*(\d+)\b/i,
+  ];
+
+  for (const text of candidates) {
+    for (const pattern of patterns) {
+      const match = text.match(pattern);
+      if (match?.[1]) return Number(match[1]);
+    }
+  }
+  return null;
+}
+
+function sePayTransactionRef(payload = {}) {
+  const id = payload.id || payload.referenceCode || payload.code;
+  return id ? `SEPAY:${id}` : null;
 }
 
 function resolveSessionOrderId({ orderId, reservationId }) {
@@ -202,6 +244,16 @@ async function createSession({ orderId, reservationId, tableToken, method, retur
     };
   }
 
+  if (normalizedMethod === PAYMENT_METHODS.SEPAY) {
+    const qr = await createVietQrForOrder(sessionOrderId);
+    return {
+      nextAction: "qr",
+      paymentId: payment.payment_id,
+      orderId: sessionOrderId,
+      ...qr,
+    };
+  }
+
   throw new Error("UNSUPPORTED_METHOD");
 }
 
@@ -288,6 +340,76 @@ async function handleMomoWebhook(payload, verifyOk = true) {
   return true;
 }
 
+async function handleSePayWebhook(payload, verifyOk = true) {
+  if (!verifyOk) throw new Error("INVALID_SIGNATURE");
+  if (String(payload.transferType || "").toLowerCase() !== "in") {
+    return { processed: false, reason: "IGNORED_TRANSFER_TYPE" };
+  }
+
+  const expectedAccountNumber = process.env.SEPAY_ACCOUNT_NUMBER || process.env.VIETQR_ACCOUNT_NUMBER;
+  if (expectedAccountNumber && String(payload.accountNumber) !== String(expectedAccountNumber)) {
+    return { processed: false, reason: "IGNORED_ACCOUNT" };
+  }
+
+  const sessionOrderId = extractSePayOrderId(payload);
+  if (!sessionOrderId) return { processed: false, reason: "ORDER_CODE_NOT_FOUND" };
+
+  const transferAmount = Math.round(Number(payload.transferAmount || 0));
+  if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
+    return { processed: false, reason: "INVALID_AMOUNT" };
+  }
+
+  const transactionRef = sePayTransactionRef(payload);
+  if (transactionRef) {
+    const existingTransaction = await Payment.findOne({ where: { transaction_ref: transactionRef } });
+    if (existingTransaction?.status === "succeeded") {
+      return { processed: true, paymentId: existingTransaction.payment_id, orderId: existingTransaction.order_id };
+    }
+  }
+
+  const { amount } = await getAmountByOrder(sessionOrderId);
+  const expectedAmount = Math.round(Number(amount));
+  if (transferAmount !== expectedAmount) {
+    return {
+      processed: false,
+      reason: "AMOUNT_MISMATCH",
+      orderId: sessionOrderId,
+      expectedAmount,
+      transferAmount,
+    };
+  }
+
+  let payment = await Payment.findOne({ where: { order_id: sessionOrderId } });
+  if (payment?.status === "succeeded") {
+    return { processed: true, paymentId: payment.payment_id, orderId: sessionOrderId, reason: "ALREADY_PAID" };
+  }
+
+  if (!payment) {
+    payment = await Payment.create({
+      order_id: sessionOrderId,
+      amount: expectedAmount,
+      method: PAYMENT_METHODS.SEPAY,
+      status: "pending",
+      transaction_ref: null,
+      paid_at: null,
+      created_at: now(),
+    });
+  }
+
+  payment.amount = expectedAmount;
+  payment.method = PAYMENT_METHODS.SEPAY;
+  payment.status = "succeeded";
+  payment.transaction_ref = transactionRef || payment.transaction_ref;
+  payment.paid_at = now();
+  if (!payment.invoice_no) payment.invoice_no = generateInvoiceNo(payment.payment_id);
+  if (!payment.invoice_issued_at) payment.invoice_issued_at = now();
+  await payment.save();
+
+  await onPaymentSucceededByOrder(sessionOrderId);
+
+  return { processed: true, paymentId: payment.payment_id, orderId: sessionOrderId };
+}
+
 async function getPaymentByOrder(orderId) {
   return Payment.findOne({ where: { order_id: orderId } });
 }
@@ -299,6 +421,7 @@ async function getPaymentByReservation(reservationId) {
 module.exports = {
   createSession,
   handleMomoWebhook,
+  handleSePayWebhook,
   getPaymentByOrder,
   getPaymentByReservation,
   onPaymentSucceededByReservation: onPaymentSucceededByOrder,
@@ -319,30 +442,48 @@ module.exports = {
     }
     if (!sessionOrderId) throw new Error("ORDER_NOT_FOUND");
 
-    const bankBin = process.env.VIETQR_BANK_BIN;
-    const accountNumber = process.env.VIETQR_ACCOUNT_NUMBER;
-    const serviceCode = process.env.VIETQR_SERVICE_CODE || "QRIBFTTA";
-    if (!bankBin || !accountNumber) throw new Error("VIETQR_NOT_CONFIGURED");
-
-    const { amount } = await getAmountByOrder(sessionOrderId);
-    const vnd = Math.round(Number(amount));
-    if (!Number.isFinite(vnd) || vnd <= 0) throw new Error("INVALID_AMOUNT");
-
-    const qr = generateVietQR({
-      bankBin: String(bankBin),
-      accountNumber: String(accountNumber),
-      serviceCode,
-      amount: String(vnd),
-      message: `Thanh toan ban ${sessionOrderId}`,
-      billNumber: `ORD-${sessionOrderId}`,
-    });
+    const qrData = await createVietQrForOrder(sessionOrderId);
 
     return {
       orderId: sessionOrderId,
       reservationId: sessionOrderId,
-      amount: vnd,
-      vietqrRaw: qr.rawData,
-      qrType: qr.qrType,
+      ...qrData,
     };
   },
 };
+
+async function createVietQrForOrder(sessionOrderId) {
+  const bankBin = process.env.VIETQR_BANK_BIN;
+  const accountNumber = process.env.VIETQR_ACCOUNT_NUMBER;
+  const serviceCode = process.env.VIETQR_SERVICE_CODE || "QRIBFTTA";
+  if (!bankBin || !accountNumber) throw new Error("VIETQR_NOT_CONFIGURED");
+
+  const { amount } = await getAmountByOrder(sessionOrderId);
+  const vnd = Math.round(Number(amount));
+  if (!Number.isFinite(vnd) || vnd <= 0) throw new Error("INVALID_AMOUNT");
+
+  const payment = await createOrUpdatePaymentForOrder({
+    orderId: sessionOrderId,
+    amount: vnd,
+    method: PAYMENT_METHODS.SEPAY,
+  });
+  await Order.update({ payment_status: "pending" }, { where: { order_id: sessionOrderId } });
+
+  const paymentCode = buildSePayOrderCode(sessionOrderId);
+  const qr = generateVietQR({
+    bankBin: String(bankBin),
+    accountNumber: String(accountNumber),
+    serviceCode,
+    amount: String(vnd),
+    message: paymentCode,
+    billNumber: paymentCode,
+  });
+
+  return {
+    amount: vnd,
+    paymentId: payment.payment_id,
+    paymentCode,
+    vietqrRaw: qr.rawData,
+    qrType: qr.qrType,
+  };
+}

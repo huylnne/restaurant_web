@@ -37,6 +37,24 @@ exports.momoWebhook = async (req, res) => {
   }
 };
 
+// POST /api/payments/webhook/sepay
+exports.sepayWebhook = async (req, res) => {
+  try {
+    const configuredKey = process.env.SEPAY_WEBHOOK_API_KEY;
+    const authHeader = req.get("authorization") || "";
+    const receivedKey = authHeader.replace(/^Bearer\s+/i, "").trim();
+    const verifyOk = !configuredKey || receivedKey === configuredKey || authHeader === configuredKey;
+
+    const result = await service.handleSePayWebhook(req.body, verifyOk);
+    res.status(200).json({ success: true, ...result });
+  } catch (e) {
+    if (e.message === "INVALID_SIGNATURE") {
+      return res.status(401).json({ success: false, error: e.message });
+    }
+    res.status(200).json({ success: true, processed: false, error: e.message });
+  }
+};
+
 // GET /api/payments/return?orderId=...
 exports.paymentReturn = async (req, res) => {
   const { orderId } = req.query;
@@ -75,6 +93,7 @@ exports.createVietQr = async (req, res) => {
       NO_ACTIVE_SESSION: 400,
       INVALID_AMOUNT: 400,
       VIETQR_NOT_CONFIGURED: 500,
+      ORDER_ALREADY_PAID: 409,
     };
     res.status(map[e.message] || 500).json({ error: e.message });
   }

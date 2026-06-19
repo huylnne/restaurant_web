@@ -50,7 +50,7 @@
 
       <div v-if="bankQrRaw" class="card bank-card">
         <h3 class="bank-title">QR ngân hàng</h3>
-        <p class="muted">Quét bằng app ngân hàng sẽ tự điền sẵn số tiền.</p>
+        <p class="muted">Quét bằng app ngân hàng sẽ tự điền sẵn số tiền và nội dung chuyển khoản.</p>
         <div class="qr-image-wrap">
           <img v-if="bankQrDataUrl" :src="bankQrDataUrl" alt="Bank QR" class="qr-image" />
         </div>
@@ -58,16 +58,28 @@
           <span>Số tiền</span>
           <strong>{{ formatCurrency(bankAmount) }}</strong>
         </div>
+        <div class="payment-code">
+          <span>Nội dung CK</span>
+          <strong>{{ paymentCode }}</strong>
+        </div>
+        <div class="payment-waiting" :class="{ paid: paymentStatus === 'succeeded' }">
+          {{
+            paymentStatus === "succeeded"
+              ? "Đã nhận thanh toán. Cảm ơn quý khách!"
+              : "Sau khi chuyển khoản, hệ thống sẽ tự xác nhận trong vài giây."
+          }}
+        </div>
       </div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { ref, onMounted } from "vue";
+import { ref, onMounted, onUnmounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import QRCode from "qrcode";
+import { ElMessage } from "element-plus";
 import { API_ORIGIN } from "@/config/api";
 
 const API_BASE = API_ORIGIN;
@@ -83,6 +95,10 @@ const bankLoading = ref(false);
 const bankQrRaw = ref("");
 const bankQrDataUrl = ref("");
 const bankAmount = ref(0);
+const paymentOrderId = ref(null);
+const paymentCode = ref("");
+const paymentStatus = ref("");
+let paymentStatusTimer = null;
 
 const token = route.params.token;
 
@@ -106,6 +122,7 @@ const fetchAll = async () => {
 };
 
 onMounted(fetchAll);
+onUnmounted(() => stopPaymentPolling());
 
 const formatCurrency = (amount) => {
   const n = Number(amount) || 0;
@@ -114,22 +131,57 @@ const formatCurrency = (amount) => {
 
 const goMyTable = () => router.push("/my-table");
 
+const stopPaymentPolling = () => {
+  if (paymentStatusTimer) {
+    clearInterval(paymentStatusTimer);
+    paymentStatusTimer = null;
+  }
+};
+
+const pollPaymentStatus = async () => {
+  if (!paymentOrderId.value) return;
+  try {
+    const res = await axios.get(`${API_BASE}/api/payments/by-order/${paymentOrderId.value}`);
+    paymentStatus.value = res.data?.status || "";
+    if (paymentStatus.value === "succeeded") {
+      stopPaymentPolling();
+      ElMessage.success("Thanh toán thành công!");
+      await fetchAll();
+    }
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const startPaymentPolling = () => {
+  stopPaymentPolling();
+  pollPaymentStatus();
+  paymentStatusTimer = setInterval(pollPaymentStatus, 3000);
+};
+
 const genBankQr = async () => {
   bankLoading.value = true;
   bankQrRaw.value = "";
   bankQrDataUrl.value = "";
   bankAmount.value = 0;
+  paymentOrderId.value = null;
+  paymentCode.value = "";
+  paymentStatus.value = "";
+  stopPaymentPolling();
   try {
     const res = await axios.post(`${API_BASE}/api/payments/vietqr`, { tableToken: token });
     bankQrRaw.value = res.data?.vietqrRaw || "";
     bankAmount.value = res.data?.amount || 0;
+    paymentOrderId.value = res.data?.orderId || null;
+    paymentCode.value = res.data?.paymentCode || "";
     if (bankQrRaw.value) {
       bankQrDataUrl.value = await QRCode.toDataURL(bankQrRaw.value, { margin: 1, width: 260 });
+      startPaymentPolling();
     }
   } catch (err) {
     console.error(err);
     const msg = err.response?.data?.error || "Không thể tạo QR ngân hàng.";
-    alert(msg);
+    ElMessage.error(msg);
   } finally {
     bankLoading.value = false;
   }
@@ -216,6 +268,32 @@ const genBankQr = async () => {
   display: flex;
   justify-content: space-between;
 }
+.payment-code {
+  margin-top: 10px;
+  padding: 10px 12px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: var(--hl-radius-md);
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+}
+.payment-code span {
+  color: var(--hl-text-muted);
+}
+.payment-waiting {
+  margin-top: 12px;
+  padding: 10px 12px;
+  color: #92400e;
+  background: #fffbeb;
+  border: 1px solid #fde68a;
+  border-radius: var(--hl-radius-md);
+}
+.payment-waiting.paid {
+  color: #166534;
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
 .actions {
   margin-top: var(--hl-space-lg);
   display: flex;
@@ -257,7 +335,8 @@ const genBankQr = async () => {
   }
 
   .bill-row,
-  .bill-total {
+  .bill-total,
+  .payment-code {
     align-items: flex-start;
     flex-direction: column;
     gap: 4px;

@@ -35,6 +35,22 @@ router.post(
   ctrl.momoWebhook
 );
 
+router.post(
+  '/webhook/sepay',
+  auditLog({
+    action: 'PAYMENT_SEPAY_WEBHOOK',
+    module: 'payments',
+    description: 'SEPay bank transfer webhook',
+    metadata: (req) => ({
+      id: req.body?.id,
+      code: req.body?.code,
+      transferAmount: req.body?.transferAmount,
+    }),
+    successStatuses: [200, 201, 204],
+  }),
+  ctrl.sepayWebhook
+);
+
 router.get('/return', ctrl.paymentReturn);
 router.get('/by-order/:id', ctrl.getPaymentByOrder);
 router.get('/by-reservation/:id', ctrl.getPaymentByReservation);
