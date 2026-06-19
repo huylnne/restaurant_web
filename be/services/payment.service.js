@@ -54,7 +54,7 @@ function generateInvoiceNo(paymentId) {
 }
 
 function getSePayOrderPrefix() {
-  return String(process.env.SEPAY_ORDER_PREFIX || "HLORD")
+  return String(process.env.SEPAY_ORDER_PREFIX || "DH")
     .replace(/[^a-z0-9]/gi, "")
     .toUpperCase();
 }
@@ -476,6 +476,7 @@ async function createVietQrForOrder(sessionOrderId) {
     serviceCode,
     amount: String(vnd),
     message: paymentCode,
+    purpose: paymentCode,
     billNumber: paymentCode,
   });
 
@@ -483,6 +484,7 @@ async function createVietQrForOrder(sessionOrderId) {
     amount: vnd,
     paymentId: payment.payment_id,
     paymentCode,
+    vietqrContent: paymentCode,
     vietqrRaw: qr.rawData,
     qrType: qr.qrType,
   };

@@ -42,8 +42,13 @@ exports.sepayWebhook = async (req, res) => {
   try {
     const configuredKey = process.env.SEPAY_WEBHOOK_API_KEY;
     const authHeader = req.get("authorization") || "";
-    const receivedKey = authHeader.replace(/^Bearer\s+/i, "").trim();
-    const verifyOk = !configuredKey || receivedKey === configuredKey || authHeader === configuredKey;
+    const receivedKey = authHeader.replace(/^(Bearer|Apikey|ApiKey|Token)\s+/i, "").trim();
+    const xApiKey = req.get("x-api-key") || "";
+    const verifyOk =
+      !configuredKey ||
+      receivedKey === configuredKey ||
+      authHeader === configuredKey ||
+      xApiKey === configuredKey;
 
     const result = await service.handleSePayWebhook(req.body, verifyOk);
     res.status(200).json({ success: true, ...result });

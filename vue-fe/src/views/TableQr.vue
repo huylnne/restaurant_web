@@ -173,7 +173,7 @@ const genBankQr = async () => {
     bankQrRaw.value = res.data?.vietqrRaw || "";
     bankAmount.value = res.data?.amount || 0;
     paymentOrderId.value = res.data?.orderId || null;
-    paymentCode.value = res.data?.paymentCode || "";
+    paymentCode.value = res.data?.vietqrContent || res.data?.paymentCode || "";
     if (bankQrRaw.value) {
       bankQrDataUrl.value = await QRCode.toDataURL(bankQrRaw.value, { margin: 1, width: 260 });
       startPaymentPolling();

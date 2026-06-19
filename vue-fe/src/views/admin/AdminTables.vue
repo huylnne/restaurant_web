@@ -1274,7 +1274,7 @@ const openPaymentQrDialog = async (table) => {
     const res = await axios.post(`${API_BASE}/api/payments/vietqr`, { tableToken: table.qr_token });
     const raw = res.data?.vietqrRaw;
     qrPaymentAmount.value = res.data?.amount || 0;
-    qrPaymentCode.value = res.data?.paymentCode || "";
+    qrPaymentCode.value = res.data?.vietqrContent || res.data?.paymentCode || "";
     qrPaymentOrderId.value = res.data?.orderId || null;
     if (!raw) throw new Error("NO_QR");
     qrDataUrl.value = await QRCode.toDataURL(raw, { margin: 1, width: 260 });
