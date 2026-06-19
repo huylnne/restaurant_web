@@ -103,8 +103,9 @@ import { onMounted, ref } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
+import { API_ORIGIN } from "@/config/api";
 
-const API_BASE = "http://localhost:3000";
+const API_BASE = API_ORIGIN;
 const currentUser = getCurrentUser();
 const isSuperAdmin = isSuperAdminUser(currentUser);
 

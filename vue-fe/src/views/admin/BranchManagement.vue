@@ -138,7 +138,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { Plus, Edit, CloseBold } from "@element-plus/icons-vue";
 import { isSuperAdminUser } from "@/utils/adminScope";
 
-const API_BASE = "http://localhost:3000/api/admin/branches";
+const API_BASE = "/api/admin/branches";
 
 const user = computed(() => JSON.parse(localStorage.getItem("user") || "{}"));
 const isAdmin = computed(() => user.value?.role === "admin");

@@ -207,8 +207,9 @@ import {
 } from "@element-plus/icons-vue";
 import * as echarts from "echarts";
 import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
+import { API_ORIGIN } from "@/config/api";
 
-const API_BASE = "http://localhost:3000";
+const API_BASE = API_ORIGIN;
 
 const dateRange = ref(null);
 const exportLoading = ref(null);

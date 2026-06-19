@@ -117,7 +117,7 @@ const nextSlide = () => {
 const featuredDishes = ref([]);
 onMounted(async () => {
   try {
-    const response = await axios.get("http://localhost:3000/api/menu-items/featured");
+    const response = await axios.get("/api/menu-items/featured");
     featuredDishes.value = response.data;
     console.log("Dữ liệu món ăn:", featuredDishes.value);
   } catch (error) {

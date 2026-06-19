@@ -68,8 +68,9 @@ import { ref, onMounted } from "vue";
 import { useRoute, useRouter } from "vue-router";
 import axios from "axios";
 import QRCode from "qrcode";
+import { API_ORIGIN } from "@/config/api";
 
-const API_BASE = "http://localhost:3000";
+const API_BASE = API_ORIGIN;
 
 const route = useRoute();
 const router = useRouter();

@@ -148,8 +148,9 @@ import {
 } from "chart.js";
 import { Bar } from "vue-chartjs";
 import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
+import { API_ORIGIN } from "@/config/api";
 Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, ArcElement);
-const API_BASE = "http://localhost:3000";
+const API_BASE = API_ORIGIN;
 const branches = ref([]);
 const currentUser = getCurrentUser();
 const isSuperAdmin = isSuperAdminUser(currentUser);

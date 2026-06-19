@@ -1,6 +1,6 @@
 /**
  * UC08 – Kết nối WebSocket theo chi nhánh (đồng bộ bếp / phục vụ).
- * @param {string} httpApiBase Ví dụ http://localhost:3000
+ * @param {string} httpApiBase Ví dụ https://restaurantweb-production-8995.up.railway.app
  * @param {number} branchId
  * @param {(msg: Record<string, unknown>) => void} onEvent
  * @returns {() => void} Hàm gỡ kết nối

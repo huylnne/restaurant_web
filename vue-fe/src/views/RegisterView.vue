@@ -109,7 +109,7 @@ const checkPhoneTaken = async () => {
   const v = phone.value.trim();
   if (!/^0\d{9}$/.test(v)) return;
   try {
-    await axios.get("http://localhost:3000/api/auth/check-phone", { params: { phone: v } });
+    await axios.get("/api/auth/check-phone", { params: { phone: v } });
   } catch (err) {
     if (err.response?.status === 409) {
       phoneTakenError.value = "Số điện thoại này đã được đăng ký";
@@ -149,7 +149,7 @@ const handleRegister = async () => {
   }
 
   try {
-    await axios.post("http://localhost:3000/api/auth/register", {
+    await axios.post("/api/auth/register", {
       username: normalizedUsername,
       password: password.value,
       full_name: fullName.value.trim(),

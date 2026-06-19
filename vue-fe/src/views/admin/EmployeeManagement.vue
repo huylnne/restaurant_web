@@ -192,7 +192,7 @@ import { Plus, Search, Edit, Delete } from "@element-plus/icons-vue";
 import axios from "axios";
 import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
 
-const API_URL = "http://localhost:3000/api/admin/employees";
+const API_URL = "/api/admin/employees";
 
 // Data
 const employees = ref([]);
@@ -226,7 +226,7 @@ const formData = reactive({
 
 const fetchBranches = async () => {
   try {
-    const res = await axios.get("http://localhost:3000/api/home/branches");
+    const res = await axios.get("/api/home/branches");
     branches.value = Array.isArray(res.data) ? res.data : [];
     if (!isSuperAdmin) {
       filterBranch.value = getDefaultBranchIdForUser(currentUser);

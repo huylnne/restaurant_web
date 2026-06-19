@@ -140,6 +140,7 @@ import axios from "axios";
 import { isStaffRole as checkStaffRole, getDefaultStaffPath } from "@/utils/auth.js";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { BRAND } from "@/config/siteContent";
+import { apiUrl } from "@/config/api";
 
 const router = useRouter();
 const route = useRoute();
@@ -183,7 +184,7 @@ onMounted(async () => {
   }
   if (token) {
     try {
-      const res = await axios.get("http://localhost:3000/api/users/me", {
+      const res = await axios.get("/api/users/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
       user.value = res.data;
@@ -205,7 +206,7 @@ const getAvatarUrl = (path) => {
     return DEFAULT_AVATAR;
   }
   if (path.startsWith("http")) return path;
-  if (path.startsWith("/uploads")) return `http://localhost:3000${path}`;
+  if (path.startsWith("/uploads")) return apiUrl(path);
   return path;
 };
 

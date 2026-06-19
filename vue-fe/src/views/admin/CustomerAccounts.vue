@@ -191,7 +191,7 @@ import { Search, Refresh } from "@element-plus/icons-vue";
 import axios from "axios";
 import { getCurrentUser } from "@/utils/adminScope";
 
-const API_URL = "http://localhost:3000/api/admin/users";
+const API_URL = "/api/admin/users";
 const currentAdmin = getCurrentUser();
 
 const users = ref([]);

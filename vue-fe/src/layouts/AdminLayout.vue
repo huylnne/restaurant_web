@@ -22,8 +22,9 @@ import {
   handleKitchenRealtimeMessage,
 } from "@/utils/kitchenDoneAlert";
 import { getCurrentUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
+import { API_ORIGIN } from "@/config/api";
 
-const HTTP_ORIGIN = "http://localhost:3000";
+const HTTP_ORIGIN = API_ORIGIN;
 let disposeStaffKitchenWs = null;
 
 function stopStaffKitchenWs() {

@@ -104,6 +104,7 @@ import { useRouter } from "vue-router";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 import MyReservations from "@/components/MyReservations.vue";
+import { apiUrl } from "@/config/api";
 
 const DEFAULT_AVATAR = "https://maunhi.com/wp-content/uploads/2025/04/avatar-facebook-mac-dinh-3.jpeg";
 
@@ -121,7 +122,7 @@ const getAvatarUrl = (url) => {
   if (url === null || url === undefined || (typeof url === "string" && !url.trim())) {
     return DEFAULT_AVATAR;
   }
-  if (url.startsWith("/uploads")) return `http://localhost:3000${url}`;
+  if (url.startsWith("/uploads")) return apiUrl(url);
   return url;
 };
 
@@ -138,7 +139,7 @@ const onAvatarError = () => {
 onMounted(async () => {
   const token = localStorage.getItem("token");
   try {
-    const res = await axios.get("http://localhost:3000/api/users/me", {
+    const res = await axios.get("/api/users/me", {
       headers: { Authorization: `Bearer ${token}` },
     });
     form.value.full_name = res.data.full_name || res.data.name || "";
@@ -163,12 +164,12 @@ const updateProfile = async () => {
     if (uploadMode.value === "file" && selectedFile.value) {
       const formData = new FormData();
       formData.append("image", selectedFile.value);
-      const uploadRes = await axios.post("http://localhost:3000/api/upload", formData, {
+      const uploadRes = await axios.post("/api/upload", formData, {
         headers: { "Content-Type": "multipart/form-data" },
       });
       form.value.avatar_url = uploadRes.data.imageUrl;
     }
-    const res = await axios.put("http://localhost:3000/api/users/profile", form.value, {
+    const res = await axios.put("/api/users/profile", form.value, {
       headers: { Authorization: `Bearer ${token}` },
     });
     Object.assign(form.value, res.data.user);
@@ -197,7 +198,7 @@ const changePassword = async () => {
     passwordLoading.value = true;
     const token = localStorage.getItem("token");
     await axios.post(
-      "http://localhost:3000/api/users/change-password",
+      "/api/users/change-password",
       {
         currentPassword: currentPassword.value,
         newPassword: newPassword.value,

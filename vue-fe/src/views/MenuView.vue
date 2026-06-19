@@ -436,7 +436,7 @@ const confirmDelete = async (dish) => {
   }
   try {
     const token = localStorage.getItem("token");
-    await axios.delete(`http://localhost:3000/api/admin/menu/${dishId}`, {
+    await axios.delete(`/api/admin/menu/${dishId}`, {
       params: { branchId: selectedBranchId.value },
       headers: { Authorization: `Bearer ${token}` },
     });
@@ -475,12 +475,12 @@ const handleSubmit = async () => {
       return;
     }
     if (modalMode.value === "edit") {
-      await axios.put(`http://localhost:3000/api/admin/menu/${formState.id}`, payload, {
+      await axios.put(`/api/admin/menu/${formState.id}`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
       ElMessage.success("Cập nhật món ăn thành công!");
     } else {
-      await axios.post(`http://localhost:3000/api/admin/menu`, payload, {
+      await axios.post("/api/admin/menu", payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
       ElMessage.success("Thêm món ăn thành công!");

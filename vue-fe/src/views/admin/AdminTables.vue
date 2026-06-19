@@ -716,8 +716,9 @@ import {
   handleKitchenRealtimeMessage,
   notifyKitchenDishDone,
 } from "@/utils/kitchenDoneAlert";
+import { API_ORIGIN } from "@/config/api";
 
-const API_BASE = "http://localhost:3000";
+const API_BASE = API_ORIGIN;
 /** Số bàn mỗi trang — cập nhật theo chiều rộng lưới + viewport (tránh 12 bàn trên màn 5 cột) */
 const tablesGridRef = ref(null);
 const tablePageSize = ref(36);

@@ -119,8 +119,9 @@ import axios from "axios";
 import PaginationBar from "@/components/PaginationBar.vue";
 import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
 import { connectBranchRealtime } from "@/utils/branchRealtime";
+import { API_ORIGIN } from "@/config/api";
 
-const HTTP_ORIGIN = "http://localhost:3000";
+const HTTP_ORIGIN = API_ORIGIN;
 const API_BASE = `${HTTP_ORIGIN}/api/admin/kitchen`;
 const KITCHEN_POLL_MS = 4000;
 const KITCHEN_PAGE_SIZE = 8;

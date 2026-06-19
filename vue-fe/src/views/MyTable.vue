@@ -142,7 +142,7 @@ const fetchCurrentTable = async () => {
       return;
     }
     const res = await axios.get(
-      "http://localhost:3000/api/users/me/current-bill",
+      "/api/users/me/current-bill",
       {
         headers: { Authorization: `Bearer ${token}` },
       }
@@ -208,7 +208,7 @@ const requestBill = async () => {
   try {
     const token = localStorage.getItem("token");
     await axios.post(
-      "http://localhost:3000/api/reservations/request-bill",
+      "/api/reservations/request-bill",
       {
         order_id: activeSession.value.order?.order_id,
       },

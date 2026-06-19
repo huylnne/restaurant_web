@@ -90,6 +90,7 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import axios from "axios";
 import { SwitchButton } from "@element-plus/icons-vue";
 import { ElMessage, ElMessageBox } from "element-plus";
+import { apiUrl } from "@/config/api";
 
 const realImages = [
   "/images/homeimg1.png",
@@ -160,7 +161,7 @@ const nextSlide = () => {
 const featuredDishes = ref([]);
 onMounted(async () => {
   try {
-    const response = await axios.get("http://localhost:3000/api/menu-items/featured");
+    const response = await axios.get("/api/menu-items/featured");
     featuredDishes.value = response.data;
   } catch (error) {
     console.error("Không tải được danh sách món ăn nổi bật:", error);
@@ -174,7 +175,7 @@ onMounted(async () => {
   const token = localStorage.getItem("token");
   if (token) {
     try {
-      const res = await axios.get("http://localhost:3000/api/users/me", {
+      const res = await axios.get("/api/users/me", {
         headers: { Authorization: `Bearer ${token}` },
       });
       user.value = res.data;
@@ -191,7 +192,7 @@ const DEFAULT_AVATAR = "https://maunhi.com/wp-content/uploads/2025/04/avatar-fac
 const getAvatarUrl = (path) => {
   if (!path || (typeof path === "string" && !path.trim())) return DEFAULT_AVATAR;
   if (path.startsWith("http")) return path;
-  if (path.startsWith("/uploads")) return `http://localhost:3000${path}`;
+  if (path.startsWith("/uploads")) return apiUrl(path);
   return path;
 };
 

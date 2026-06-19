@@ -86,6 +86,7 @@ import axios from "axios";
 import { Location, Phone, Clock } from "@element-plus/icons-vue";
 import StaticPageHero from "@/components/StaticPageHero.vue";
 import { BRAND } from "@/config/siteContent";
+import { apiUrl } from "@/config/api";
 
 const branches = ref([]);
 const loading = ref(true);
@@ -101,7 +102,7 @@ const totalAvailableTables = computed(() =>
 const branchImageStyle = (b) => {
   let url = b.image_url || "/images/homeimg2.png";
   if (url.startsWith("/uploads")) {
-    url = `http://localhost:3000${url}`;
+    url = apiUrl(url);
   }
   return { backgroundImage: `url(${url})` };
 };

@@ -29,8 +29,9 @@
 <script setup>
 import { ref, onMounted } from "vue";
 import { Refresh } from "@element-plus/icons-vue";
+import { apiUrl } from "@/config/api";
 
-const API = "http://localhost:3000/api/auth";
+const API = apiUrl("/api/auth");
 
 const loading = ref(true);
 const errorMessage = ref("");

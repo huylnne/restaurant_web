@@ -124,7 +124,7 @@ const canSubmit = ref(false);
 
 const fetchBranches = async () => {
   try {
-    const res = await axios.get("http://localhost:3000/api/home/branches");
+    const res = await axios.get("/api/home/branches");
     branches.value = Array.isArray(res.data) ? res.data : [];
     if (branches.value.length && !branches.value.some((b) => b.branch_id === form.value.branch_id)) {
       form.value.branch_id = branches.value[0].branch_id;
