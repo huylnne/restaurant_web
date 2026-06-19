@@ -7,7 +7,7 @@
             <div
               class="slider-carousel-track"
               :class="{ 'no-transition': !isTransitionEnabled }"
-              :style="{ transform: `translateX(-${currentIndex * 60}vw)` }"
+              :style="{ transform: `translateX(calc(-${currentIndex} * var(--slide-width)))` }"
             >
               <img
                 v-for="(img, index) in images"
@@ -442,7 +442,7 @@ const handleOrderClick = () => {
   bottom: -12px;
   left: 50%;
   transform: translateX(-50%);
-  width: 100vw;
+  width: 100%;
   height: 12px;
   background: url("data:image/svg+xml,%3Csvg viewBox='0 0 60 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23fffaf3' d='M0 0 L5 10 L10 0 L15 10 L20 0 L25 10 L30 0 L35 10 L40 0 L45 10 L50 0 L55 10 L60 0 Z'/%3E%3C/svg%3E")
     repeat-x;
@@ -460,7 +460,8 @@ const handleOrderClick = () => {
 }
 
 .slider-carousel {
-  width: 60vw;
+  --slide-width: min(60vw, 100%);
+  width: var(--slide-width);
   overflow: hidden;
   margin: 0 auto;
   position: relative;
@@ -525,7 +526,7 @@ const handleOrderClick = () => {
 }
 
 .slider-carousel-image {
-  width: 60vw;
+  width: var(--slide-width);
   height: 100%;
   flex-shrink: 0;
   object-fit: cover;
@@ -585,6 +586,7 @@ const handleOrderClick = () => {
   text-align: center;
   max-width: 1200px;
   width: 100%;
+  box-sizing: border-box;
 }
 
 .dish-grid::-webkit-scrollbar {
@@ -756,6 +758,8 @@ const handleOrderClick = () => {
   display: flex;
   align-items: center;
   overflow: hidden;
+  width: 100%;
+  max-width: 100%;
 }
 
 .scroll-left,
@@ -918,5 +922,83 @@ const handleOrderClick = () => {
   color: var(--hl-success);
   font-weight: 600;
   font-size: 24px;
+}
+
+@media (max-width: 992px) {
+  .slider-carousel {
+    --slide-width: min(90vw, 100%);
+    height: 460px;
+  }
+
+  .slider_overlay {
+    width: min(90%, 640px);
+  }
+
+  .slider_overlay h1,
+  .slider_overlay span {
+    font-size: clamp(2rem, 7vw, 3rem);
+  }
+
+  .slider_overlay h2 {
+    font-size: clamp(1.1rem, 4vw, 1.6rem);
+  }
+
+  .dish-card {
+    flex: 0 0 calc(33.333% - 16px);
+  }
+}
+
+@media (max-width: 640px) {
+  .slider-carousel {
+    --slide-width: 100%;
+    width: 100%;
+    height: 360px;
+  }
+
+  .slider-carousel-image {
+    border-radius: 0;
+  }
+
+  .slider_overlay {
+    width: calc(100% - 32px);
+  }
+
+  .overlay_btn {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .overlay_btn a,
+  .overlay_btn .el-button {
+    width: 100%;
+  }
+
+  .featured-dishes {
+    padding: var(--hl-space-xl) var(--hl-space-md);
+  }
+
+  .dish-grid {
+    width: 100%;
+    margin: 0;
+    gap: var(--hl-space-md);
+    overflow-x: auto;
+    padding: 0 0 var(--hl-space-sm);
+    scroll-snap-type: x mandatory;
+  }
+
+  .dish-card {
+    flex: 0 0 min(82vw, 320px);
+    max-width: min(82vw, 320px);
+    scroll-snap-align: start;
+  }
+
+  .dish-card img {
+    height: 180px;
+  }
+
+  .scroll-left,
+  .scroll-right {
+    display: none;
+  }
 }
 </style>

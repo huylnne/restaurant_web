@@ -29,6 +29,22 @@ body.admin-route-active #app {
   overflow: hidden;
 }
 
+@media (max-width: 992px) {
+  body.admin-route-active {
+    overflow-y: auto;
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+  }
+
+  body.admin-route-active #app {
+    height: auto;
+    min-height: 100vh;
+    min-height: 100dvh;
+    overflow: visible;
+  }
+}
+
 /* Full-width layout - no max-width constraint for restaurant pages */
 @media (min-width: 1024px) {
   body {

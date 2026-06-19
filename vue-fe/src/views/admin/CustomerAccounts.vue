@@ -76,7 +76,8 @@
     </el-card>
 
     <el-card class="table-card">
-      <el-table :data="users" v-loading="loading" style="width: 100%">
+      <div class="table-scroll">
+        <el-table :data="users" v-loading="loading" class="users-table">
         <el-table-column prop="user_id" label="ID" width="70" />
         <el-table-column prop="username" label="Username" min-width="120" />
         <el-table-column prop="full_name" label="Họ tên" min-width="140" />
@@ -115,7 +116,8 @@
             <el-button size="small" @click="openDetail(row)">Chi tiết</el-button>
           </template>
         </el-table-column>
-      </el-table>
+        </el-table>
+      </div>
 
       <div class="pagination-container">
         <el-pagination
@@ -374,6 +376,9 @@ onMounted(() => {
   margin-top: var(--hl-space-lg);
   display: flex;
   justify-content: flex-end;
+  max-width: 100%;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .recent-title {
@@ -385,5 +390,54 @@ onMounted(() => {
   margin-top: var(--hl-space-lg);
   display: flex;
   gap: 8px;
+}
+
+.table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.users-table {
+  width: 100%;
+  min-width: 960px;
+}
+
+@media (max-width: 768px) {
+  .header-content {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--hl-space-md);
+  }
+
+  .header-content .el-button,
+  .filter-card .el-button {
+    width: 100%;
+  }
+
+  .filter-card :deep(.el-row) {
+    row-gap: var(--hl-space-sm);
+  }
+
+  .stat-value {
+    font-size: 1.4rem;
+  }
+
+  .pagination-container {
+    justify-content: flex-start;
+  }
+
+  .detail-actions {
+    flex-direction: column;
+  }
+
+  .detail-actions .el-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  :deep(.el-dialog) {
+    width: calc(100vw - 32px) !important;
+  }
 }
 </style>

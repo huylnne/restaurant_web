@@ -126,13 +126,15 @@ defineExpose({ getPayload, isReady, reset });
   display: flex;
   align-items: center;
   gap: var(--hl-space-sm);
+  min-width: 0;
 }
 
 .captcha-image {
-  width: 150px;
+  width: min(150px, 100%);
   height: 48px;
   border: 1px solid var(--hl-border);
   border-radius: var(--hl-radius-sm);
+  object-fit: contain;
 }
 
 .captcha-question {
@@ -145,5 +147,17 @@ defineExpose({ getPayload, isReady, reset });
   margin-top: var(--hl-space-xs);
   color: var(--hl-error);
   font-size: 14px;
+}
+
+@media (max-width: 360px) {
+  .captcha-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .captcha-image {
+    width: 100%;
+    max-width: 180px;
+  }
 }
 </style>

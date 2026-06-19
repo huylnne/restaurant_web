@@ -460,9 +460,33 @@ const requestBill = async () => {
     align-items: flex-start;
   }
 
+  .order-item {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--hl-space-xs);
+  }
+
+  .order-summary {
+    justify-content: stretch;
+  }
+
+  .order-summary__row {
+    width: 100%;
+    justify-content: space-between;
+  }
+
   .card-section,
   .card-section--footer {
     padding: var(--hl-space-md);
+  }
+
+  .card-section--footer {
+    justify-content: stretch;
+  }
+
+  .btn-call {
+    width: 100%;
+    min-width: 0;
   }
 }
 </style>

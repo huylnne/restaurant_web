@@ -5,7 +5,7 @@
         <div
           class="slider-carousel-track"
           :class="{ 'no-transition': !isTransitionEnabled }"
-          :style="{ transform: `translateX(-${currentIndex * 60}vw)` }"
+          :style="{ transform: `translateX(calc(-${currentIndex} * var(--slide-width)))` }"
         >
           <img
             v-for="(img, index) in images"
@@ -315,7 +315,7 @@ const scrollRight = () => scrollByCard("right");
   bottom: -12px;
   left: 50%;
   transform: translateX(-50%);
-  width: 100vw;
+  width: 100%;
   height: 12px;
   background: url("data:image/svg+xml,%3Csvg viewBox='0 0 60 10' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath fill='%23fffaf3' d='M0 0 L5 10 L10 0 L15 10 L20 0 L25 10 L30 0 L35 10 L40 0 L45 10 L50 0 L55 10 L60 0 Z'/%3E%3C/svg%3E")
     repeat-x;
@@ -332,7 +332,8 @@ const scrollRight = () => scrollByCard("right");
 }
 
 .slider-carousel {
-  width: 60vw;
+  --slide-width: min(60vw, 100%);
+  width: var(--slide-width);
   overflow: hidden;
   margin: 0 auto;
   position: relative;
@@ -345,7 +346,7 @@ const scrollRight = () => scrollByCard("right");
 }
 
 .slider-carousel-image {
-  width: 60vw;
+  width: var(--slide-width);
   height: 100%;
   flex-shrink: 0;
   object-fit: cover;
@@ -547,6 +548,7 @@ const scrollRight = () => scrollByCard("right");
 
 @media (max-width: 992px) {
   .slider-carousel {
+    --slide-width: min(90vw, 100%);
     height: 420px;
   }
 
@@ -561,12 +563,13 @@ const scrollRight = () => scrollByCard("right");
 
 @media (max-width: 640px) {
   .slider-carousel {
-    width: 100vw;
+    --slide-width: 100%;
+    width: 100%;
     height: 300px;
   }
 
   .slider-carousel-image {
-    width: 100vw;
+    border-radius: 0;
   }
 
   .slider_overlay h1,

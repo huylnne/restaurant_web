@@ -9,6 +9,25 @@
         <router-link to="/" class="admin-compact-header__link">Trang chủ</router-link>
         <router-link to="/menu" class="admin-compact-header__link">Thực đơn</router-link>
         <router-link :to="staffHomePath" class="admin-compact-header__link">Quản lý</router-link>
+        <el-dropdown
+          v-if="adminMenus.length"
+          class="admin-mobile-menu"
+          trigger="click"
+          @command="goToAdminMenu"
+        >
+          <el-button text class="admin-mobile-menu__button">Menu quản lý</el-button>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item
+                v-for="item in adminMenus"
+                :key="item.key"
+                :command="item.route"
+              >
+                {{ item.label }}
+              </el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
       </nav>
       <div class="admin-compact-header__actions">
         <template v-if="isLoggedIn">
@@ -141,6 +160,7 @@ import { isStaffRole as checkStaffRole, getDefaultStaffPath } from "@/utils/auth
 import { ElMessage, ElMessageBox } from "element-plus";
 import { BRAND } from "@/config/siteContent";
 import { apiUrl } from "@/config/api";
+import { getMenuByRole } from "@/config/sidebarMenu.js";
 
 const router = useRouter();
 const route = useRoute();
@@ -157,6 +177,13 @@ const isStaff = computed(() => {
 });
 
 const staffHomePath = computed(() => getDefaultStaffPath(user.value?.role || storedUserRole.value) || "/admin");
+const adminMenus = computed(() =>
+  getMenuByRole(user.value?.role || storedUserRole.value).filter((item) => item.route)
+);
+
+function goToAdminMenu(routePath) {
+  if (routePath) router.push(routePath);
+}
 
 const logout = async () => {
   try {
@@ -448,6 +475,44 @@ const scrollToAllDishes = () => {
   box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.5);
 }
 
+.admin-mobile-menu {
+  display: none;
+}
+
+.admin-mobile-menu__button {
+  color: inherit;
+  font-weight: 600;
+  padding: 0;
+}
+
+@media (max-width: 992px) {
+  .admin-compact-header {
+    flex-wrap: wrap;
+    gap: var(--hl-space-sm);
+  }
+
+  .admin-compact-header__nav {
+    order: 3;
+    width: 100%;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    justify-content: flex-start;
+  }
+
+  .admin-mobile-menu {
+    display: inline-flex;
+  }
+
+  .admin-compact-header__actions {
+    margin-left: auto;
+  }
+
+  .admin-compact-header__actions .username,
+  .admin-compact-header__actions .logout-button span {
+    display: none;
+  }
+}
+
 @media (max-width: 992px) {
   .nav-cta-branches {
     order: -1;
@@ -503,13 +568,21 @@ const scrollToAllDishes = () => {
     height: auto;
     min-height: auto;
     gap: var(--hl-space-sm) var(--hl-space-md);
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    flex-wrap: nowrap;
     padding: 0 0 var(--hl-space-sm);
     margin-top: 0;
   }
 
+  .nav-menu .nav-link {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+
   .nav-menu_icon {
-    width: 100%;
-    margin-left: 0;
+    flex: 0 0 auto;
+    margin-left: var(--hl-space-sm);
     justify-content: flex-start;
     padding-top: 4px;
   }

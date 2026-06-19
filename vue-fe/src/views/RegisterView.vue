@@ -174,7 +174,8 @@ const handleRegister = async () => {
 <style scoped>
 .register-page {
   display: flex;
-  height: 100vh;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--hl-bg-section);
 }
 
@@ -195,6 +196,8 @@ const handleRegister = async () => {
   display: flex;
   justify-content: center;
   align-items: center;
+  min-width: 0;
+  padding: var(--hl-space-xl);
 }
 
 .register-form-container {
@@ -202,7 +205,7 @@ const handleRegister = async () => {
   padding: var(--hl-space-2xl);
   border-radius: var(--hl-radius-lg);
   box-shadow: var(--hl-shadow-md);
-  min-width: 300px;
+  min-width: 0;
   width: 100%;
   max-width: 400px;
 }
@@ -289,5 +292,37 @@ input:focus {
   color: var(--hl-error);
   font-size: 14px;
   line-height: 1.45;
+}
+
+@media (max-width: 768px) {
+  .register-page {
+    flex-direction: column;
+  }
+
+  .register-left {
+    width: 100%;
+    height: 160px;
+  }
+
+  .register-right {
+    flex: 1;
+    align-items: flex-start;
+    padding: var(--hl-space-lg) var(--hl-space-md);
+  }
+
+  .register-form-container {
+    max-width: none;
+    padding: var(--hl-space-xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .register-left {
+    height: 110px;
+  }
+
+  .register-form-container {
+    padding: var(--hl-space-lg);
+  }
 }
 </style>

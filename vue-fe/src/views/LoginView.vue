@@ -78,8 +78,8 @@ const handleLogin = async () => {
 <style scoped>
 .login-page {
   display: flex;
-  height: 100vh;
-  overflow: hidden;
+  min-height: 100vh;
+  min-height: 100dvh;
   background: var(--hl-bg-section);
 }
 
@@ -100,6 +100,8 @@ const handleLogin = async () => {
   display: flex;
   align-items: center;
   justify-content: center;
+  min-width: 0;
+  padding: var(--hl-space-xl);
 }
 
 .login-form-container {
@@ -215,5 +217,44 @@ h2 {
 .register-link:hover {
   text-decoration: underline;
   color: var(--hl-primary-hover);
+}
+
+@media (max-width: 768px) {
+  .login-page {
+    flex-direction: column;
+  }
+
+  .login-left {
+    width: 100%;
+    height: 180px;
+  }
+
+  .login-right {
+    flex: 1;
+    align-items: flex-start;
+    padding: var(--hl-space-lg) var(--hl-space-md);
+  }
+
+  .login-form-container {
+    width: 100%;
+    max-width: none;
+    padding: var(--hl-space-xl);
+  }
+}
+
+@media (max-width: 480px) {
+  .login-left {
+    height: 120px;
+  }
+
+  .login-form-container {
+    padding: var(--hl-space-lg);
+  }
+
+  .login-header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--hl-space-xs);
+  }
 }
 </style>

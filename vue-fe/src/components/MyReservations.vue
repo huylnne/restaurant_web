@@ -2,12 +2,12 @@
   <el-card class="reservations-card">
     <h2 class="title">Lịch sử dùng bữa</h2>
     <div class="reservations-table-wrap">
-    <el-table :data="displayReservations" v-loading="loading" class="reservations-table">
-      <el-table-column prop="arrival_time" label="Thời gian" width="200">
-        <template #default="{ row }">
-          {{ new Date(row.arrival_time).toLocaleString("vi-VN") }}
-        </template>
-      </el-table-column>
+      <el-table :data="displayReservations" v-loading="loading" class="reservations-table">
+        <el-table-column prop="arrival_time" label="Thời gian" width="200">
+          <template #default="{ row }">
+            {{ new Date(row.arrival_time).toLocaleString("vi-VN") }}
+          </template>
+        </el-table-column>
 
       <el-table-column label="Chi nhánh" min-width="240">
         <template #default="{ row }">
@@ -94,8 +94,110 @@
       </el-table-column>
 
       <!-- ❌ Hủy đặt bàn: chỉ khi bàn vẫn là "Đã đặt trước", chưa chuyển sang Đang phục vụ -->
-      <el-table-column label="Hành động" width="220" fixed="right">
-        <template #default="{ row }">
+        <el-table-column label="Hành động" width="220" fixed="right">
+          <template #default="{ row }">
+            <el-button
+              v-if="canCancelReservation(row)"
+              type="danger"
+              size="small"
+              @click="cancelReservation(row.order_id)"
+            >
+              Hủy
+            </el-button>
+            <el-button
+              v-if="canReviewReservation(row)"
+              type="warning"
+              size="small"
+              @click="openReviewDialog(row)"
+            >
+              Đánh giá
+            </el-button>
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <div v-loading="loading" class="reservations-mobile-list">
+      <div v-if="!loading && !displayReservations.length" class="reservations-empty">
+        Chưa có lịch sử dùng bữa.
+      </div>
+      <article
+        v-for="row in displayReservations"
+        :key="row.order_id || row.booking_group_id"
+        class="reservation-mobile-card"
+      >
+        <div class="reservation-mobile-card__header">
+          <div>
+            <div class="reservation-mobile-card__time">
+              {{ new Date(row.arrival_time).toLocaleString("vi-VN") }}
+            </div>
+            <div class="reservation-mobile-card__branch">
+              {{ formatBranchName(row) }}
+            </div>
+          </div>
+          <span class="reservation-mobile-card__status">
+            {{ getDiningStatusLabel(row) }}
+          </span>
+        </div>
+
+        <div class="reservation-mobile-card__grid">
+          <div>
+            <span>Số khách</span>
+            <strong>{{ row.number_of_guests ?? "-" }}</strong>
+          </div>
+          <div>
+            <span>Bàn</span>
+            <strong>{{ formatTableNumber(row) }}</strong>
+          </div>
+          <div>
+            <span>Sức chứa</span>
+            <strong>{{ formatCapacity(row) }}</strong>
+          </div>
+          <div>
+            <span>Tạm tính</span>
+            <strong>
+              {{
+                calculateRowSubtotal(row).toLocaleString("vi-VN", {
+                  style: "currency",
+                  currency: "VND",
+                })
+              }}
+            </strong>
+          </div>
+        </div>
+
+        <div v-if="row.Branch?.address" class="reservation-mobile-card__note">
+          {{ row.Branch.address }}
+        </div>
+        <div v-if="row.note" class="reservation-mobile-card__note">
+          Ghi chú: {{ row.note }}
+        </div>
+
+        <div v-if="row.OrderItems?.length || row.Orders?.length" class="reservation-mobile-card__items">
+          <strong>Món đã gọi</strong>
+          <div v-if="row.OrderItems?.length" class="order-items">
+            <div v-for="item in row.OrderItems" :key="item.order_item_id" class="order-item">
+              {{ item.MenuItem?.name }} <strong>(x{{ item.quantity }})</strong>
+            </div>
+          </div>
+          <template v-else>
+            <div v-for="order in row.Orders" :key="order.order_id" class="order-items">
+              <div v-for="item in order.OrderItems" :key="item.order_item_id" class="order-item">
+                {{ item.MenuItem?.name }} <strong>(x{{ item.quantity }})</strong>
+              </div>
+            </div>
+          </template>
+        </div>
+
+        <div v-if="row.Review" class="reservation-mobile-card__review">
+          <el-rate :model-value="row.Review.rating" disabled show-score text-color="#ff9900" />
+          <div class="review-comment">{{ row.Review.comment }}</div>
+        </div>
+
+        <div
+          v-if="canCancelReservation(row) || canReviewReservation(row)"
+          class="reservation-mobile-card__actions"
+        >
           <el-button
             v-if="canCancelReservation(row)"
             type="danger"
@@ -112,9 +214,8 @@
           >
             Đánh giá
           </el-button>
-        </template>
-      </el-table-column>
-    </el-table>
+        </div>
+      </article>
     </div>
 
     <el-dialog v-model="reviewDialogVisible" title="Đánh giá chất lượng dịch vụ" width="520px">
@@ -447,7 +548,11 @@ onMounted(fetchReservations);
 
 .reservations-table {
   width: 100%;
-  min-width: 1280px;
+  min-width: 1080px;
+}
+
+.reservations-mobile-list {
+  display: none;
 }
 
 .branch-cell {
@@ -477,5 +582,131 @@ onMounted(fetchReservations);
 
 :deep(.reservations-card .el-card__body) {
   width: 100%;
+}
+
+@media (max-width: 768px) {
+  .title {
+    font-size: 1.1rem;
+  }
+
+  .reservations-table-wrap {
+    display: none;
+  }
+
+  .reservations-mobile-list {
+    display: flex;
+    flex-direction: column;
+    gap: var(--hl-space-md);
+    min-height: 80px;
+  }
+
+  .reservations-empty,
+  .reservation-mobile-card {
+    border: 1px solid var(--hl-border-light);
+    border-radius: var(--hl-radius-lg);
+    background: var(--hl-bg-page);
+  }
+
+  .reservations-empty {
+    padding: var(--hl-space-lg);
+    text-align: center;
+    color: var(--hl-text-muted);
+  }
+
+  .reservation-mobile-card {
+    padding: var(--hl-space-md);
+    box-shadow: var(--hl-shadow-sm);
+  }
+
+  .reservation-mobile-card__header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--hl-space-sm);
+    margin-bottom: var(--hl-space-md);
+  }
+
+  .reservation-mobile-card__time,
+  .reservation-mobile-card__branch {
+    font-weight: 600;
+    color: var(--hl-text);
+  }
+
+  .reservation-mobile-card__branch {
+    margin-top: 2px;
+    font-size: 13px;
+    color: var(--hl-text-secondary);
+  }
+
+  .reservation-mobile-card__status {
+    flex: 0 0 auto;
+    max-width: 45%;
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: var(--hl-primary-bg);
+    color: var(--hl-primary);
+    font-size: 12px;
+    font-weight: 600;
+    text-align: center;
+  }
+
+  .reservation-mobile-card__grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: var(--hl-space-sm);
+  }
+
+  .reservation-mobile-card__grid div {
+    min-width: 0;
+    padding: var(--hl-space-sm);
+    border-radius: var(--hl-radius-md);
+    background: var(--hl-bg-muted);
+  }
+
+  .reservation-mobile-card__grid span {
+    display: block;
+    margin-bottom: 3px;
+    font-size: 12px;
+    color: var(--hl-text-muted);
+  }
+
+  .reservation-mobile-card__grid strong,
+  .reservation-mobile-card__note,
+  .reservation-mobile-card__items {
+    word-break: break-word;
+  }
+
+  .reservation-mobile-card__note,
+  .reservation-mobile-card__items,
+  .reservation-mobile-card__review,
+  .reservation-mobile-card__actions {
+    margin-top: var(--hl-space-md);
+  }
+
+  .reservation-mobile-card__note {
+    font-size: 13px;
+    color: var(--hl-text-muted);
+  }
+
+  .reservation-mobile-card__items {
+    display: flex;
+    flex-direction: column;
+    gap: var(--hl-space-xs);
+  }
+
+  .reservation-mobile-card__actions {
+    display: flex;
+    gap: var(--hl-space-sm);
+    flex-wrap: wrap;
+  }
+
+  .reservation-mobile-card__actions .el-button {
+    flex: 1 1 120px;
+    margin-left: 0;
+  }
+
+  :deep(.el-dialog) {
+    width: calc(100vw - 32px) !important;
+  }
 }
 </style>
