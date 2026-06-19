@@ -26,7 +26,7 @@ function buildWeightedItemPicker(menuItems, branchId) {
 }
 
 const PAYMENT_METHODS = ['CASH', 'BANK_TRANSFER', 'CARD', 'MOMO', 'WALLET'];
-const ORDER_STATUSES = ['completed', 'completed', 'completed', 'cancelled', 'in_progress'];
+const ORDER_STATUSES = ['completed', 'completed', 'completed', 'cancelled'];
 const REVIEW_COMMENTS = [
   'Món ăn ngon, phục vụ nhanh.',
   'Không gian thoáng, sẽ quay lại.',
