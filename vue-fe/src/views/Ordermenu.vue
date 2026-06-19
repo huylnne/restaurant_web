@@ -100,6 +100,8 @@ const order_id = route.query.order_id;
 
 const menu = ref([]);
 const order = ref({});
+/** Món từ highlight / ngoài trang menu vẫn hiển thị trong "Món đã chọn" */
+const dishCatalog = ref({});
 const menuLoading = ref(true);
 const branchId = ref(1);
 const branchLabel = ref("");
@@ -162,8 +164,20 @@ onMounted(async () => {
     }
 
     menu.value.forEach((item) => {
+      registerDish(item);
       if (order.value[item.item_id] == null) order.value[item.item_id] = 0;
     });
+
+    const pendingRaw = sessionStorage.getItem("pendingOrderDish");
+    if (pendingRaw) {
+      sessionStorage.removeItem("pendingOrderDish");
+      try {
+        const pending = JSON.parse(pendingRaw);
+        if (pending?.item_id) addDishToOrder(pending);
+      } catch {
+        /* ignore malformed pending dish */
+      }
+    }
   } catch (err) {
     ElMessage.error("Không lấy được thực đơn!");
   } finally {
@@ -173,18 +187,29 @@ onMounted(async () => {
 
 const hasItemSelected = computed(() => Object.values(order.value).some((qty) => qty > 0));
 
+function registerDish(dish) {
+  const itemId = Number(dish?.item_id);
+  if (!itemId) return;
+  dishCatalog.value = {
+    ...dishCatalog.value,
+    [itemId]: { ...dishCatalog.value[itemId], ...dish, item_id: itemId },
+  };
+}
+
 const selectedItems = computed(() =>
-  menu.value
-    .map((item) => ({
-      ...item,
-      quantity: Number(order.value[item.item_id] || 0),
-    }))
-    .filter((item) => item.quantity > 0)
+  Object.entries(order.value)
+    .filter(([, qty]) => Number(qty) > 0)
+    .map(([id, qty]) => {
+      const itemId = Number(id);
+      const dish = dishCatalog.value[itemId] || { item_id: itemId, name: `Món #${itemId}` };
+      return { ...dish, quantity: Number(qty) };
+    })
 );
 
 const addDishToOrder = (dish) => {
-  const itemId = dish?.item_id;
+  const itemId = Number(dish?.item_id);
   if (!itemId) return;
+  registerDish(dish);
   const currentQty = Number(order.value[itemId] || 0);
   if (currentQty >= 20) {
     ElMessage.warning("Mỗi món tối đa 20 phần.");
@@ -195,13 +220,13 @@ const addDishToOrder = (dish) => {
 };
 
 const decreaseDishQty = (dish) => {
-  const itemId = dish?.item_id;
+  const itemId = Number(dish?.item_id);
   if (!itemId) return;
   order.value[itemId] = Math.max(0, Number(order.value[itemId] || 0) - 1);
 };
 
 const removeDishFromOrder = (dish) => {
-  const itemId = dish?.item_id;
+  const itemId = Number(dish?.item_id);
   if (!itemId) return;
   order.value[itemId] = 0;
 };

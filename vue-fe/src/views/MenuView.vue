@@ -374,9 +374,15 @@ const selectCategory = (category) => {
   currentPage.value = 1;
 };
 
-const handleOrderClick = () => {
+const handleOrderClick = (dish) => {
   const order = JSON.parse(localStorage.getItem("activeOrder") || "null");
   if (order && order.status === "confirmed") {
+    if (dish?.item_id) {
+      sessionStorage.setItem(
+        "pendingOrderDish",
+        JSON.stringify({ item_id: dish.item_id, name: dish.name, ...dish })
+      );
+    }
     router.push({
       name: "OrderMenu",
       query: {
