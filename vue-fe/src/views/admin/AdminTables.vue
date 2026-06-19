@@ -1210,7 +1210,8 @@ const openQrDialog = async (table) => {
   qrPaymentOrderId.value = null;
   qrPaymentStatus.value = "";
   stopQrPaymentPolling();
-  qrLink.value = table?.qr_token ? `http://localhost:5173/t/${table.qr_token}` : "";
+  const origin = window.location.origin.replace(/\/+$/, "");
+  qrLink.value = table?.qr_token ? `${origin}/t/${table.qr_token}` : "";
   showQrDialog.value = true;
   if (!qrLink.value) return;
   try {

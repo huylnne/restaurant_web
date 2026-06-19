@@ -1,8 +1,11 @@
-const { Table, Order } = require("../../models");
+const { Table, Order, OrderItem, sequelize } = require("../../models");
 const billService = require("../bill.service");
 const { TABLE_STATUS, isBookableTableStatus } = require("../../utils/tableStatus");
 const { ACTIVE_SESSION_STATUSES, RESERVATION_STATUS } = require("../../utils/reservationStatus");
+const { ORDER_STATUS } = require("../../utils/orderStatus");
 const { Op } = require("sequelize");
+const { buildOrderItemPayloads } = require("../../utils/orderItemFactory");
+const realtimeHub = require("../../realtimeHub");
 
 async function getTableByToken(token) {
   if (!token) return null;
@@ -79,8 +82,97 @@ async function checkinByToken({ token, userId, numberOfGuests }) {
   };
 }
 
+async function addOrderItemsByToken({ token, items = [], note = null }) {
+  if (!Array.isArray(items) || items.length === 0) throw new Error("INVALID_ITEMS");
+
+  const orderNote =
+    note != null && String(note).trim() ? String(note).trim().slice(0, 200) : null;
+
+  const result = await sequelize.transaction(async (transaction) => {
+    const table = await Table.findOne({
+      where: { qr_token: token },
+      attributes: ["table_id", "status", "branch_id"],
+      transaction,
+    });
+    if (!table) throw new Error("TABLE_NOT_FOUND");
+    if (table.status === TABLE_STATUS.CLEANING) throw new Error("TABLE_CLEANING");
+
+    const orderItemsPayload = await buildOrderItemPayloads(items, transaction);
+
+    let order = await Order.findOne({
+      where: {
+        table_id: table.table_id,
+        status: { [Op.in]: ACTIVE_SESSION_STATUSES },
+      },
+      order: [["created_at", "DESC"]],
+      transaction,
+    });
+
+    if (!order) {
+      order = await Order.create(
+        {
+          branch_id: table.branch_id,
+          table_id: table.table_id,
+          arrival_time: new Date(),
+          number_of_guests: 1,
+          status: ORDER_STATUS.IN_PROGRESS,
+          order_type: "dine_in",
+          payment_status: "unpaid",
+          note: orderNote,
+          created_at: new Date(),
+        },
+        { transaction }
+      );
+    } else if (orderNote && !order.note) {
+      await order.update({ note: orderNote }, { transaction });
+    }
+
+    await Promise.all(
+      orderItemsPayload.map((payload) =>
+        OrderItem.create(
+          {
+            order_id: order.order_id,
+            ...payload,
+          },
+          { transaction }
+        )
+      )
+    );
+
+    if ([ORDER_STATUS.PENDING, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PRE_ORDERED].includes(order.status)) {
+      await order.update({ status: ORDER_STATUS.IN_PROGRESS }, { transaction });
+    }
+
+    if (table.status !== TABLE_STATUS.OCCUPIED) {
+      await table.update({ status: TABLE_STATUS.OCCUPIED }, { transaction });
+    }
+
+    return {
+      order_id: order.order_id,
+      table_id: table.table_id,
+      branch_id: table.branch_id,
+      item_count: orderItemsPayload.length,
+    };
+  });
+
+  try {
+    realtimeHub.notifyBranch(result.branch_id, {
+      type: "order_flow",
+      reason: "table_qr_order",
+      order_id: Number(result.order_id),
+      table_id: Number(result.table_id),
+    });
+  } catch (_) {}
+
+  return {
+    ...result,
+    bill: await billService.getBillByTable(result.table_id),
+  };
+}
+
 module.exports = {
   getTableByToken,
   getBillByToken,
   checkinByToken,
+  addOrderItemsByToken,
 };

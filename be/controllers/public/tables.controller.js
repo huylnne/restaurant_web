@@ -47,3 +47,26 @@ exports.checkinByToken = async (req, res) => {
   }
 };
 
+exports.addOrderItemsByToken = async (req, res) => {
+  try {
+    const data = await service.addOrderItemsByToken({
+      token: req.params.token,
+      items: req.body?.items,
+      note: req.body?.note,
+    });
+    req.audit = {
+      entityId: data?.order_id,
+      description: "Khách gọi món qua QR bàn",
+      metadata: { table_id: data?.table_id, item_count: data?.item_count },
+    };
+    res.status(201).json(data);
+  } catch (e) {
+    const map = {
+      TABLE_NOT_FOUND: 404,
+      TABLE_CLEANING: 400,
+      INVALID_ITEMS: 400,
+    };
+    res.status(map[e.message] || 500).json({ message: e.message });
+  }
+};
+

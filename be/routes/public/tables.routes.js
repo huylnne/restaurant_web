@@ -8,6 +8,21 @@ router.get("/by-token/:token", ctrl.getTableByToken);
 router.get("/by-token/:token/bill", ctrl.getBillByToken);
 
 router.post(
+  "/by-token/:token/orders",
+  auditLog({
+    action: "TABLE_QR_ORDER_CREATE",
+    module: "orders",
+    description: "Khách gọi món qua QR bàn",
+    entityType: "order",
+    metadata: (req) => ({
+      tableToken: req.params.token,
+      itemCount: Array.isArray(req.body?.items) ? req.body.items.length : 0,
+    }),
+  }),
+  ctrl.addOrderItemsByToken
+);
+
+router.post(
   "/by-token/:token/checkin",
   verifyToken,
   auditLog({
