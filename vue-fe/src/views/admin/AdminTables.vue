@@ -434,7 +434,7 @@
                 Tải hóa đơn PDF
               </el-button>
               <el-button
-                v-if="paymentMethod === 'BANK_TRANSFER'"
+                v-if="paymentMethod === 'BANK_TRANSFER' || paymentMethod === 'SEPAY'"
                 @click="openPaymentQrDialog(selectedTable)"
               >
                 QR chuyển khoản
@@ -463,6 +463,15 @@
         <div v-if="qrMode === 'payment'" class="qr-payment-meta">
           <div class="label">Số tiền</div>
           <div class="value">{{ formatCurrency(qrPaymentAmount) }}</div>
+          <div class="label">Nội dung CK</div>
+          <div class="value code">{{ qrPaymentCode || "Đang tạo..." }}</div>
+          <el-tag
+            v-if="qrPaymentStatus"
+            :type="qrPaymentStatus === 'succeeded' ? 'success' : 'warning'"
+            size="small"
+          >
+            {{ qrPaymentStatus === 'succeeded' ? 'Đã thanh toán' : 'Đang chờ SEPay xác nhận' }}
+          </el-tag>
         </div>
         <div v-else class="qr-link">
           <div class="label">Link scan</div>
@@ -800,6 +809,10 @@ const qrDataUrl = ref("");
 const qrLink = ref("");
 const qrMode = ref("link"); // 'link' | 'payment'
 const qrPaymentAmount = ref(0);
+const qrPaymentCode = ref("");
+const qrPaymentOrderId = ref(null);
+const qrPaymentStatus = ref("");
+let qrPaymentPollTimer = null;
 
 // Waiter: đơn hàng theo bàn
 const tableOrders = ref([]);
@@ -821,6 +834,7 @@ const paymentSubmitting = ref(false);
 const paymentMethodOptions = [
   { value: "CASH", label: "Tiền mặt" },
   { value: "BANK_TRANSFER", label: "Chuyển khoản" },
+  { value: "SEPAY", label: "SEPay" },
   { value: "CARD", label: "Thẻ" },
   { value: "WALLET", label: "Ví điện tử" },
 ];
@@ -1192,6 +1206,10 @@ const openQrDialog = async (table) => {
   qrDataUrl.value = "";
   qrMode.value = "link";
   qrPaymentAmount.value = 0;
+  qrPaymentCode.value = "";
+  qrPaymentOrderId.value = null;
+  qrPaymentStatus.value = "";
+  stopQrPaymentPolling();
   qrLink.value = table?.qr_token ? `http://localhost:5173/t/${table.qr_token}` : "";
   showQrDialog.value = true;
   if (!qrLink.value) return;
@@ -1203,19 +1221,64 @@ const openQrDialog = async (table) => {
   }
 };
 
+const stopQrPaymentPolling = () => {
+  if (qrPaymentPollTimer) {
+    clearInterval(qrPaymentPollTimer);
+    qrPaymentPollTimer = null;
+  }
+};
+
+const pollQrPaymentStatus = async () => {
+  if (!qrPaymentOrderId.value) return;
+  try {
+    const res = await axios.get(`${API_BASE}/api/payments/by-order/${qrPaymentOrderId.value}`);
+    qrPaymentStatus.value = res.data?.status || "";
+    if (qrPaymentStatus.value === "succeeded") {
+      stopQrPaymentPolling();
+      ElMessage.success("SEPay đã xác nhận thanh toán");
+      if (selectedTable.value?.table_id) {
+        fetchTablePayment(selectedTable.value.table_id);
+        fetchTableBill(selectedTable.value.table_id);
+        fetchTableOrders(selectedTable.value.table_id);
+      }
+      fetchTables();
+      fetchSummary();
+    }
+  } catch (err) {
+    console.error("Poll payment status error:", err);
+  }
+};
+
+const startQrPaymentPolling = () => {
+  stopQrPaymentPolling();
+  pollQrPaymentStatus();
+  qrPaymentPollTimer = setInterval(pollQrPaymentStatus, 3000);
+};
+
+watch(showQrDialog, (visible) => {
+  if (!visible) stopQrPaymentPolling();
+});
+
 const openPaymentQrDialog = async (table) => {
   qrSelectedTable.value = table;
   qrDataUrl.value = "";
   qrLink.value = "";
   qrMode.value = "payment";
   qrPaymentAmount.value = 0;
+  qrPaymentCode.value = "";
+  qrPaymentOrderId.value = null;
+  qrPaymentStatus.value = "";
+  stopQrPaymentPolling();
   showQrDialog.value = true;
   try {
     const res = await axios.post(`${API_BASE}/api/payments/vietqr`, { tableToken: table.qr_token });
     const raw = res.data?.vietqrRaw;
     qrPaymentAmount.value = res.data?.amount || 0;
+    qrPaymentCode.value = res.data?.paymentCode || "";
+    qrPaymentOrderId.value = res.data?.orderId || null;
     if (!raw) throw new Error("NO_QR");
     qrDataUrl.value = await QRCode.toDataURL(raw, { margin: 1, width: 260 });
+    startQrPaymentPolling();
   } catch (e) {
     console.error("Payment QR error:", e);
     ElMessage.error(e.response?.data?.error || "Không thể tạo QR thanh toán");
@@ -1592,6 +1655,7 @@ onMounted(() => {
 });
 
 onUnmounted(() => {
+  stopQrPaymentPolling();
   stopTablesPollingAndWs();
   tablesGridResizeObserver?.disconnect();
   tablesGridResizeObserver = null;
@@ -2048,6 +2112,16 @@ onUnmounted(() => {
 .qr-payment-meta .value {
   font-weight: 800;
   margin-top: 2px;
+}
+.qr-payment-meta .value.code {
+  padding: 6px 8px;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  border-radius: var(--hl-radius-sm);
+  letter-spacing: 0.04em;
+}
+.qr-payment-meta .el-tag {
+  margin-top: 10px;
 }
 
 /* Badge đặt trước trên card bàn Trống */
