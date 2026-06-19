@@ -145,11 +145,20 @@ import {
   Tooltip,
   Legend,
   ArcElement,
+  DoughnutController,
 } from "chart.js";
 import { Bar } from "vue-chartjs";
 import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
 import { API_ORIGIN } from "@/config/api";
-Chart.register(BarElement, CategoryScale, LinearScale, Tooltip, Legend, ArcElement);
+Chart.register(
+  BarElement,
+  CategoryScale,
+  LinearScale,
+  Tooltip,
+  Legend,
+  ArcElement,
+  DoughnutController
+);
 const API_BASE = API_ORIGIN;
 const branches = ref([]);
 const currentUser = getCurrentUser();
@@ -290,48 +299,56 @@ const fetchDashboardData = async () => {
     };
 
     await nextTick();
+    renderTableStatusChart();
+  } catch (error) {
+    console.error("Không thể lấy dữ liệu dashboard:", error);
+    ElMessage.error("Không thể lấy dữ liệu thống kê");
+  }
+};
 
+const renderTableStatusChart = () => {
+  try {
     const ctx = document.getElementById("tableStatusChart")?.getContext("2d");
-    if (ctx) {
-      if (tableStatusChartInstance.value) {
-        tableStatusChartInstance.value.destroy();
-      }
-      tableStatusChartInstance.value = new Chart(ctx, {
-        type: "doughnut",
-        data: {
-          labels: ["Bàn trống", "Đang phục vụ", "Đã đặt", "Chờ dọn"],
-          datasets: [
-            {
-              data: [
-                tableStatus.value.available,
-                tableStatus.value.occupied,
-                tableStatus.value.reserved,
-                tableStatus.value.cleaning,
-              ],
-              backgroundColor: ["#10b981", "#f97316", "#3b82f6", "#94a3b8"],
-              borderWidth: 0,
-            },
-          ],
-        },
-        options: {
-          responsive: true,
-          maintainAspectRatio: false,
-          plugins: {
-            legend: { display: false },
-            tooltip: {
-              callbacks: {
-                label: (context) => {
-                  return context.label + ": " + context.parsed + " bàn";
-                },
+    if (!ctx) return;
+
+    if (tableStatusChartInstance.value) {
+      tableStatusChartInstance.value.destroy();
+    }
+
+    tableStatusChartInstance.value = new Chart(ctx, {
+      type: "doughnut",
+      data: {
+        labels: ["Bàn trống", "Đang phục vụ", "Đã đặt", "Chờ dọn"],
+        datasets: [
+          {
+            data: [
+              tableStatus.value.available,
+              tableStatus.value.occupied,
+              tableStatus.value.reserved,
+              tableStatus.value.cleaning,
+            ],
+            backgroundColor: ["#10b981", "#f97316", "#3b82f6", "#94a3b8"],
+            borderWidth: 0,
+          },
+        ],
+      },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: { display: false },
+          tooltip: {
+            callbacks: {
+              label: (context) => {
+                return context.label + ": " + context.parsed + " bàn";
               },
             },
           },
         },
-      });
-    }
+      },
+    });
   } catch (error) {
-    console.error("Không thể lấy dữ liệu dashboard:", error);
-    ElMessage.error("Không thể lấy dữ liệu thống kê");
+    console.error("Không thể vẽ biểu đồ trạng thái bàn:", error);
   }
 };
 
