@@ -33,7 +33,7 @@ async function getOnSaleItems(branchId, limit = 8) {
   const rows = await MenuItem.findAll({
     where: {
       branch_id: branchId,
-      is_active: true,
+      is_available: true,
       sale_price: { [Op.not]: null },
       [Op.and]: db.sequelize.literal("sale_price < price"),
     },
@@ -77,7 +77,7 @@ async function getBestsellers(branchId, limit = 8, days = 30) {
   }
 
   const fallback = await MenuItem.findAll({
-    where: { branch_id: branchId, is_active: true, is_featured: true },
+    where: { branch_id: branchId, is_available: true, is_featured: true },
     order: [["created_at", "DESC"]],
     limit,
   });
@@ -87,7 +87,7 @@ async function getBestsellers(branchId, limit = 8, days = 30) {
   }
 
   const anyActive = await MenuItem.findAll({
-    where: { branch_id: branchId, is_active: true },
+    where: { branch_id: branchId, is_available: true },
     order: [["created_at", "DESC"]],
     limit,
   });

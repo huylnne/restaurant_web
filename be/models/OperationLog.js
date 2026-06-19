@@ -12,11 +12,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       username: {
-        type: DataTypes.STRING(100),
+        type: DataTypes.STRING(30),
         allowNull: true,
       },
       role: {
-        type: DataTypes.STRING(50),
+        type: DataTypes.STRING(20),
         allowNull: true,
       },
       branch_id: {
@@ -24,12 +24,12 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       action: {
-        type: DataTypes.STRING(80),
+        type: DataTypes.STRING(40),
         allowNull: false,
         comment: 'Mã thao tác, ví dụ EMPLOYEE_CREATE',
       },
       module: {
-        type: DataTypes.STRING(50),
+        type: DataTypes.STRING(20),
         allowNull: false,
         comment: 'Nhóm chức năng: employees, menu, tables, orders...',
       },
@@ -38,7 +38,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       entity_type: {
-        type: DataTypes.STRING(50),
+        type: DataTypes.STRING(20),
         allowNull: true,
       },
       entity_id: {

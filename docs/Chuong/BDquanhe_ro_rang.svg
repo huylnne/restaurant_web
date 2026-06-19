@@ -1,0 +1,167 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="3000" height="2750" viewBox="0 0 3000 2750">
+  <defs>
+    <style>
+      .bg { fill: #fff; }
+      .rel { fill: none; stroke: #333; stroke-width: 3.2; stroke-linejoin: round; stroke-linecap: round; }
+      .card { font: 800 28px Arial, sans-serif; fill: #111; }
+      .tbl { box-sizing: border-box; width: 100%; height: 100%; border: 2.2px solid #555; background: #f3f3f3; font: 800 40px Arial, sans-serif; color: #111; overflow: hidden; }
+      .title { height: 60px; line-height: 60px; border-bottom: 2.2px solid #555; background: #e7e7e7; text-align: center; font-weight: 900; font-size: 34px; }
+      .fields { padding: 14px 24px; line-height: 45px; white-space: pre; }
+    </style>
+  </defs>
+
+  <rect class="bg" x="0" y="0" width="3000" height="2750"/>
+
+  <!-- Routed below table covers. -->
+  <polyline class="rel" points="1210,250 670,250 670,850 600,850"/>
+  <polyline class="rel" points="1500,700 1500,735 970,735 970,760"/>
+  <polyline class="rel" points="1790,250 2220,250 2220,850 2400,850"/>
+  <polyline class="rel" points="1360,700 1360,1180 1080,1180 1080,1300"/>
+  <polyline class="rel" points="1640,700 1640,1190 1930,1190 1930,1300"/>
+  <polyline class="rel" points="1790,430 2250,430 2250,1720 2400,1720"/>
+  <polyline class="rel" points="970,1160 970,1230 1080,1230 1080,1300"/>
+  <polyline class="rel" points="2400,980 2220,980 2220,1130 1240,1130 1240,1300"/>
+  <polyline class="rel" points="2660,1230 2660,1300 2210,1300"/>
+  <polyline class="rel" points="2780,1230 2780,1380 2680,1380 2680,1450"/>
+  <polyline class="rel" points="2900,850 2960,850 2960,2200 2210,2200"/>
+  <polyline class="rel" points="320,1230 320,1600"/>
+  <polyline class="rel" points="900,1600 600,1600"/>
+  <polyline class="rel" points="1210,1990 1210,2050"/>
+  <polyline class="rel" points="1560,1680 1640,1680 1640,2050"/>
+
+  <g>
+    <rect x="1210" y="30" width="580" height="670" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="1210" y="30" width="580" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+    <rect x="40" y="650" width="560" height="580" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="40" y="650" width="560" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+    <rect x="720" y="760" width="500" height="400" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="720" y="760" width="500" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+    <rect x="2400" y="650" width="560" height="580" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="2400" y="650" width="560" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+    <rect x="900" y="1300" width="660" height="690" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="900" y="1300" width="660" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+    <rect x="1650" y="1300" width="560" height="480" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="1650" y="1300" width="560" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+    <rect x="2400" y="1450" width="560" height="580" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="2400" y="1450" width="560" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+    <rect x="40" y="1600" width="560" height="430" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="40" y="1600" width="560" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+    <rect x="780" y="2050" width="650" height="630" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="780" y="2050" width="650" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+    <rect x="1650" y="2050" width="560" height="360" fill="#f3f3f3" stroke="#555" stroke-width="2.2"/><rect x="1650" y="2050" width="560" height="60" fill="#e7e7e7" stroke="#555" stroke-width="2.2"/>
+  </g>
+
+  <foreignObject x="1210" y="30" width="580" height="670"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">Branch</div><div class="fields">branch_id: int &lt;PK&gt;
+name: string
+address: text
+phone: string
+open_time: string
+close_time: string
+image_url: text
+latitude: numeric
+longitude: numeric
+is_active: boolean
+created_at: timestamp
+updated_at: timestamp</div></div></foreignObject>
+
+  <foreignObject x="40" y="650" width="560" height="580"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">MenuItem</div><div class="fields">item_id: int &lt;PK&gt;
+branch_id: int &lt;FK&gt;
+name: string
+description: text
+price: numeric
+category: string
+is_available: boolean
+sale_price: numeric
+is_featured: boolean
+image_url: text
+created_at: timestamp</div></div></foreignObject>
+
+  <foreignObject x="720" y="760" width="500" height="400"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">Table</div><div class="fields">table_id: int &lt;PK&gt;
+branch_id: int &lt;FK&gt;
+table_number: int
+capacity: int
+status: string
+qr_token: string
+created_at: timestamp</div></div></foreignObject>
+
+  <foreignObject x="2400" y="650" width="560" height="580"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">User</div><div class="fields">user_id: int &lt;PK&gt;
+branch_id: int &lt;FK&gt;
+username: string
+password_hash: string
+full_name: string
+phone: string
+role: enum
+avatar_url: text
+is_active: boolean
+locked: boolean
+created_at: timestamp</div></div></foreignObject>
+
+  <foreignObject x="900" y="1300" width="660" height="690"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">Order</div><div class="fields">order_id: int &lt;PK&gt;
+user_id: int &lt;FK&gt;
+branch_id: int &lt;FK&gt;
+table_id: int &lt;FK&gt;
+arrival_time: timestamp
+number_of_guests: int
+status: string
+total_amount: numeric
+note: string
+order_type: string
+payment_status: string
+booking_group_id: string
+created_at: timestamp</div></div></foreignObject>
+
+  <foreignObject x="1650" y="1300" width="560" height="480"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">Employee</div><div class="fields">employee_id: int &lt;PK&gt;
+user_id: int &lt;FK&gt;
+branch_id: int &lt;FK&gt;
+position: string
+salary: numeric
+hire_date: timestamp
+status: enum
+created_at: timestamp
+updated_at: timestamp</div></div></foreignObject>
+
+  <foreignObject x="2400" y="1450" width="560" height="580"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">OperationLog</div><div class="fields">log_id: int &lt;PK&gt;
+user_id: int &lt;FK&gt;
+branch_id: int &lt;FK&gt;
+action: string
+module: string
+description: text
+entity_type: string
+entity_id: int
+request_body: jsonb
+metadata: jsonb
+created_at: timestamp</div></div></foreignObject>
+
+  <foreignObject x="40" y="1600" width="560" height="430"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">OrderItem</div><div class="fields">order_item_id: int &lt;PK&gt;
+order_id: int &lt;FK&gt;
+item_id: int &lt;FK&gt;
+quantity: int
+price: numeric
+note: string
+status: enum</div></div></foreignObject>
+
+  <foreignObject x="780" y="2050" width="650" height="630"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">Payment</div><div class="fields">payment_id: int &lt;PK&gt;
+order_id: int &lt;FK&gt;
+amount: numeric
+method: string
+status: string
+transaction_ref: string
+invoice_no: string
+invoice_issued_at: timestamp
+paid_at: timestamp
+created_at: timestamp</div></div></foreignObject>
+
+  <foreignObject x="1650" y="2050" width="560" height="360"><div xmlns="http://www.w3.org/1999/xhtml" class="tbl"><div class="title">Review</div><div class="fields">review_id: int &lt;PK&gt;
+order_id: int &lt;FK&gt;
+user_id: int &lt;FK&gt;
+rating: int
+comment: text
+created_at: timestamp</div></div></foreignObject>
+
+  <text class="card" x="1170" y="242">1</text><text class="card" x="614" y="842">0..*</text>
+  <text class="card" x="1515" y="732">1</text><text class="card" x="1005" y="742">0..*</text>
+  <text class="card" x="1805" y="242">1</text><text class="card" x="2340" y="842">0..*</text>
+  <text class="card" x="1378" y="718">1</text><text class="card" x="1128" y="1248">0..*</text>
+  <text class="card" x="1658" y="718">1</text><text class="card" x="1968" y="1270">0..*</text>
+  <text class="card" x="1805" y="424">1</text><text class="card" x="2340" y="1710">0..*</text>
+  <text class="card" x="1000" y="1185">1</text><text class="card" x="800" y="1260">0..*</text>
+  <text class="card" x="2340" y="970">1</text><text class="card" x="1268" y="1085">0..*</text>
+  <text class="card" x="2678" y="1270">1</text><text class="card" x="2240" y="1325">0..1</text>
+  <text class="card" x="2792" y="1374">1</text><text class="card" x="2705" y="1425">0..*</text>
+  <text class="card" x="2910" y="842">1</text><text class="card" x="2222" y="2190">0..*</text>
+  <text class="card" x="334" y="1268">1</text><text class="card" x="620" y="1548">0..*</text>
+  <text class="card" x="850" y="1548">1</text><text class="card" x="620" y="1662">0..*</text>
+  <text class="card" x="1168" y="2032">1</text><text class="card" x="1300" y="2032">0..1</text>
+  <text class="card" x="1576" y="1672">1</text><text class="card" x="1668" y="2025">0..1</text>
+</svg>

@@ -22,9 +22,9 @@ module.exports = (sequelize, DataTypes) => {
       }
     },
     position: {
-      type: DataTypes.STRING(50),
+      type: DataTypes.STRING(20),
       allowNull: false,
-      comment: 'Chức vụ: manager, chef, waiter, cashier'
+      comment: 'Chức vụ: manager, chef, waiter, cashier',
     },
     salary: {
       type: DataTypes.DECIMAL(10, 2),
@@ -32,12 +32,14 @@ module.exports = (sequelize, DataTypes) => {
     },
     hire_date: {
       type: DataTypes.DATE,
-      defaultValue: DataTypes.NOW
+      allowNull: true,
+      defaultValue: DataTypes.NOW,
     },
     status: {
       type: DataTypes.ENUM('active', 'inactive', 'on_leave'),
-      defaultValue: 'active'
-    }
+      allowNull: false,
+      defaultValue: 'active',
+    },
   }, {
     tableName: 'employees',
     timestamps: true,

@@ -61,7 +61,7 @@
     </div>
     <div class="two_charts">
       <div v-if="showFinancials" class="weekly-stats">
-        <h3>Doanh thu trong tuần</h3>
+        <h3>Doanh thu 7 ngày gần nhất</h3>
         <Bar
           v-if="weeklyLabels.length"
           :data="{

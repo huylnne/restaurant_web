@@ -1,12 +1,11 @@
 const {
   Table,
-  Reservation,
   Order,
   User,
   OrderItem,
   MenuItem,
 } = require("../../models");
-const { Sequelize, Op } = require("sequelize");
+const { Sequelize } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
 const crypto = require("crypto");
 const {
@@ -15,7 +14,6 @@ const {
   shouldEndTableSession,
   normalizeTableStatus,
 } = require("../../utils/tableStatus");
-const { activeReservationStatusWhere } = require("../../utils/reservationStatus");
 const {
   ORDER_STATUS,
   notTerminalOrderStatusWhere,
@@ -27,7 +25,6 @@ const DEFAULT_BRANCH_ID = tableSummaryService.DEFAULT_BRANCH_ID;
 const tableService = {
   async ensureQrToken(table) {
     if (table.qr_token) return table.qr_token;
-    // Best-effort tránh collision: generate và check tồn tại
     for (let i = 0; i < 5; i++) {
       const token = crypto.randomBytes(16).toString("hex");
       const exists = await Table.findOne({ where: { qr_token: token }, attributes: ["table_id"] });
@@ -38,55 +35,26 @@ const tableService = {
     }
     throw new Error("Không thể sinh QR token cho bàn");
   },
-  // Lấy danh sách bàn (cùng branch với getTableSummary để số liệu khớp).
-  // Trước khi trả về: tự chuyển bàn đặt trước quá 15 phút (khách chưa tới) thành trống.
+
   async getTables(branchId = DEFAULT_BRANCH_ID) {
     await tableSummaryService.expireReservationsForBranch(branchId);
 
-    // Chỉ load reservation ĐANG HOẠT ĐỘNG để tránh join toàn bộ lịch sử
     const ACTIVE_ORDER_STATUSES = notTerminalOrderStatusWhere();
 
     const tables = await Table.findAll({
       where: { branch_id: branchId },
       include: [
         {
-          model: Reservation,
-          required: false,
-          where: { status: activeReservationStatusWhere() },
-          include: [
-            {
-              model: Order,
-              as: "Orders",
-              required: false,
-              where: { status: ACTIVE_ORDER_STATUSES },
-              include: [
-                {
-                  model: OrderItem,
-                  required: false,
-                  include: [
-                    {
-                      model: MenuItem,
-                      required: false,
-                      attributes: ["price"],
-                    },
-                  ],
-                },
-              ],
-            },
-            {
-              model: User,
-              required: false,
-              attributes: ["user_id", "full_name", "phone"],
-            },
-          ],
-        },
-        // Đơn waiter tạo trực tiếp cho bàn — chỉ đơn đang hoạt động
-        {
           model: Order,
           as: "TableOrders",
           required: false,
           where: { status: ACTIVE_ORDER_STATUSES },
           include: [
+            {
+              model: User,
+              required: false,
+              attributes: ["user_id", "full_name", "phone"],
+            },
             {
               model: OrderItem,
               required: false,
@@ -104,75 +72,79 @@ const tableService = {
       order: [["table_number", "ASC"]],
     });
 
-    // Lazy-backfill qr_token cho bàn cũ (để admin có thể in QR ngay)
     await Promise.all(
       tables
         .filter((t) => !t.qr_token)
         .map((t) => this.ensureQrToken(t).catch(() => null))
     );
 
-    // Tính toán thông tin bổ sung cho mỗi bàn
     return tables.map((table) => {
       const tableData = table.toJSON();
       const now = new Date();
+      const activeOrders = tableData.TableOrders || [];
 
-      // Bàn đang dùng (pre-ordered / occupied) → lấy reservation trong cửa sổ ±2 giờ
-      // Bàn trống → không set activeReservation (tránh lộ data cũ)
       const activeReservation =
         tableData.status !== TABLE_STATUS.AVAILABLE &&
         tableData.status !== TABLE_STATUS.CLEANING
-          ? (tableData.Reservations?.find((r) => {
-              const reservationTime = new Date(r.reservation_time);
-              const timeDiff = (reservationTime - now) / (1000 * 60 * 60);
+          ? (activeOrders.find((o) => {
+              const arrival = new Date(o.arrival_time || o.created_at);
+              const timeDiff = (arrival - now) / (1000 * 60 * 60);
               return timeDiff >= -2 && timeDiff <= 2;
             }) ?? null)
           : null;
 
-      // Bàn đang Trống nhưng có reservation tương lai (trong 24h tới) → cảnh báo cho nhân viên
       const upcomingReservation =
         tableData.status === TABLE_STATUS.AVAILABLE
-          ? (tableData.Reservations?.find((r) => {
-              if (r.status !== "confirmed") return false;
-              const resTime = new Date(r.reservation_time);
-              const diffHours = (resTime - now) / (1000 * 60 * 60);
+          ? (activeOrders.find((o) => {
+              if (o.order_type !== "reservation" || o.status !== "confirmed") return false;
+              const arrival = new Date(o.arrival_time || o.created_at);
+              const diffHours = (arrival - now) / (1000 * 60 * 60);
               return diffHours > 0 && diffHours <= 24;
             }) ?? null)
           : null;
 
-      // Hóa đơn tạm tính = tổng (price * quantity) của tất cả order items gắn với bàn:
-      // 1) Đơn user qua reservation (order.reservation_id → reservation.table_id)
-      // 2) Đơn waiter trực tiếp (order.table_id)
       let totalRevenue = 0;
-      const sumOrderItems = (orders) => {
-        (orders || []).forEach((order) => {
+      if (
+        tableData.status !== TABLE_STATUS.AVAILABLE &&
+        tableData.status !== TABLE_STATUS.CLEANING
+      ) {
+        activeOrders.forEach((order) => {
           (order.OrderItems || []).forEach((item) => {
-            const price = item.MenuItem?.price ?? 0;
-            const quantity = item.quantity ?? 0;
-            totalRevenue += Number(price) * Number(quantity);
+            const price = item.MenuItem?.price ?? item.price ?? 0;
+            totalRevenue += Number(price) * Number(item.quantity ?? 0);
           });
         });
-      };
-      const reservations = tableData.Reservations || [];
-      reservations.forEach((reservation) => sumOrderItems(reservation.Orders));
-      sumOrderItems(tableData.TableOrders);
-
-      if (
-        tableData.status === TABLE_STATUS.AVAILABLE ||
-        tableData.status === TABLE_STATUS.CLEANING
-      ) {
-        totalRevenue = 0;
       }
+
+      const mappedActive = activeReservation
+        ? {
+            ...activeReservation,
+            reservation_id: activeReservation.order_id,
+            reservation_time: activeReservation.arrival_time,
+          }
+        : null;
+      const mappedUpcoming = upcomingReservation
+        ? {
+            ...upcomingReservation,
+            reservation_id: upcomingReservation.order_id,
+            reservation_time: upcomingReservation.arrival_time,
+          }
+        : null;
 
       return {
         ...tableData,
-        activeReservation: activeReservation || null,
-        upcomingReservation: upcomingReservation || null,
+        Reservations: activeOrders.map((o) => ({
+          ...o,
+          reservation_id: o.order_id,
+          reservation_time: o.arrival_time,
+        })),
+        activeReservation: mappedActive,
+        upcomingReservation: mappedUpcoming,
         totalRevenue,
       };
     });
   },
 
-  // Thêm bàn mới
   async createTable(data) {
     const { table_number, capacity } = data;
     const branch_id = parseInt(data.branch_id, 10) || 1;
@@ -193,7 +165,6 @@ const tableService = {
     return table;
   },
 
-  // Sửa bàn
   async updateTable(tableNumber, data) {
     const branch_id = parseInt(data.branch_id, 10) || 1;
     const table = await Table.findOne({ where: { table_number: tableNumber, branch_id } });
@@ -205,7 +176,6 @@ const tableService = {
       throw new Error("Trạng thái bàn không hợp lệ");
     }
 
-    // Nếu đổi số bàn, kiểm tra số mới đã tồn tại chưa
     if (table_number && table_number !== table.table_number) {
       const existingTable = await Table.findOne({ where: { table_number, branch_id } });
       if (existingTable) throw new Error("Số bàn mới đã tồn tại");
@@ -217,11 +187,7 @@ const tableService = {
       status: status || table.status,
     });
 
-    // Kết thúc phiên khi chuyển Trống hoặc Chờ dọn (sau thanh toán / khách rời)
     if (status && shouldEndTableSession(status)) {
-      const { Op } = require("sequelize");
-
-      // Hoàn tất đơn gắn trực tiếp với bàn
       await Order.update(
         { status: ORDER_STATUS.COMPLETED },
         {
@@ -231,46 +197,11 @@ const tableService = {
           },
         }
       );
-
-      // Lấy reservation active của bàn
-      const reservations = await Reservation.findAll({
-        where: {
-          table_id: table.table_id,
-          status: { [Op.notIn]: ["completed", "cancelled"] },
-        },
-        attributes: ["reservation_id"],
-      });
-      const reservationIds = reservations.map((r) => r.reservation_id);
-
-      // Hoàn tất đơn qua reservation
-      if (reservationIds.length > 0) {
-        await Order.update(
-          { status: ORDER_STATUS.COMPLETED },
-          {
-            where: {
-              reservation_id: { [Op.in]: reservationIds },
-              status: notTerminalOrderStatusWhere(),
-            },
-          }
-        );
-      }
-
-      // Đóng tất cả reservation active
-      await Reservation.update(
-        { status: "completed" },
-        {
-          where: {
-            table_id: table.table_id,
-            status: { [Op.notIn]: ["completed", "cancelled"] },
-          },
-        }
-      );
     }
 
     return table;
   },
 
-  // Xóa bàn theo table_number
   async deleteTable(tableNumber, branchId = DEFAULT_BRANCH_ID) {
     const table = await Table.findOne({ where: { table_number: tableNumber, branch_id: branchId } });
     if (!table) {
@@ -285,44 +216,31 @@ const tableService = {
     return { message: "Đã xóa bàn thành công" };
   },
 
-  // Lấy hoạt động gần đây
   async getTableActivities(branchId = DEFAULT_BRANCH_ID) {
-    const activities = await Reservation.findAll({
+    const activities = await Order.findAll({
       where: { branch_id: branchId },
       limit: 10,
       order: [["created_at", "DESC"]],
       include: [
-        {
-          model: Table,
-          required: true,
-        },
-        {
-          model: User,
-          required: false,
-          attributes: ["user_id", "full_name", "phone"],
-        },
-        {
-          model: Order,
-          as: "Orders",
-          required: false,
-        },
+        { model: Table, required: true },
+        { model: User, required: false, attributes: ["user_id", "full_name", "phone"] },
+        { model: OrderItem, required: false },
       ],
     });
 
     return activities.map((activity) => {
       const activityData = activity.toJSON();
+      const hasItems = activityData.OrderItems && activityData.OrderItems.length > 0;
       return {
         ...activityData,
-        activityType:
-          activityData.Orders && activityData.Orders.length > 0
-            ? "order"
-            : "reservation",
+        reservation_id: activityData.order_id,
+        reservation_time: activityData.arrival_time,
+        activityType: hasItems ? "order" : "reservation",
         timestamp: activityData.created_at,
       };
     });
   },
 
-  // Lấy thống kê tổng quan bàn – dùng chung tableSummary.service với Dashboard
   async getTableSummary(branchId = DEFAULT_BRANCH_ID) {
     const summary = await tableSummaryService.getTableSummary(branchId);
     const db = require("../../models/db");

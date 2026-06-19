@@ -3,7 +3,6 @@ const { resolveBranchId } = require('../../utils/branchScope');
 const realtimeHub = require('../../realtimeHub');
 
 const kitchenController = {
-  // GET /api/admin/kitchen/order-items?status=pending
   async listOrderItems(req, res) {
     try {
       const status = req.query.status || 'pending';
@@ -16,7 +15,6 @@ const kitchenController = {
     }
   },
 
-  // PATCH /api/admin/kitchen/order-items/:id/status
   async changeOrderItemStatus(req, res) {
     try {
       const id = req.params.id;
@@ -28,14 +26,12 @@ const kitchenController = {
       const branchIdNum = Number(branchId);
       try {
         const plain = updated.toJSON ? updated.toJSON() : updated;
-        const directTable = plain.Order?.Table;
-        const reservationTable = plain.Order?.Reservation?.Table;
-        const resolvedTable = directTable || reservationTable || null;
+        const resolvedTable = plain.Order?.Table ?? null;
         realtimeHub.notifyBranch(branchIdNum, {
           type: 'order_item_status',
           order_item_id: Number(id),
           status: plain.status,
-          table_id: resolvedTable?.table_id ?? plain.Order?.table_id ?? plain.Order?.Reservation?.table_id ?? null,
+          table_id: resolvedTable?.table_id ?? plain.Order?.table_id ?? null,
           table_number: resolvedTable?.table_number ?? null,
           menu_name: plain.MenuItem?.name ?? null,
         });

@@ -2,7 +2,7 @@ const PHONE_REGEX = /^0\d{9}$/;
 const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
 const PASSWORD_MIN_LEN = 8;
 const PASSWORD_MAX_LEN = 32;
-const FULL_NAME_MAX_LEN = 100;
+const FULL_NAME_MAX_LEN = 50;
 
 function rejectUnexpectedKeys(body, allowedKeys) {
   const extra = Object.keys(body || {}).filter((k) => !allowedKeys.includes(k));

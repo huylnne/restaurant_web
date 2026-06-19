@@ -1,64 +1,101 @@
 const { Sequelize } = require("sequelize");
 const db = require("../../models/db");
 
+function buildReviewFilters(branchId, { startDate, endDate, rating, q }) {
+  const whereParts = ["o.branch_id = :branchId"];
+  const replacements = { branchId };
+
+  if (startDate && endDate) {
+    whereParts.push("rv.created_at BETWEEN :startDate AND :endDate");
+    replacements.startDate = startDate;
+    replacements.endDate = endDate;
+  }
+
+  const parsedRating = Number(rating);
+  if (Number.isInteger(parsedRating) && parsedRating >= 1 && parsedRating <= 5) {
+    whereParts.push("rv.rating = :rating");
+    replacements.rating = parsedRating;
+  }
+
+  if (q && String(q).trim()) {
+    whereParts.push(
+      "(u.full_name ILIKE :q OR u.phone ILIKE :q OR rv.comment ILIKE :q OR CAST(rv.order_id AS TEXT) ILIKE :q)"
+    );
+    replacements.q = `%${String(q).trim()}%`;
+  }
+
+  return { whereParts, replacements };
+}
+
 const reviewService = {
-  async listReviews(branchId, { startDate, endDate, rating, q, limit = 100 }) {
-    const whereParts = ["r.branch_id = :branchId"];
-    const replacements = { branchId };
+  async listReviews(branchId, { startDate, endDate, rating, q, page = 1, limit = 10 }) {
+    const { whereParts, replacements } = buildReviewFilters(branchId, {
+      startDate,
+      endDate,
+      rating,
+      q,
+    });
 
-    if (startDate && endDate) {
-      whereParts.push("rv.created_at BETWEEN :startDate AND :endDate");
-      replacements.startDate = startDate;
-      replacements.endDate = endDate;
-    }
+    const parsedPage = Math.max(1, Number(page) || 1);
+    const parsedLimit = Math.max(1, Math.min(100, Number(limit) || 10));
+    const offset = (parsedPage - 1) * parsedLimit;
 
-    const parsedRating = Number(rating);
-    if (Number.isInteger(parsedRating) && parsedRating >= 1 && parsedRating <= 5) {
-      whereParts.push("rv.rating = :rating");
-      replacements.rating = parsedRating;
-    }
-
-    if (q && String(q).trim()) {
-      whereParts.push(
-        "(u.full_name ILIKE :q OR u.phone ILIKE :q OR rv.comment ILIKE :q OR CAST(rv.reservation_id AS TEXT) ILIKE :q)"
-      );
-      replacements.q = `%${String(q).trim()}%`;
-    }
-
-    const parsedLimit = Math.max(1, Math.min(500, Number(limit) || 100));
     replacements.limit = parsedLimit;
+    replacements.offset = offset;
 
-    const query = `
+    const fromClause = `
+      FROM reviews rv
+      JOIN orders o ON o.order_id = rv.order_id
+      JOIN users u ON u.user_id = rv.user_id
+      LEFT JOIN tables t ON t.table_id = o.table_id
+      WHERE ${whereParts.join(" AND ")}
+    `;
+
+    const countQuery = `
+      SELECT COUNT(rv.review_id)::int AS total
+      ${fromClause}
+    `;
+
+    const listQuery = `
       SELECT
         rv.review_id,
-        rv.reservation_id,
+        rv.order_id,
+        rv.order_id AS reservation_id,
         rv.user_id,
         rv.rating,
         rv.comment,
         rv.created_at,
-        r.branch_id,
-        r.reservation_time,
-        r.number_of_guests,
+        o.branch_id,
+        o.arrival_time,
+        o.arrival_time AS reservation_time,
+        o.number_of_guests,
         u.full_name,
         u.phone,
         t.table_number
-      FROM reviews rv
-      JOIN reservations r ON r.reservation_id = rv.reservation_id
-      JOIN users u ON u.user_id = rv.user_id
-      LEFT JOIN tables t ON t.table_id = r.table_id
-      WHERE ${whereParts.join(" AND ")}
+      ${fromClause}
       ORDER BY rv.created_at DESC
-      LIMIT :limit
+      LIMIT :limit OFFSET :offset
     `;
 
-    return db.sequelize.query(query, {
-      replacements,
-      type: Sequelize.QueryTypes.SELECT,
-    });
+    const [countRows, reviews] = await Promise.all([
+      db.sequelize.query(countQuery, {
+        replacements,
+        type: Sequelize.QueryTypes.SELECT,
+      }),
+      db.sequelize.query(listQuery, {
+        replacements,
+        type: Sequelize.QueryTypes.SELECT,
+      }),
+    ]);
+
+    return {
+      reviews,
+      total: Number(countRows[0]?.total || 0),
+    };
   },
 
   async getReviewSummary(branchId, { startDate, endDate }) {
-    const whereParts = ["r.branch_id = :branchId"];
+    const whereParts = ["o.branch_id = :branchId"];
     const replacements = { branchId };
 
     if (startDate && endDate) {
@@ -74,7 +111,7 @@ const reviewService = {
         COUNT(*) FILTER (WHERE rv.rating = 5)::int AS five_star,
         COUNT(*) FILTER (WHERE rv.rating <= 2)::int AS low_rating
       FROM reviews rv
-      JOIN reservations r ON r.reservation_id = rv.reservation_id
+      JOIN orders o ON o.order_id = rv.order_id
       WHERE ${whereParts.join(" AND ")}
     `;
 

@@ -3,9 +3,9 @@
     <h2 class="title">Lịch sử dùng bữa</h2>
     <div class="reservations-table-wrap">
     <el-table :data="displayReservations" v-loading="loading" class="reservations-table">
-      <el-table-column prop="reservation_time" label="Thời gian" width="200">
+      <el-table-column prop="arrival_time" label="Thời gian" width="200">
         <template #default="{ row }">
-          {{ new Date(row.reservation_time).toLocaleString("vi-VN") }}
+          {{ new Date(row.arrival_time).toLocaleString("vi-VN") }}
         </template>
       </el-table-column>
 
@@ -57,21 +57,32 @@
       <!-- Món đã gọi -->
       <el-table-column label="Món đã gọi">
         <template #default="{ row }">
-          <div v-if="row.Orders?.length">
-            <div v-for="order in row.Orders" :key="order.order_id" class="order-items">
+          <div v-if="row.OrderItems?.length || row.Orders?.length">
+            <div v-if="row.OrderItems?.length" class="order-items">
               <div
-                v-for="item in order.OrderItems"
+                v-for="item in row.OrderItems"
                 :key="item.order_item_id"
                 class="order-item"
               >
                 🍽️ {{ item.MenuItem?.name }} <strong>(x{{ item.quantity }})</strong>
               </div>
             </div>
+            <template v-else>
+              <div v-for="order in row.Orders" :key="order.order_id" class="order-items">
+                <div
+                  v-for="item in order.OrderItems"
+                  :key="item.order_item_id"
+                  class="order-item"
+                >
+                  🍽️ {{ item.MenuItem?.name }} <strong>(x{{ item.quantity }})</strong>
+                </div>
+              </div>
+            </template>
             <!-- 💰 Hoá đơn tạm tính -->
             <div class="invoice">
               💰 <strong>Tạm tính:</strong>
               {{
-                calculateSubtotal(row.Orders).toLocaleString("vi-VN", {
+                calculateRowSubtotal(row).toLocaleString("vi-VN", {
                   style: "currency",
                   currency: "VND",
                 })
@@ -89,7 +100,7 @@
             v-if="canCancelReservation(row)"
             type="danger"
             size="small"
-            @click="cancelReservation(row.reservation_id)"
+            @click="cancelReservation(row.order_id)"
           >
             Hủy
           </el-button>
@@ -160,23 +171,23 @@ function groupReservationsForDisplay(rows) {
     const group = rows.filter((r) => r.booking_group_id === gid);
     const tables = group.map((r) => r.Table).filter(Boolean);
     const primary = group.reduce((a, b) =>
-      a.reservation_id < b.reservation_id ? a : b
+      a.order_id < b.order_id ? a : b
     );
     result.push({
       ...primary,
       groupTables: tables,
-      groupReservationIds: group.map((r) => r.reservation_id),
+      groupOrderIds: group.map((r) => r.order_id),
     });
   }
 
   return result.sort(
-    (a, b) => new Date(b.reservation_time) - new Date(a.reservation_time)
+    (a, b) => new Date(b.arrival_time) - new Date(a.arrival_time)
   );
 }
 const reviewDialogVisible = ref(false);
 const submittingReview = ref(false);
 const reviewForm = ref({
-  reservation_id: null,
+  order_id: null,
   rating: 0,
   comment: "",
 });
@@ -226,19 +237,22 @@ async function cancelReservation(id) {
   }
 }
 
-function calculateSubtotal(orders) {
-  if (!orders || !Array.isArray(orders)) return 0;
-
-  return orders.reduce((sum, order) => {
-    return (
-      sum +
-      order.OrderItems.reduce((orderSum, item) => {
-        const price = Number(item.MenuItem?.price || 0);
-        const quantity = Number(item.quantity || 0);
-        return orderSum + price * quantity;
-      }, 0)
-    );
+function calculateItemsSubtotal(items) {
+  if (!items || !Array.isArray(items)) return 0;
+  return items.reduce((sum, item) => {
+    const price = Number(item.MenuItem?.price || 0);
+    const quantity = Number(item.quantity || 0);
+    return sum + price * quantity;
   }, 0);
+}
+
+function calculateRowSubtotal(row) {
+  if (row?.OrderItems?.length) return calculateItemsSubtotal(row.OrderItems);
+  if (!row?.Orders || !Array.isArray(row.Orders)) return 0;
+  return row.Orders.reduce(
+    (sum, order) => sum + calculateItemsSubtotal(order.OrderItems),
+    0
+  );
 }
 
 /** Trạng thái dùng bữa đồng bộ với bàn (admin/waiter cập nhật trạng thái bàn → user thấy ngay) */
@@ -276,7 +290,7 @@ function canReviewReservation(row) {
 
 function openReviewDialog(row) {
   reviewForm.value = {
-    reservation_id: row.reservation_id,
+    order_id: row.order_id,
     rating: 0,
     comment: "",
   };
@@ -285,7 +299,7 @@ function openReviewDialog(row) {
 
 async function submitReview() {
   const payload = {
-    reservation_id: reviewForm.value.reservation_id,
+    order_id: reviewForm.value.order_id,
     rating: Number(reviewForm.value.rating),
     comment: String(reviewForm.value.comment || "").trim(),
   };

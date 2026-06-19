@@ -1,11 +1,11 @@
 const axios = require("axios");
-const { Payment, Order, Reservation, Table, sequelize } = require("../models");
+const { Payment, Order, Table, sequelize } = require("../models");
 const { QueryTypes, Op } = require("sequelize");
 const billService = require("./bill.service");
 const momo = require("../utils/momo");
 const { generateVietQR } = require("vietqr-ts");
 const { TABLE_STATUS } = require("../utils/tableStatus");
-const { ORDER_STATUS, notTerminalOrderStatusWhere } = require("../utils/orderStatus");
+const { ORDER_STATUS, activeOrderStatusWhere } = require("../utils/orderStatus");
 
 const PAYMENT_METHODS = {
   CASH: "CASH",
@@ -26,12 +26,9 @@ const OFFLINE_METHODS = new Set([
 ]);
 const now = () => new Date();
 
-const { ACTIVE_RESERVATION_STATUSES } = require("../utils/reservationStatus");
-
-// Legacy: tính tổng theo 1 order
 async function getOrderAmount(orderId) {
   const rows = await sequelize.query(
-    `SELECT COALESCE(SUM(oi.quantity * COALESCE(mi.price,0)), 0) AS amount
+    `SELECT COALESCE(SUM(oi.quantity * COALESCE(oi.price, mi.price, 0)), 0) AS amount
      FROM order_items oi
      JOIN menu_items mi ON mi.item_id = oi.item_id
      WHERE oi.order_id = :orderId`,
@@ -55,32 +52,33 @@ function generateInvoiceNo(paymentId) {
   return `INV-${stamp}-${paymentId}`;
 }
 
-async function getActiveReservationByTableId(tableId) {
-  return Reservation.findOne({
-    where: {
-      table_id: tableId,
-      status: { [Op.in]: ACTIVE_RESERVATION_STATUSES },
-    },
-    order: [["created_at", "DESC"]],
+function resolveSessionOrderId({ orderId, reservationId }) {
+  if (orderId) return Number(orderId);
+  if (reservationId) return Number(reservationId);
+  return null;
+}
+
+async function getActiveOrderByTableId(tableId) {
+  return billService.findActiveOrderByTable(tableId);
+}
+
+async function getAmountByOrder(sessionOrderId) {
+  const order = await Order.findByPk(sessionOrderId, {
+    attributes: ["order_id", "table_id"],
   });
-}
-
-async function getAmountByReservation(reservationId) {
-  const reservation = await Reservation.findByPk(reservationId, { attributes: ["reservation_id", "table_id"] });
-  if (!reservation) throw new Error("RESERVATION_NOT_FOUND");
-  if (!reservation.table_id) throw new Error("TABLE_NOT_FOUND");
-  const bill = await billService.getBillByTable(reservation.table_id);
+  if (!order) throw new Error("ORDER_NOT_FOUND");
+  if (!order.table_id) throw new Error("TABLE_NOT_FOUND");
+  const bill = await billService.getBillByTable(order.table_id);
   const amount = Number(bill?.total_amount || 0);
-  return { amount, reservation, bill };
+  return { amount, order, bill };
 }
 
-async function createOrUpdatePaymentForReservation({ reservationId, amount, method }) {
+async function createOrUpdatePaymentForOrder({ orderId, amount, method }) {
   const normalizedMethod = normalizeMethod(method);
-  let payment = await Payment.findOne({ where: { reservation_id: reservationId } });
+  let payment = await Payment.findOne({ where: { order_id: orderId } });
   if (!payment) {
     payment = await Payment.create({
-      reservation_id: reservationId,
-      order_id: null,
+      order_id: orderId,
       amount,
       method: normalizedMethod,
       status: isOfflineMethod(normalizedMethod) ? "pending" : "requires_action",
@@ -89,7 +87,7 @@ async function createOrUpdatePaymentForReservation({ reservationId, amount, meth
       created_at: now(),
     });
   } else {
-    if (payment.status === "succeeded") throw new Error("RESERVATION_ALREADY_PAID");
+    if (payment.status === "succeeded") throw new Error("ORDER_ALREADY_PAID");
     payment.amount = amount;
     payment.method = normalizedMethod;
     payment.status = isOfflineMethod(normalizedMethod) ? "pending" : "requires_action";
@@ -100,7 +98,7 @@ async function createOrUpdatePaymentForReservation({ reservationId, amount, meth
   return payment;
 }
 
-async function createMomoSessionForReservation({ reservationId, amount, returnUrl, cancelUrl }) {
+async function createMomoSessionForOrder({ orderId, amount, returnUrl, cancelUrl }) {
   const partnerCode = process.env.MOMO_PARTNER_CODE;
   const accessKey = process.env.MOMO_ACCESS_KEY;
   const secretKey = process.env.MOMO_SECRET_KEY;
@@ -112,22 +110,21 @@ async function createMomoSessionForReservation({ reservationId, amount, returnUr
     throw new Error("MOMO_NOT_CONFIGURED");
   }
 
-  // MoMo yêu cầu amount dạng Long (VND)
   const momoAmount = Math.round(Number(amount));
   if (!Number.isFinite(momoAmount) || momoAmount <= 0) throw new Error("INVALID_AMOUNT");
 
   const requestId = `${partnerCode}_${Date.now()}`;
-  const orderId = requestId;
-  const orderInfo = `Thanh toan ban (reservation ${reservationId})`;
+  const momoOrderId = requestId;
+  const orderInfo = `Thanh toan ban (order ${orderId})`;
   const requestType = "captureWallet";
-  const extraData = momo.encodeExtraData({ reservationId });
+  const extraData = momo.encodeExtraData({ orderId, reservationId: orderId });
 
   const rawSignature = momo.buildCreateRawSignature({
     accessKey,
     amount: String(momoAmount),
     extraData,
     ipnUrl,
-    orderId,
+    orderId: momoOrderId,
     orderInfo,
     partnerCode,
     redirectUrl,
@@ -141,7 +138,7 @@ async function createMomoSessionForReservation({ reservationId, amount, returnUr
     accessKey,
     requestId,
     amount: momoAmount,
-    orderId,
+    orderId: momoOrderId,
     orderInfo,
     redirectUrl,
     ipnUrl,
@@ -155,141 +152,96 @@ async function createMomoSessionForReservation({ reservationId, amount, returnUr
   return resp.data;
 }
 
-/**
- * Tạo session thanh toán
- * - Ưu tiên reservationId (phiên bàn)
- * - Hoặc tableToken (QR bàn) -> resolve bàn -> lấy reservation active
- * - Legacy: orderId (giữ tương thích)
- */
-async function createSession({ reservationId, tableToken, orderId, method, returnUrl, cancelUrl }) {
+async function createSession({ orderId, reservationId, tableToken, method, returnUrl, cancelUrl }) {
   const normalizedMethod = normalizeMethod(method);
   if (!ALLOWED_METHODS.includes(normalizedMethod)) throw new Error("UNSUPPORTED_METHOD");
 
-  // 1) Phiên bàn (recommended)
-  if (reservationId || tableToken) {
-    let resId = reservationId ? Number(reservationId) : null;
+  let sessionOrderId = resolveSessionOrderId({ orderId, reservationId });
 
-    if (!resId && tableToken) {
-      const table = await Table.findOne({ where: { qr_token: tableToken }, attributes: ["table_id"] });
-      if (!table) throw new Error("TABLE_NOT_FOUND");
-      const active = await getActiveReservationByTableId(table.table_id);
-      if (!active) throw new Error("NO_ACTIVE_SESSION");
-      resId = active.reservation_id;
-    }
+  if (!sessionOrderId && tableToken) {
+    const table = await Table.findOne({ where: { qr_token: tableToken }, attributes: ["table_id"] });
+    if (!table) throw new Error("TABLE_NOT_FOUND");
+    const active = await getActiveOrderByTableId(table.table_id);
+    if (!active) throw new Error("NO_ACTIVE_SESSION");
+    sessionOrderId = active.order_id;
+  }
 
-    const { amount } = await getAmountByReservation(resId);
-    if (amount <= 0) throw new Error("INVALID_AMOUNT");
+  if (!sessionOrderId) throw new Error("INVALID_REQUEST");
 
-    const payment = await createOrUpdatePaymentForReservation({
-      reservationId: resId,
+  const { amount } = await getAmountByOrder(sessionOrderId);
+  if (amount <= 0) throw new Error("INVALID_AMOUNT");
+
+  const payment = await createOrUpdatePaymentForOrder({
+    orderId: sessionOrderId,
+    amount,
+    method: normalizedMethod,
+  });
+
+  await Order.update({ payment_status: "pending" }, { where: { order_id: sessionOrderId } });
+
+  if (isOfflineMethod(normalizedMethod)) {
+    return { nextAction: "none", paymentId: payment.payment_id, orderId: sessionOrderId };
+  }
+
+  if (normalizedMethod === PAYMENT_METHODS.MOMO) {
+    const momoData = await createMomoSessionForOrder({
+      orderId: sessionOrderId,
       amount,
-      method: normalizedMethod,
+      returnUrl,
+      cancelUrl,
     });
-
-    if (isOfflineMethod(normalizedMethod)) {
-      return { nextAction: "none", paymentId: payment.payment_id, reservationId: resId };
-    }
-
-    if (normalizedMethod === PAYMENT_METHODS.MOMO) {
-      const momoData = await createMomoSessionForReservation({ reservationId: resId, amount, returnUrl, cancelUrl });
-      // Lưu mapping giao dịch: dùng orderId/requestId của MoMo để trace
-      payment.transaction_ref = momoData.orderId || momoData.requestId || payment.transaction_ref;
-      await payment.save();
-      return {
-        nextAction: "redirect",
-        payUrl: momoData.payUrl,
-        qrCodeUrl: momoData.qrCodeUrl,
-        deeplink: momoData.deeplink,
-        paymentId: payment.payment_id,
-        reservationId: resId,
-      };
-    }
+    payment.transaction_ref = momoData.orderId || momoData.requestId || payment.transaction_ref;
+    await payment.save();
+    return {
+      nextAction: "redirect",
+      payUrl: momoData.payUrl,
+      qrCodeUrl: momoData.qrCodeUrl,
+      deeplink: momoData.deeplink,
+      paymentId: payment.payment_id,
+      orderId: sessionOrderId,
+    };
   }
 
-  // 2) Legacy order flow
-  if (orderId) {
-    const order = await Order.findByPk(orderId);
-    if (!order) throw new Error("ORDER_NOT_FOUND");
-
-    const amount = await getOrderAmount(orderId);
-    if (amount <= 0) throw new Error("INVALID_AMOUNT");
-
-    let payment = await Payment.findOne({ where: { order_id: orderId } });
-    if (!payment) {
-      payment = await Payment.create({
-        order_id: orderId,
-        reservation_id: order.reservation_id || null,
-        amount,
-        method: normalizedMethod,
-        status: isOfflineMethod(normalizedMethod) ? "pending" : "requires_action",
-        transaction_ref: null,
-        paid_at: null,
-        created_at: now(),
-      });
-    } else {
-      if (payment.status === "succeeded") throw new Error("ORDER_ALREADY_PAID");
-      payment.amount = amount;
-      payment.method = normalizedMethod;
-      payment.status = isOfflineMethod(normalizedMethod) ? "pending" : "requires_action";
-      payment.transaction_ref = null;
-      if (!isOfflineMethod(normalizedMethod)) payment.paid_at = null;
-      await payment.save();
-    }
-
-    if (isOfflineMethod(normalizedMethod)) {
-      return { nextAction: "none", paymentId: payment.payment_id, orderId };
-    }
-
-    if (normalizedMethod === PAYMENT_METHODS.MOMO) {
-      // Legacy: treat orderId as reservationId is not supported; ask migrate
-      throw new Error("ORDER_PAYMENT_MOMO_NOT_SUPPORTED");
-    }
-  }
-
-  throw new Error("INVALID_REQUEST");
+  throw new Error("UNSUPPORTED_METHOD");
 }
 
-async function onPaymentSucceededByReservation(reservationId) {
-  const reservation = await Reservation.findByPk(reservationId);
-  if (!reservation) return;
+async function onPaymentSucceededByOrder(sessionOrderId) {
+  const order = await Order.findByPk(sessionOrderId);
+  if (!order) return;
 
-  // Hoàn tất mọi orders thuộc phiên hiện tại (reservation + table)
   await Order.update(
-    { status: ORDER_STATUS.COMPLETED },
     {
-      where: {
-        [Op.or]: [{ reservation_id: reservationId }, { table_id: reservation.table_id }],
-        status: notTerminalOrderStatusWhere(),
-      },
-    }
+      status: ORDER_STATUS.COMPLETED,
+      payment_status: "succeeded",
+    },
+    { where: { order_id: sessionOrderId } }
   );
 
-  await Reservation.update({ status: "completed" }, { where: { reservation_id: reservationId } });
-  if (reservation.table_id) {
+  if (order.table_id) {
     await Table.update(
       { status: TABLE_STATUS.CLEANING },
-      { where: { table_id: reservation.table_id } }
+      { where: { table_id: order.table_id } }
     );
   }
 }
 
-async function finalizeReservationPayment({ reservationId, tableId, method, transactionRef }) {
+async function finalizeReservationPayment({ reservationId, orderId, tableId, method, transactionRef }) {
   const normalizedMethod = normalizeMethod(method);
   if (!ALLOWED_METHODS.includes(normalizedMethod)) throw new Error("UNSUPPORTED_METHOD");
 
-  let resId = reservationId ? Number(reservationId) : null;
-  if (!resId && tableId) {
-    const active = await getActiveReservationByTableId(tableId);
+  let sessionOrderId = resolveSessionOrderId({ orderId, reservationId });
+  if (!sessionOrderId && tableId) {
+    const active = await getActiveOrderByTableId(tableId);
     if (!active) throw new Error("NO_ACTIVE_SESSION");
-    resId = active.reservation_id;
+    sessionOrderId = active.order_id;
   }
-  if (!resId) throw new Error("RESERVATION_NOT_FOUND");
+  if (!sessionOrderId) throw new Error("ORDER_NOT_FOUND");
 
-  const { amount } = await getAmountByReservation(resId);
+  const { amount } = await getAmountByOrder(sessionOrderId);
   if (amount <= 0) throw new Error("INVALID_AMOUNT");
 
-  const payment = await createOrUpdatePaymentForReservation({
-    reservationId: resId,
+  const payment = await createOrUpdatePaymentForOrder({
+    orderId: sessionOrderId,
     amount,
     method: normalizedMethod,
   });
@@ -301,7 +253,7 @@ async function finalizeReservationPayment({ reservationId, tableId, method, tran
   if (!payment.invoice_issued_at) payment.invoice_issued_at = now();
   await payment.save();
 
-  await onPaymentSucceededByReservation(resId);
+  await onPaymentSucceededByOrder(sessionOrderId);
 
   return payment;
 }
@@ -310,10 +262,10 @@ async function handleMomoWebhook(payload, verifyOk = true) {
   if (!verifyOk) throw new Error("INVALID_SIGNATURE");
 
   const extra = momo.decodeExtraData(payload.extraData);
-  const reservationId = Number(extra.reservationId);
-  if (!reservationId) throw new Error("RESERVATION_NOT_FOUND");
+  const sessionOrderId = Number(extra.orderId || extra.reservationId);
+  if (!sessionOrderId) throw new Error("ORDER_NOT_FOUND");
 
-  const payment = await Payment.findOne({ where: { reservation_id: reservationId } });
+  const payment = await Payment.findOne({ where: { order_id: sessionOrderId } });
   if (!payment) throw new Error("PAYMENT_NOT_FOUND");
 
   const ok = Number(payload.resultCode) === 0;
@@ -327,9 +279,10 @@ async function handleMomoWebhook(payload, verifyOk = true) {
       if (!payment.invoice_no) payment.invoice_no = generateInvoiceNo(payment.payment_id);
       if (!payment.invoice_issued_at) payment.invoice_issued_at = now();
       await payment.save();
-      await onPaymentSucceededByReservation(reservationId);
+      await onPaymentSucceededByOrder(sessionOrderId);
     } else {
       await payment.save();
+      await Order.update({ payment_status: "failed" }, { where: { order_id: sessionOrderId } });
     }
   }
   return true;
@@ -340,7 +293,7 @@ async function getPaymentByOrder(orderId) {
 }
 
 async function getPaymentByReservation(reservationId) {
-  return Payment.findOne({ where: { reservation_id: reservationId } });
+  return getPaymentByOrder(reservationId);
 }
 
 module.exports = {
@@ -348,27 +301,30 @@ module.exports = {
   handleMomoWebhook,
   getPaymentByOrder,
   getPaymentByReservation,
-  onPaymentSucceededByReservation,
-  getActiveReservationByTableId,
+  onPaymentSucceededByReservation: onPaymentSucceededByOrder,
+  onPaymentSucceededByOrder,
+  getActiveReservationByTableId: getActiveOrderByTableId,
+  getActiveOrderByTableId,
   finalizeReservationPayment,
   PAYMENT_METHODS,
-  async createVietQr({ reservationId, tableToken }) {
-    let resId = reservationId ? Number(reservationId) : null;
-    if (!resId && tableToken) {
+  async createVietQr({ orderId, reservationId, tableToken }) {
+    let sessionOrderId = resolveSessionOrderId({ orderId, reservationId });
+
+    if (!sessionOrderId && tableToken) {
       const table = await Table.findOne({ where: { qr_token: tableToken }, attributes: ["table_id"] });
       if (!table) throw new Error("TABLE_NOT_FOUND");
-      const active = await getActiveReservationByTableId(table.table_id);
+      const active = await getActiveOrderByTableId(table.table_id);
       if (!active) throw new Error("NO_ACTIVE_SESSION");
-      resId = active.reservation_id;
+      sessionOrderId = active.order_id;
     }
-    if (!resId) throw new Error("RESERVATION_NOT_FOUND");
+    if (!sessionOrderId) throw new Error("ORDER_NOT_FOUND");
 
     const bankBin = process.env.VIETQR_BANK_BIN;
     const accountNumber = process.env.VIETQR_ACCOUNT_NUMBER;
     const serviceCode = process.env.VIETQR_SERVICE_CODE || "QRIBFTTA";
     if (!bankBin || !accountNumber) throw new Error("VIETQR_NOT_CONFIGURED");
 
-    const { amount } = await getAmountByReservation(resId);
+    const { amount } = await getAmountByOrder(sessionOrderId);
     const vnd = Math.round(Number(amount));
     if (!Number.isFinite(vnd) || vnd <= 0) throw new Error("INVALID_AMOUNT");
 
@@ -377,12 +333,13 @@ module.exports = {
       accountNumber: String(accountNumber),
       serviceCode,
       amount: String(vnd),
-      message: `Thanh toan ban ${resId}`,
-      billNumber: `RSV-${resId}`,
+      message: `Thanh toan ban ${sessionOrderId}`,
+      billNumber: `ORD-${sessionOrderId}`,
     });
 
     return {
-      reservationId: resId,
+      orderId: sessionOrderId,
+      reservationId: sessionOrderId,
       amount: vnd,
       vietqrRaw: qr.rawData,
       qrType: qr.qrType,

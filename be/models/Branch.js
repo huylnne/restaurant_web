@@ -1,14 +1,15 @@
 module.exports = (sequelize, DataTypes) => {
   const Branch = sequelize.define(
-    "Branch",
+    'Branch',
     {
       branch_id: {
         type: DataTypes.INTEGER,
         primaryKey: true,
         autoIncrement: true,
+        allowNull: false,
       },
       name: {
-        type: DataTypes.STRING(255),
+        type: DataTypes.STRING(50),
         allowNull: false,
       },
       address: {
@@ -16,16 +17,18 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
       },
       phone: {
-        type: DataTypes.STRING(20),
-        allowNull: true,
+        type: DataTypes.STRING(10),
+        allowNull: false,
       },
       open_time: {
-        type: DataTypes.STRING(20),
+        type: DataTypes.STRING(8),
         allowNull: true,
+        comment: 'Định dạng HH:MM',
       },
       close_time: {
-        type: DataTypes.STRING(20),
+        type: DataTypes.STRING(8),
         allowNull: true,
+        comment: 'Định dạng HH:MM',
       },
       image_url: {
         type: DataTypes.TEXT,
@@ -46,15 +49,17 @@ module.exports = (sequelize, DataTypes) => {
       },
       created_at: {
         type: DataTypes.DATE,
+        allowNull: false,
         defaultValue: DataTypes.NOW,
       },
       updated_at: {
         type: DataTypes.DATE,
+        allowNull: true,
         defaultValue: DataTypes.NOW,
       },
     },
     {
-      tableName: "branches",
+      tableName: 'branches',
       timestamps: false,
     }
   );

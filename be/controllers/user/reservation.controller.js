@@ -1,15 +1,26 @@
 const db = require("../../models");
-const Reservation = db.Reservation;
+const Order = db.Order;
 const Table = db.Table;
 const reservationService = require("../../services/reservation.service");
 const {
   CANCELABLE_RESERVATION_STATUSES,
   ACTIVE_RESERVATION_STATUSES,
 } = require("../../utils/reservationStatus");
+const { ORDER_STATUS } = require("../../utils/orderStatus");
+const { MAX_GUESTS } = require("../../middlewares/validateReservationInput");
 
 const MIN_ADVANCE_MS = 15 * 60 * 1000;
 
-//  API: Tạo đặt bàn mới
+function mapOrderResponse(order) {
+  if (!order) return null;
+  const json = order.toJSON ? order.toJSON() : order;
+  return {
+    ...json,
+    reservation_id: json.order_id,
+    reservation_time: json.arrival_time,
+  };
+}
+
 const createReservation = async (req, res) => {
   try {
     const user_id = req.userId;
@@ -32,21 +43,23 @@ const createReservation = async (req, res) => {
       number_of_guests,
       note,
     });
-    const { reservation, tables, multi, booking_group_id } = result;
+    const { order, orders, tables, multi, booking_group_id } = result;
 
     const tableIds = tables.map((t) => t.table_id);
     req.audit = {
-      entityId: reservation.reservation_id,
+      entityId: order.order_id,
       description: multi
-        ? `Đặt bàn nhóm #${reservation.reservation_id} (${tables.length} bàn)`
-        : `Đặt bàn #${reservation.reservation_id}, bàn ${tableIds[0]}`,
+        ? `Đặt bàn nhóm #${order.order_id} (${tables.length} bàn)`
+        : `Đặt bàn #${order.order_id}, bàn ${tableIds[0]}`,
       metadata: { branch_id, table_ids: tableIds, booking_group_id },
     };
     return res.status(201).json({
       message: multi
         ? `Đặt bàn thành công — ${tables.length} bàn cho ${number_of_guests} khách`
         : "Đặt bàn thành công",
-      reservation,
+      order: mapOrderResponse(order),
+      orders: orders.map(mapOrderResponse),
+      reservation: mapOrderResponse(order),
       tables: tables.map((t) => ({
         table_id: t.table_id,
         table_number: t.table_number,
@@ -64,7 +77,6 @@ const createReservation = async (req, res) => {
   }
 };
 
-//  API: Kiểm tra còn bàn phù hợp (khách không cần chọn bàn)
 const getAvailableTables = async (req, res) => {
   try {
     const { reservation_time, guests } = req.query;
@@ -74,11 +86,12 @@ const getAvailableTables = async (req, res) => {
       return res.status(400).json({ message: "Thiếu thông tin yêu cầu" });
     }
 
-    const picked = await reservationService.pickAvailableTable(
-      branch_id,
-      guests,
-      reservation_time
-    );
+    const guestCount = Number(guests);
+    if (!Number.isFinite(guestCount) || guestCount < 1 || guestCount > MAX_GUESTS) {
+      return res.status(400).json({ message: `Số khách phải từ 1 đến ${MAX_GUESTS}` });
+    }
+
+    const picked = await reservationService.pickAvailableTable(branch_id, guestCount, reservation_time);
     if (picked.tables?.length) {
       const multi = picked.tables.length > 1;
       const tableNums = picked.tables
@@ -90,7 +103,7 @@ const getAvailableTables = async (req, res) => {
         multiTable: multi,
         tableCount: picked.tables.length,
         message: multi
-          ? `Còn ${picked.tables.length} bàn liền kề (B${tableNums}) cho ${guests} khách. Bạn có thể gửi yêu cầu đặt bàn.`
+          ? `Còn ${picked.tables.length} bàn liền kề (B${tableNums}) cho ${guestCount} khách. Bạn có thể gửi yêu cầu đặt bàn.`
           : "Còn bàn phù hợp. Bạn có thể gửi yêu cầu đặt bàn.",
       });
     }
@@ -101,53 +114,53 @@ const getAvailableTables = async (req, res) => {
   }
 };
 
-//  API: Lấy lịch sử đặt bàn của user
 const getUserReservations = async (req, res) => {
   try {
     const userId = req.userId;
 
-    const reservations = await Reservation.findAll({
-      where: { user_id: userId },
+    const orders = await Order.findAll({
+      where: { user_id: userId, order_type: "reservation" },
       include: [
         {
           model: Table,
           attributes: ["table_number", "capacity"],
         },
       ],
-      order: [["reservation_time", "DESC"]],
+      order: [["arrival_time", "DESC"]],
     });
 
-    res.json({ reservations });
+    res.json({
+      orders: orders.map(mapOrderResponse),
+      reservations: orders.map(mapOrderResponse),
+    });
   } catch (err) {
     console.error("Lỗi lấy lịch sử đặt bàn:", err);
     res.status(500).json({ message: "Lỗi server" });
   }
 };
 
-//  API: Hủy đặt bàn
 const cancelReservation = async (req, res) => {
   try {
     const { id } = req.params;
     const userId = req.userId;
 
-    const reservation = await Reservation.findOne({
+    const order = await Order.findOne({
       where: {
-        reservation_id: id,
+        order_id: id,
         user_id: userId,
+        order_type: "reservation",
       },
     });
 
-    if (!reservation) {
+    if (!order) {
       return res.status(404).json({ message: "Không tìm thấy đặt bàn" });
     }
 
-    if (!CANCELABLE_RESERVATION_STATUSES.includes(reservation.status)) {
-      return res
-        .status(400)
-        .json({ message: "Không thể hủy ở trạng thái này" });
+    if (!CANCELABLE_RESERVATION_STATUSES.includes(order.status)) {
+      return res.status(400).json({ message: "Không thể hủy ở trạng thái này" });
     }
 
-    const cancelled = await reservationService.cancelReservationGroup(reservation);
+    const cancelled = await reservationService.cancelReservationGroup(order);
     const tableIds = [...new Set(cancelled.map((r) => r.table_id).filter(Boolean))];
     for (const tableId of tableIds) {
       const table = await Table.findByPk(tableId);
@@ -156,13 +169,14 @@ const cancelReservation = async (req, res) => {
         await table.save();
       }
     }
-    req.audit = { entityId: reservation.reservation_id };
+    req.audit = { entityId: order.order_id };
     return res.json({
       message:
         cancelled.length > 1
           ? `Đã hủy đặt bàn thành công (${cancelled.length} bàn trong nhóm)`
           : "Đã hủy đặt bàn thành công",
-      reservation: cancelled[0],
+      order: mapOrderResponse(cancelled[0]),
+      reservation: mapOrderResponse(cancelled[0]),
       cancelledCount: cancelled.length,
     });
   } catch (error) {
@@ -171,40 +185,38 @@ const cancelReservation = async (req, res) => {
   }
 };
 
-//  API: User gửi yêu cầu thanh toán cho reservation hiện tại
 const requestBill = async (req, res) => {
   try {
     const userId = req.userId;
-    const { reservation_id } = req.body;
+    const sessionOrderId = req.body.order_id || req.body.reservation_id;
 
-    if (!reservation_id) {
-      return res.status(400).json({ message: "Thiếu reservation_id" });
+    if (!sessionOrderId) {
+      return res.status(400).json({ message: "Thiếu order_id" });
     }
 
-    const reservation = await Reservation.findOne({
+    const order = await Order.findOne({
       where: {
-        reservation_id,
+        order_id: sessionOrderId,
         user_id: userId,
       },
     });
 
-    if (!reservation) {
-      return res.status(404).json({ message: "Không tìm thấy đặt bàn" });
+    if (!order) {
+      return res.status(404).json({ message: "Không tìm thấy đơn" });
     }
 
-    if (!ACTIVE_RESERVATION_STATUSES.includes(reservation.status)) {
-      return res
-        .status(400)
-        .json({ message: "Đặt bàn này không thể yêu cầu thanh toán" });
+    if (!ACTIVE_RESERVATION_STATUSES.includes(order.status)) {
+      return res.status(400).json({ message: "Đơn này không thể yêu cầu thanh toán" });
     }
 
-    reservation.status = "waiting_payment";
-    await reservation.save();
+    order.status = ORDER_STATUS.WAITING_PAYMENT;
+    await order.save();
 
-    req.audit = { entityId: reservation.reservation_id };
+    req.audit = { entityId: order.order_id };
     return res.json({
       message: "Đã gửi yêu cầu thanh toán, vui lòng chờ nhân viên.",
-      reservation,
+      order: mapOrderResponse(order),
+      reservation: mapOrderResponse(order),
     });
   } catch (error) {
     console.error("❌ Error requestBill:", error);

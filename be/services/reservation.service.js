@@ -1,6 +1,6 @@
 const crypto = require("crypto");
 const db = require("../models");
-const { Reservation, Table } = db;
+const { Order, Table } = db;
 const sequelize = db.sequelize;
 const { Op } = require("sequelize");
 const {
@@ -9,25 +9,27 @@ const {
   maxAdjacentSeats,
 } = require("../utils/tableAllocation");
 const { CANCELABLE_RESERVATION_STATUSES } = require("../utils/reservationStatus");
+const { ORDER_STATUS } = require("../utils/orderStatus");
 
+const BOOKING_ORDER_TYPES = ["reservation", "walk_in"];
 const CONFLICT_WINDOW_MS = 60 * 60 * 1000;
 const ACTIVE_CONFLICT_STATUSES = { [Op.notIn]: ["cancelled", "completed"] };
 
-function getTimeWindow(reservationTime) {
-  const resTime = new Date(reservationTime);
+function getTimeWindow(arrivalTime) {
+  const t = new Date(arrivalTime);
   return {
-    windowStart: new Date(resTime.getTime() - CONFLICT_WINDOW_MS),
-    windowEnd: new Date(resTime.getTime() + CONFLICT_WINDOW_MS),
+    windowStart: new Date(t.getTime() - CONFLICT_WINDOW_MS),
+    windowEnd: new Date(t.getTime() + CONFLICT_WINDOW_MS),
   };
 }
 
-/** Bàn đã có đặt chỗ trong khung ±1 giờ quanh giờ khách chọn */
-async function getConflictTableIds(branch_id, reservationTime, { transaction } = {}) {
-  const { windowStart, windowEnd } = getTimeWindow(reservationTime);
-  const rows = await Reservation.findAll({
+async function getConflictTableIds(branch_id, arrivalTime, { transaction } = {}) {
+  const { windowStart, windowEnd } = getTimeWindow(arrivalTime);
+  const rows = await Order.findAll({
     where: {
       branch_id,
-      reservation_time: { [Op.between]: [windowStart, windowEnd] },
+      order_type: { [Op.in]: BOOKING_ORDER_TYPES },
+      arrival_time: { [Op.between]: [windowStart, windowEnd] },
       status: ACTIVE_CONFLICT_STATUSES,
     },
     attributes: ["table_id"],
@@ -36,13 +38,14 @@ async function getConflictTableIds(branch_id, reservationTime, { transaction } =
   return rows.map((r) => r.table_id).filter(Boolean);
 }
 
-async function hasOverlappingReservation(table_id, branch_id, reservationTime, { transaction } = {}) {
-  const { windowStart, windowEnd } = getTimeWindow(reservationTime);
-  const row = await Reservation.findOne({
+async function hasOverlappingBooking(table_id, branch_id, arrivalTime, { transaction } = {}) {
+  const { windowStart, windowEnd } = getTimeWindow(arrivalTime);
+  const row = await Order.findOne({
     where: {
       table_id,
       branch_id,
-      reservation_time: { [Op.between]: [windowStart, windowEnd] },
+      order_type: { [Op.in]: BOOKING_ORDER_TYPES },
+      arrival_time: { [Op.between]: [windowStart, windowEnd] },
       status: ACTIVE_CONFLICT_STATUSES,
     },
     transaction,
@@ -50,8 +53,8 @@ async function hasOverlappingReservation(table_id, branch_id, reservationTime, {
   return Boolean(row);
 }
 
-async function getAvailableTablesForSlot(branch_id, reservationTime, excludeTableIds = [], { transaction } = {}) {
-  const conflictIds = await getConflictTableIds(branch_id, reservationTime, { transaction });
+async function getAvailableTablesForSlot(branch_id, arrivalTime, excludeTableIds = [], { transaction } = {}) {
+  const conflictIds = await getConflictTableIds(branch_id, arrivalTime, { transaction });
   const exclude = new Set([...conflictIds, ...excludeTableIds]);
 
   const rows = await Table.findAll({
@@ -66,7 +69,7 @@ async function getAvailableTablesForSlot(branch_id, reservationTime, excludeTabl
 
   const free = [];
   for (const table of rows) {
-    const overlap = await hasOverlappingReservation(table.table_id, branch_id, reservationTime, {
+    const overlap = await hasOverlappingBooking(table.table_id, branch_id, arrivalTime, {
       transaction,
     });
     if (!overlap) free.push(table);
@@ -74,8 +77,8 @@ async function getAvailableTablesForSlot(branch_id, reservationTime, excludeTabl
   return free;
 }
 
-async function resolveNoTableMessage(branch_id, guests, reservationTime, conflictIds, { transaction } = {}) {
-  const available = await getAvailableTablesForSlot(branch_id, reservationTime, conflictIds, {
+async function resolveNoTableMessage(branch_id, guests, arrivalTime, conflictIds, { transaction } = {}) {
+  const available = await getAvailableTablesForSlot(branch_id, arrivalTime, conflictIds, {
     transaction,
   });
   const totalSeats = available.reduce((sum, t) => sum + t.capacity, 0);
@@ -126,15 +129,12 @@ async function resolveNoTableMessage(branch_id, guests, reservationTime, conflic
   };
 }
 
-/**
- * Chọn bàn (đọc thường) — một bàn hoặc ghép nhiều bàn.
- */
-async function pickAvailableTable(branch_id, number_of_guests, reservationTime) {
+async function pickAvailableTable(branch_id, number_of_guests, arrivalTime) {
   const guests = Number(number_of_guests);
-  const available = await getAvailableTablesForSlot(branch_id, reservationTime);
+  const available = await getAvailableTablesForSlot(branch_id, arrivalTime);
   const plan = planTableAllocation(
     guests,
-    available.map((t) => t.toJSON ? t.toJSON() : t)
+    available.map((t) => (t.toJSON ? t.toJSON() : t))
   );
 
   if (plan) {
@@ -142,15 +142,12 @@ async function pickAvailableTable(branch_id, number_of_guests, reservationTime) 
     return { tables, table: tables[0], multi: plan.multi };
   }
 
-  const conflictIds = await getConflictTableIds(branch_id, reservationTime);
-  const fallback = await resolveNoTableMessage(branch_id, guests, reservationTime, conflictIds);
+  const conflictIds = await getConflictTableIds(branch_id, arrivalTime);
+  const fallback = await resolveNoTableMessage(branch_id, guests, arrivalTime, conflictIds);
   return { message: fallback.message };
 }
 
-/**
- * Trong transaction: khóa bàn, ghép nhiều bàn khi một bàn không đủ chỗ.
- */
-async function pickAvailableTableWithLock(branch_id, number_of_guests, reservationTime, transaction) {
+async function pickAvailableTableWithLock(branch_id, number_of_guests, arrivalTime, transaction) {
   const guests = Number(number_of_guests);
   const triedTableIds = new Set();
 
@@ -169,7 +166,7 @@ async function pickAvailableTableWithLock(branch_id, number_of_guests, reservati
 
     const free = [];
     for (const table of candidates) {
-      const overlap = await hasOverlappingReservation(table.table_id, branch_id, reservationTime, {
+      const overlap = await hasOverlappingBooking(table.table_id, branch_id, arrivalTime, {
         transaction,
       });
       if (overlap) {
@@ -185,7 +182,7 @@ async function pickAvailableTableWithLock(branch_id, number_of_guests, reservati
     );
 
     if (!plan) {
-      const fallback = await resolveNoTableMessage(branch_id, guests, reservationTime, [
+      const fallback = await resolveNoTableMessage(branch_id, guests, arrivalTime, [
         ...triedTableIds,
       ], { transaction });
       return { message: fallback.message };
@@ -202,12 +199,9 @@ async function pickAvailableTableWithLock(branch_id, number_of_guests, reservati
 
     let raceDetected = false;
     for (const table of picked) {
-      const overlap = await hasOverlappingReservation(
-        table.table_id,
-        branch_id,
-        reservationTime,
-        { transaction }
-      );
+      const overlap = await hasOverlappingBooking(table.table_id, branch_id, arrivalTime, {
+        transaction,
+      });
       if (overlap) {
         triedTableIds.add(table.table_id);
         raceDetected = true;
@@ -225,19 +219,13 @@ async function pickAvailableTableWithLock(branch_id, number_of_guests, reservati
   }
 }
 
-/**
- * Tạo đặt bàn — một hoặc nhiều reservation (cùng booking_group_id khi ghép bàn).
- */
+/** Tạo đặt bàn — một hoặc nhiều order (cùng booking_group_id khi ghép bàn). */
 async function createReservation({ user_id, branch_id, reservation_time, number_of_guests, note }) {
   const guests = Number(number_of_guests);
+  const arrival_time = reservation_time;
 
   return sequelize.transaction(async (transaction) => {
-    const picked = await pickAvailableTableWithLock(
-      branch_id,
-      guests,
-      reservation_time,
-      transaction
-    );
+    const picked = await pickAvailableTableWithLock(branch_id, guests, arrival_time, transaction);
 
     if (!picked.tables?.length) {
       const err = new Error(picked.message);
@@ -255,28 +243,34 @@ async function createReservation({ user_id, branch_id, reservation_time, number_
           .trim()
       : note || null;
 
-    const reservations = [];
+    const orders = [];
     for (const table of picked.tables) {
-      const reservation = await Reservation.create(
+      const order = await Order.create(
         {
           user_id,
           branch_id,
           table_id: table.table_id,
-          reservation_time,
+          arrival_time,
           number_of_guests: guests,
           note: groupNote,
           booking_group_id: bookingGroupId,
-          status: "confirmed",
+          order_type: "reservation",
+          status: ORDER_STATUS.CONFIRMED,
+          payment_status: "unpaid",
+          total_amount: 0,
           created_at: new Date(),
         },
         { transaction }
       );
-      reservations.push(reservation);
+      orders.push(order);
     }
 
+    const primary = orders[0];
     return {
-      reservation: reservations[0],
-      reservations,
+      order: primary,
+      orders,
+      reservation: primary,
+      reservations: orders,
       tables: picked.tables,
       table: picked.table,
       multi,
@@ -285,28 +279,25 @@ async function createReservation({ user_id, branch_id, reservation_time, number_
   });
 }
 
-/**
- * Hủy toàn bộ nhóm đặt bàn (nếu có booking_group_id).
- */
-async function cancelReservationGroup(reservation, { transaction } = {}) {
-  const groupId = reservation.booking_group_id;
+async function cancelReservationGroup(orderRow, { transaction } = {}) {
+  const groupId = orderRow.booking_group_id;
   if (!groupId) {
-    reservation.status = "cancelled";
-    await reservation.save({ transaction });
-    return [reservation];
+    orderRow.status = ORDER_STATUS.CANCELLED;
+    await orderRow.save({ transaction });
+    return [orderRow];
   }
 
-  const siblings = await Reservation.findAll({
+  const siblings = await Order.findAll({
     where: {
       booking_group_id: groupId,
-      user_id: reservation.user_id,
+      user_id: orderRow.user_id,
       status: { [Op.in]: CANCELABLE_RESERVATION_STATUSES },
     },
     transaction,
   });
 
   for (const row of siblings) {
-    row.status = "cancelled";
+    row.status = ORDER_STATUS.CANCELLED;
     await row.save({ transaction });
   }
   return siblings;

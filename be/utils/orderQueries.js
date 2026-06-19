@@ -1,5 +1,5 @@
 const { Op } = require("sequelize");
-const { OrderItem, MenuItem, Order, Table, Reservation } = require("../models");
+const { OrderItem, MenuItem, Order, Table } = require("../models");
 const {
   activeOrderStatusWhere,
   notTerminalOrderStatusWhere,
@@ -10,23 +10,32 @@ const { ORDER_ITEM_STATUS } = require("./orderItemStatus");
 const { KITCHEN_QUEUE_STATUSES } = require("./orderItemStatus");
 const { resolveKitchenServeContext } = require("./kitchenQueue");
 
-/** Chi nhánh của đơn: reservation → bàn (trực tiếp / qua reservation) → fallback menu */
+/** Chi nhánh của đơn: bàn trực tiếp → fallback menu */
 function resolveOrderBranchId(plain) {
   return (
-    plain.Order?.Reservation?.branch_id ??
+    plain.Order?.branch_id ??
     plain.Order?.Table?.branch_id ??
-    plain.Order?.Reservation?.Table?.branch_id ??
     plain.MenuItem?.branch_id ??
     null
   );
 }
 
-/** Include chuẩn: order → bàn (trực tiếp hoặc qua reservation) */
+/** Include chuẩn: order → bàn */
 function orderTableInclude() {
   return [
     {
       model: Order,
-      attributes: ["order_id", "table_id", "reservation_id", "status", "created_at"],
+      attributes: [
+        "order_id",
+        "table_id",
+        "branch_id",
+        "status",
+        "arrival_time",
+        "number_of_guests",
+        "order_type",
+        "booking_group_id",
+        "created_at",
+      ],
       required: true,
       where: { status: notTerminalOrderStatusWhere() },
       include: [
@@ -34,26 +43,6 @@ function orderTableInclude() {
           model: Table,
           attributes: ["table_id", "table_number", "branch_id"],
           required: false,
-        },
-        {
-          model: Reservation,
-          attributes: [
-            "reservation_id",
-            "table_id",
-            "branch_id",
-            "reservation_time",
-            "status",
-            "number_of_guests",
-            "booking_group_id",
-          ],
-          required: false,
-          include: [
-            {
-              model: Table,
-              attributes: ["table_id", "table_number", "branch_id"],
-              required: false,
-            },
-          ],
         },
       ],
     },
@@ -89,41 +78,29 @@ async function findKitchenOrderItems({ itemStatus, branchId = 1 }) {
 
 function mapKitchenItemRow(item) {
   const plain = item.toJSON();
-  const directTable = plain.Order?.Table;
-  const reservationTable = plain.Order?.Reservation?.Table;
-  const resolvedTable = directTable || reservationTable || null;
-  const reservation = plain.Order?.Reservation ?? null;
-  const serve_context = resolveKitchenServeContext(plain.Order, reservation);
+  const order = plain.Order ?? null;
+  const resolvedTable = order?.Table ?? null;
+  const serve_context = resolveKitchenServeContext(order);
 
   return {
     ...plain,
-    order_id: plain.Order?.order_id ?? plain.order_id,
-    order_created_at: plain.Order?.created_at ?? null,
-    reservation_id: plain.Order?.reservation_id ?? null,
-    table_id:
-      resolvedTable?.table_id ??
-      plain.Order?.table_id ??
-      plain.Order?.Reservation?.table_id ??
-      null,
+    order_id: order?.order_id ?? plain.order_id,
+    order_created_at: order?.created_at ?? null,
+    table_id: resolvedTable?.table_id ?? order?.table_id ?? null,
     table_number: resolvedTable?.table_number ?? null,
     serve_context,
   };
 }
 
-/**
- * Đơn đang hoạt động theo bàn (waiter / admin tables).
- */
-function buildActiveOrdersByTableWhere(table_id, reservationIds = []) {
-  const where = { status: activeOrderStatusWhere() };
-  if (reservationIds.length > 0) {
-    where[Op.or] = [{ table_id }, { reservation_id: { [Op.in]: reservationIds } }];
-  } else {
-    where.table_id = table_id;
-  }
-  return where;
+/** Đơn phiên đang hoạt động theo bàn */
+function buildActiveOrdersByTableWhere(table_id) {
+  return {
+    table_id,
+    status: activeOrderStatusWhere(),
+  };
 }
 
-/** Khi bếp bắt đầu làm món → đơn chuyển open → in_progress */
+/** Khi bếp bắt đầu làm món → đơn chuyển pre-ordered/confirmed → in_progress */
 async function syncOrderStatusFromItems(orderId, { transaction } = {}) {
   if (!orderId) return;
   const order = await Order.findByPk(orderId, { transaction });
@@ -149,11 +126,16 @@ async function syncOrderStatusFromItems(orderId, { transaction } = {}) {
   );
 
   let next = order.status;
-  if (hasProcessing && normalized === ORDER_STATUS.OPEN) {
+  if (
+    hasProcessing &&
+    [ORDER_STATUS.PRE_ORDERED, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PENDING].includes(normalized)
+  ) {
     next = ORDER_STATUS.IN_PROGRESS;
   } else if (
     allTerminal &&
-    (normalized === ORDER_STATUS.OPEN || normalized === ORDER_STATUS.IN_PROGRESS)
+    [ORDER_STATUS.PRE_ORDERED, ORDER_STATUS.CONFIRMED, ORDER_STATUS.IN_PROGRESS].includes(
+      normalized
+    )
   ) {
     next = ORDER_STATUS.IN_PROGRESS;
   }

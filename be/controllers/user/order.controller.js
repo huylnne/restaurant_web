@@ -1,47 +1,64 @@
 const db = require("../../models/db");
 const Order = db.Order;
 const OrderItem = db.OrderItem;
-const Reservation = db.Reservation;
 const realtimeHub = require("../../realtimeHub");
 const { ORDER_STATUS } = require("../../utils/orderStatus");
-const { ORDER_ITEM_STATUS } = require("../../utils/orderItemStatus");
+const { buildOrderItemPayloads } = require("../../utils/orderItemFactory");
 
 const createOrder = async (req, res) => {
   try {
-    const { reservation_id, items } = req.body;
-    if (!reservation_id || !Array.isArray(items) || items.length === 0) {
+    const orderId = req.body.order_id || req.body.reservation_id;
+    const { items, note } = req.body;
+    if (!orderId || !Array.isArray(items) || items.length === 0) {
       return res.status(400).json({ message: "Dữ liệu không hợp lệ!" });
     }
 
-    // Tạo order mới
-    const newOrder = await Order.create({
-      reservation_id,
-      status: ORDER_STATUS.OPEN,
-      created_at: new Date(),
-    });
+    const orderNote =
+      note != null && String(note).trim() ? String(note).trim().slice(0, 200) : null;
 
-    for (const item of items) {
+    const sessionOrder = await Order.findByPk(orderId, {
+      attributes: ["order_id", "branch_id", "table_id", "user_id", "status"],
+    });
+    if (!sessionOrder) {
+      return res.status(404).json({ message: "Không tìm thấy phiên đặt bàn!" });
+    }
+
+    const orderItemsPayload = await buildOrderItemPayloads(items);
+
+    for (const payload of orderItemsPayload) {
       await OrderItem.create({
-        order_id: newOrder.order_id,
-        item_id: item.item_id,
-        quantity: item.quantity,
-        status: ORDER_ITEM_STATUS.PENDING,
+        order_id: sessionOrder.order_id,
+        ...payload,
       });
     }
 
+    if (orderNote && !sessionOrder.note) {
+      await sessionOrder.update({ note: orderNote });
+    }
+
+    if (
+      [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PRE_ORDERED, ORDER_STATUS.PENDING].includes(
+        sessionOrder.status
+      )
+    ) {
+      await sessionOrder.update({ status: ORDER_STATUS.PRE_ORDERED });
+    }
+
     try {
-      const resv = await Reservation.findByPk(reservation_id, { attributes: ["branch_id"] });
-      if (resv?.branch_id) {
-        realtimeHub.notifyBranch(resv.branch_id, {
+      if (sessionOrder.branch_id) {
+        realtimeHub.notifyBranch(sessionOrder.branch_id, {
           type: "order_flow",
           reason: "user_preorder",
-          reservation_id: Number(reservation_id),
+          order_id: Number(sessionOrder.order_id),
         });
       }
     } catch (_) {}
 
-    req.audit = { entityId: newOrder.order_id, metadata: { reservation_id } };
-    res.json({ message: "Đặt món trước thành công!", order_id: newOrder.order_id });
+    req.audit = { entityId: sessionOrder.order_id, metadata: { order_id: sessionOrder.order_id } };
+    res.json({
+      message: "Đặt món trước thành công!",
+      order_id: sessionOrder.order_id,
+    });
   } catch (error) {
     console.error("❌ Lỗi khi đặt món trước:", error);
     res.status(500).json({ message: "Đặt món thất bại!" });

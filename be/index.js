@@ -28,35 +28,140 @@ async function initDatabase() {
 
   // Migrations nhẹ — chạy mỗi lần start, bỏ qua nếu đã áp dụng
   await db.sequelize
-    .query('ALTER TABLE payments ALTER COLUMN order_id DROP NOT NULL;', { raw: true })
-    .catch(() => {});
-  await db.sequelize
-    .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS reservation_id INTEGER;', { raw: true })
-    .catch(() => {});
-  await db.sequelize
-    .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(60);', { raw: true })
+    .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(20);', { raw: true })
     .catch(() => {});
   await db.sequelize
     .query('ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_issued_at TIMESTAMP;', { raw: true })
     .catch(() => {});
   await db.sequelize
+    .query("UPDATE tables SET status = 'pre-ordered' WHERE status = 'reserved';", { raw: true })
+    .catch(() => {});
+
+  // Order session columns (thay reservations)
+  await db.sequelize
+    .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS arrival_time TIMESTAMP;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS number_of_guests INTEGER;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_amount DECIMAL(10, 2);', { raw: true })
+    .catch(() => {});
+  await db.sequelize
     .query(
-      'CREATE UNIQUE INDEX IF NOT EXISTS payments_reservation_id_uq ON payments(reservation_id) WHERE reservation_id IS NOT NULL;',
+      `ALTER TABLE orders ADD COLUMN IF NOT EXISTS order_type VARCHAR(15) DEFAULT 'dine_in';`,
       { raw: true }
     )
     .catch(() => {});
   await db.sequelize
-    .query('ALTER TABLE orders ALTER COLUMN reservation_id DROP NOT NULL;', { raw: true })
+    .query(
+      `ALTER TABLE orders ADD COLUMN IF NOT EXISTS payment_status VARCHAR(16) DEFAULT 'unpaid';`,
+      { raw: true }
+    )
     .catch(() => {});
   await db.sequelize
-    .query("UPDATE tables SET status = 'pre-ordered' WHERE status = 'reserved';", { raw: true })
+    .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS booking_group_id VARCHAR(36);', { raw: true })
     .catch(() => {});
 
-  // Chuẩn hóa orders.status (legacy → open / in_progress / completed)
+  // Migrate reservations → orders (nếu bảng cũ còn)
   await db.sequelize
     .query(
-      `UPDATE orders SET status = 'open'
-       WHERE status IN ('pre-ordered', 'PENDING', 'pending', 'preorder');`,
+      `INSERT INTO orders (
+         user_id, branch_id, table_id, arrival_time, number_of_guests, status, note,
+         order_type, payment_status, booking_group_id, created_at
+       )
+       SELECT
+         r.user_id, r.branch_id, r.table_id, r.reservation_time, r.number_of_guests, r.status, r.note,
+         'reservation', 'unpaid', r.booking_group_id, r.created_at
+       FROM reservations r
+       WHERE NOT EXISTS (
+         SELECT 1 FROM orders o WHERE o.order_id = r.reservation_id
+       );`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders o
+       SET arrival_time = r.reservation_time,
+           number_of_guests = COALESCE(o.number_of_guests, r.number_of_guests),
+           booking_group_id = COALESCE(o.booking_group_id, r.booking_group_id),
+           order_type = COALESCE(NULLIF(o.order_type, ''), 'reservation')
+       FROM reservations r
+       WHERE o.reservation_id = r.reservation_id;`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders SET arrival_time = created_at WHERE arrival_time IS NULL AND table_id IS NOT NULL;`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders SET order_type = 'dine_in'
+       WHERE order_type IS NULL OR TRIM(order_type) = '';`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders SET payment_status = 'unpaid'
+       WHERE payment_status IS NULL OR TRIM(payment_status) = '';`,
+      { raw: true }
+    )
+    .catch(() => {});
+
+  // Reviews: reservation_id → order_id
+  await db.sequelize
+    .query('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS order_id INTEGER;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE reviews rv
+       SET order_id = rv.reservation_id
+       WHERE rv.order_id IS NULL AND rv.reservation_id IS NOT NULL;`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE reviews DROP COLUMN IF EXISTS reservation_id;', { raw: true })
+    .catch(() => {});
+
+  // Payments: chỉ order_id
+  await db.sequelize
+    .query(
+      `UPDATE payments p
+       SET order_id = o.order_id
+       FROM orders o
+       WHERE p.order_id IS NULL
+         AND p.reservation_id IS NOT NULL
+         AND o.reservation_id = p.reservation_id;`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE payments p
+       SET order_id = p.reservation_id
+       WHERE p.order_id IS NULL AND p.reservation_id IS NOT NULL;`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE payments DROP COLUMN IF EXISTS reservation_id;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE orders DROP COLUMN IF EXISTS reservation_id;', { raw: true })
+    .catch(() => {});
+  await db.sequelize.query('DROP TABLE IF EXISTS reservations CASCADE;', { raw: true }).catch(() => {});
+
+  // Chuẩn hóa orders.status legacy
+  await db.sequelize
+    .query(
+      `UPDATE orders SET status = 'pre-ordered'
+       WHERE status IN ('open', 'PENDING', 'pending', 'preorder');`,
       { raw: true }
     )
     .catch(() => {});
@@ -101,13 +206,8 @@ async function initDatabase() {
     .query('ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true;', { raw: true })
     .catch(() => {});
   await db.sequelize
-    .query('ALTER TABLE reservations ADD COLUMN IF NOT EXISTS booking_group_id VARCHAR(36);', {
-      raw: true,
-    })
-    .catch(() => {});
-  await db.sequelize
     .query(
-      'CREATE INDEX IF NOT EXISTS reservations_booking_group_id_idx ON reservations(booking_group_id) WHERE booking_group_id IS NOT NULL;',
+      'CREATE INDEX IF NOT EXISTS orders_booking_group_id_idx ON orders(booking_group_id) WHERE booking_group_id IS NOT NULL;',
       { raw: true }
     )
     .catch(() => {});
@@ -121,9 +221,6 @@ async function initDatabase() {
     .query('UPDATE users SET locked = false WHERE locked IS NULL;', { raw: true })
     .catch(() => {});
   await db.sequelize
-    .query('ALTER TABLE reservations ADD COLUMN IF NOT EXISTS note TEXT;', { raw: true })
-    .catch(() => {});
-  await db.sequelize
     .query('ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS sale_price DECIMAL(10, 2);', {
       raw: true,
     })
@@ -133,11 +230,100 @@ async function initDatabase() {
       `UPDATE menu_items
        SET sale_price = ROUND(price * 0.85, -3)
        WHERE is_featured = true
-         AND is_active = true
+         AND COALESCE(is_available, is_active, true) = true
          AND sale_price IS NULL
          AND price > 0;`,
       { raw: true }
     )
+    .catch(() => {});
+
+  // Chuẩn hóa ràng buộc / cột mới — đồng bộ với thiết kế CSDL báo cáo
+  await db.sequelize
+    .query(`UPDATE users SET full_name = username WHERE full_name IS NULL OR TRIM(full_name) = '';`, {
+      raw: true,
+    })
+    .catch(() => {});
+  await db.sequelize
+    .query(`UPDATE tables SET branch_id = 1 WHERE branch_id IS NULL;`, { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders o
+       SET branch_id = t.branch_id
+       FROM tables t
+       WHERE o.table_id = t.table_id AND o.branch_id IS NULL;`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(`UPDATE orders SET branch_id = 1 WHERE branch_id IS NULL;`, { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(`UPDATE menu_items SET price = 0 WHERE price IS NULL;`, { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE menu_items SET category = 'Khác' WHERE category IS NULL OR TRIM(category) = '';`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS is_available BOOLEAN DEFAULT true;', {
+      raw: true,
+    })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE menu_items SET is_available = COALESCE(is_active, true) WHERE is_available IS NULL;`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE menu_items DROP COLUMN IF EXISTS is_active;', { raw: true })
+    .catch(() => {});
+
+  await db.sequelize
+    .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS branch_id INTEGER;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS note VARCHAR(200);', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders o
+       SET branch_id = t.branch_id
+       FROM tables t
+       WHERE o.table_id = t.table_id AND o.branch_id IS NULL;`,
+      { raw: true }
+    )
+    .catch(() => {});
+
+  await db.sequelize
+    .query('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS price DECIMAL(10, 2);', {
+      raw: true,
+    })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS note VARCHAR(200);', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE order_items oi
+       SET price = COALESCE(
+         CASE
+           WHEN mi.sale_price IS NOT NULL AND mi.sale_price > 0 AND mi.sale_price < mi.price
+           THEN mi.sale_price
+           ELSE mi.price
+         END,
+         0
+       )
+       FROM menu_items mi
+       WHERE oi.item_id = mi.item_id AND oi.price IS NULL;`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(`UPDATE order_items SET price = 0 WHERE price IS NULL;`, { raw: true })
     .catch(() => {});
 
   const { ensureMenuForEmptyBranches } = require('./utils/ensureBranchMenus');

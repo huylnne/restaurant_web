@@ -11,7 +11,7 @@ async function ensureMenuForEmptyBranches(sequelize) {
   );
 
   const [sourceCountRow] = await sequelize.query(
-    `SELECT COUNT(*)::int AS cnt FROM menu_items WHERE branch_id = :source AND is_active = true`,
+    `SELECT COUNT(*)::int AS cnt FROM menu_items WHERE branch_id = :source AND is_available = true`,
     {
       replacements: { source: SOURCE_BRANCH_ID },
       type: sequelize.QueryTypes.SELECT,
@@ -36,10 +36,10 @@ async function ensureMenuForEmptyBranches(sequelize) {
     if ((existing?.cnt ?? 0) > 0) continue;
 
     await sequelize.query(
-      `INSERT INTO menu_items (branch_id, name, description, price, sale_price, category, is_active, is_featured, created_at, image_url)
-       SELECT :branchId, name, description, price, sale_price, category, is_active, is_featured, NOW(), image_url
+      `INSERT INTO menu_items (branch_id, name, description, price, sale_price, category, is_available, is_featured, created_at, image_url)
+       SELECT :branchId, name, description, price, sale_price, category, is_available, is_featured, NOW(), image_url
        FROM menu_items
-       WHERE branch_id = :source AND is_active = true`,
+       WHERE branch_id = :source AND is_available = true`,
       {
         replacements: { branchId, source: SOURCE_BRANCH_ID },
       }

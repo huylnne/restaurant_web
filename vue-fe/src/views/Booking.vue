@@ -39,7 +39,7 @@
           </el-form-item>
 
           <el-form-item label="Số lượng khách">
-            <el-input-number v-model="form.guests" :min="1" />
+            <el-input-number v-model="form.guests" :min="1" :max="MAX_GUESTS" />
           </el-form-item>
 
           <p
@@ -73,6 +73,7 @@ import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter, useRoute } from "vue-router";
 import CaptchaField from "@/components/CaptchaField.vue";
+import { MAX_GUESTS } from "@/constants/reservation";
 
 const router = useRouter();
 const route = useRoute();
@@ -147,6 +148,11 @@ watch(
 
     if (!form.value.branch_id || !form.value.date || !form.value.time || !form.value.guests) return;
 
+    if (form.value.guests > MAX_GUESTS) {
+      availabilityMessage.value = `Số khách phải từ 1 đến ${MAX_GUESTS}`;
+      return;
+    }
+
     const date = buildReservationDate();
     if (!isTimeValid(date)) return;
 
@@ -180,6 +186,11 @@ const submitForm = async () => {
     return;
   }
 
+  if (form.value.guests < 1 || form.value.guests > MAX_GUESTS) {
+    ElMessage.error(`Số khách phải từ 1 đến ${MAX_GUESTS}`);
+    return;
+  }
+
   if (!canSubmit.value) {
     ElMessage.error(availabilityMessage.value || "Hiện không còn bàn phù hợp trong khung giờ này");
     return;
@@ -207,10 +218,11 @@ const submitForm = async () => {
       },
     });
 
-    const reservation_id = res.data.reservation.reservation_id;
-    const reservation = res.data.reservation;
-    if (reservation_id) {
-      localStorage.setItem("reservation", JSON.stringify(reservation));
+    const order = res.data.order;
+    const order_id = order?.order_id;
+    if (order_id) {
+      localStorage.setItem("activeOrder", JSON.stringify(order));
+      localStorage.removeItem("reservation");
       const successTitle = res.data.multiTable
         ? `Đặt bàn thành công (${res.data.tables?.length || 0} bàn ghép)!`
         : "Đặt bàn thành công!";
@@ -224,7 +236,7 @@ const submitForm = async () => {
 
           router.push({
             name: "OrderMenu",
-            query: { reservation_id, branch_id: form.value.branch_id },
+            query: { order_id, branch_id: form.value.branch_id },
           });
         })
         .catch(() => {

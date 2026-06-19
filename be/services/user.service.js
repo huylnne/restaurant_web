@@ -1,27 +1,26 @@
 const db = require("../models/db");
 const User = db.User;
-const { Reservation, Order, OrderItem, MenuItem, Table, Payment, Review, Branch } = require('../models');
-const { ACTIVE_RESERVATION_STATUSES } = require('../utils/reservationStatus');
-const DEFAULT_AVATAR_URL = "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
+const { Order, OrderItem, MenuItem, Table, Payment, Review, Branch } = require("../models");
+const { activeOrderStatusWhere } = require("../utils/orderStatus");
+const DEFAULT_AVATAR_URL =
+  "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
 
-// ✅ Lấy profile
 exports.getProfile = async (userId) => {
   const user = await User.findByPk(userId, {
-    attributes: ['full_name', 'avatar_url', 'phone']
+    attributes: ["full_name", "avatar_url", "phone"],
   });
-  if (!user) throw new Error('User không tồn tại');
+  if (!user) throw new Error("User không tồn tại");
   return {
     name: user.full_name,
     avatar: user.avatar_url || DEFAULT_AVATAR_URL,
-    phone: user.phone
+    phone: user.phone,
   };
 };
 
-//  Cập nhật profile
 exports.updateProfile = async (userId, data) => {
   const { full_name, phone, avatar_url } = data;
   const user = await User.findByPk(userId);
-  if (!user) throw new Error('User không tồn tại');
+  if (!user) throw new Error("User không tồn tại");
 
   user.full_name = full_name ?? user.full_name;
   user.phone = phone ?? user.phone;
@@ -31,100 +30,92 @@ exports.updateProfile = async (userId, data) => {
   return user;
 };
 
-//  Đổi mật khẩu
 exports.changePassword = async (userId, currentPassword, newPassword) => {
-  const bcrypt = require('bcrypt');
+  const bcrypt = require("bcrypt");
   const user = await User.findByPk(userId);
   if (!user) throw new Error("Người dùng không tồn tại");
 
-  // Kiểm tra password hiện tại
   const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
   if (!isMatch) {
     throw new Error("Mật khẩu hiện tại không đúng");
   }
 
-  // Hash password mới
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   user.password_hash = hashedPassword;
   await user.save();
   return true;
 };
 
-//  Lấy lịch sử đặt bàn với orders
+function mapOrderForHistory(row) {
+  const json = row.toJSON ? row.toJSON() : row;
+  return {
+    ...json,
+    reservation_id: json.order_id,
+    reservation_time: json.arrival_time,
+    OrderItems: json.OrderItems || [],
+  };
+}
+
 exports.getReservationsWithOrders = async (userId) => {
   try {
-    const reservations = await Reservation.findAll({
-      where: { user_id: userId },
+    const orders = await Order.findAll({
+      where: { user_id: userId, order_type: "reservation" },
       attributes: [
-        'reservation_id',
-        'reservation_time',
-        'number_of_guests',
-        'status',
-        'table_id',
-        'branch_id',
-        'booking_group_id',
-        'note',
-        'created_at'
+        "order_id",
+        "arrival_time",
+        "number_of_guests",
+        "status",
+        "table_id",
+        "branch_id",
+        "booking_group_id",
+        "note",
+        "order_type",
+        "payment_status",
+        "total_amount",
+        "created_at",
       ],
       include: [
         {
-          model: Order,
-          as: 'Orders',
+          model: OrderItem,
           required: false,
-          include: [
-            {
-              model: OrderItem,
-              as: 'OrderItems',
-              required: false,
-              include: [
-                {
-                  model: MenuItem,
-                  as: 'MenuItem',
-                  attributes: ['name', 'price']
-                }
-              ]
-            }
-          ]
+          include: [{ model: MenuItem, attributes: ["name", "price"] }],
         },
         {
           model: Table,
-          as: 'Table',
-          attributes: ['table_number', 'capacity', 'status']
+          attributes: ["table_number", "capacity", "status"],
         },
         {
           model: Branch,
-          attributes: ['branch_id', 'name', 'address'],
+          attributes: ["branch_id", "name", "address"],
         },
         {
           model: Review,
-          as: 'Review',
-          attributes: ['review_id', 'rating', 'comment', 'created_at'],
+          attributes: ["review_id", "rating", "comment", "created_at"],
           required: false,
         },
         {
           model: Payment,
-          attributes: ['payment_id', 'status', 'method', 'paid_at'],
+          attributes: ["payment_id", "status", "method", "paid_at"],
           required: false,
-        }
+        },
       ],
-      order: [['reservation_time', 'DESC']]
+      order: [["arrival_time", "DESC"]],
     });
 
-    return reservations;
+    return orders.map(mapOrderForHistory);
   } catch (error) {
-    console.error('Lỗi getReservationsWithOrders:', error);
-    throw new Error('Không thể lấy lịch sử đặt bàn');
+    console.error("Lỗi getReservationsWithOrders:", error);
+    throw new Error("Không thể lấy lịch sử đặt bàn");
   }
 };
 
-// UC13: Gửi đánh giá chất lượng dịch vụ
-exports.createReservationReview = async (userId, { reservation_id, rating, comment }) => {
-  const reservationId = Number(reservation_id);
+exports.createReservationReview = async (userId, { order_id, reservation_id, rating, comment }) => {
+  const sessionOrderId = Number(order_id || reservation_id);
   const normalizedRating = Number(rating);
   const normalizedComment = String(comment || "").trim();
 
-  if (!Number.isInteger(reservationId) || reservationId <= 0) {
-    throw new Error("RESERVATION_ID_INVALID");
+  if (!Number.isInteger(sessionOrderId) || sessionOrderId <= 0) {
+    throw new Error("ORDER_ID_INVALID");
   }
   if (!Number.isInteger(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
     throw new Error("RATING_INVALID");
@@ -136,29 +127,28 @@ exports.createReservationReview = async (userId, { reservation_id, rating, comme
     throw new Error("COMMENT_TOO_LONG");
   }
 
-  const reservation = await Reservation.findOne({
-    where: { reservation_id: reservationId, user_id: userId },
-    attributes: ["reservation_id", "user_id", "status"],
+  const order = await Order.findOne({
+    where: { order_id: sessionOrderId, user_id: userId },
+    attributes: ["order_id", "user_id", "status", "payment_status"],
   });
-  if (!reservation) {
-    throw new Error("RESERVATION_NOT_FOUND");
+  if (!order) {
+    throw new Error("ORDER_NOT_FOUND");
   }
 
   const existing = await Review.findOne({
-    where: { reservation_id: reservationId },
+    where: { order_id: sessionOrderId },
     attributes: ["review_id"],
   });
   if (existing) {
     throw new Error("REVIEW_ALREADY_EXISTS");
   }
 
-  // Chỉ cho đánh giá khi đã hoàn tất dịch vụ hoặc đã thanh toán.
-  const isCompleted = String(reservation.status || "").toLowerCase() === "completed";
+  const isCompleted = String(order.status || "").toLowerCase() === "completed";
   const payment = await Payment.findOne({
-    where: { reservation_id: reservationId, status: "succeeded" },
+    where: { order_id: sessionOrderId, status: "succeeded" },
     attributes: ["payment_id"],
   });
-  const isPaid = !!payment;
+  const isPaid = order.payment_status === "succeeded" || !!payment;
 
   if (!isCompleted && !isPaid) {
     throw new Error("REVIEW_NOT_ALLOWED");
@@ -166,7 +156,7 @@ exports.createReservationReview = async (userId, { reservation_id, rating, comme
 
   try {
     const review = await Review.create({
-      reservation_id: reservationId,
+      order_id: sessionOrderId,
       user_id: userId,
       rating: normalizedRating,
       comment: normalizedComment,
@@ -182,100 +172,57 @@ exports.createReservationReview = async (userId, { reservation_id, rating, comme
   }
 };
 
-//  Lấy phiên bàn hiện tại của user (bàn gần nhất đang confirmed / pre-ordered)
 exports.getCurrentTableSession = async (userId) => {
   try {
-    const reservation = await Reservation.findOne({
+    const order = await Order.findOne({
       where: {
         user_id: userId,
-        status: ACTIVE_RESERVATION_STATUSES,
+        status: activeOrderStatusWhere(),
       },
       attributes: [
-        'reservation_id',
-        'reservation_time',
-        'number_of_guests',
-        'status',
-        'table_id',
-        'branch_id',
-        'created_at',
+        "order_id",
+        "arrival_time",
+        "number_of_guests",
+        "status",
+        "table_id",
+        "branch_id",
+        "order_type",
+        "payment_status",
+        "total_amount",
+        "created_at",
       ],
       include: [
         {
           model: Table,
-          as: 'Table',
-          attributes: ['table_number', 'capacity', 'status'],
+          attributes: ["table_number", "capacity", "status"],
         },
         {
-          model: Order,
-          as: 'Orders',
+          model: OrderItem,
           required: false,
-          include: [
-            {
-              model: OrderItem,
-              as: 'OrderItems',
-              required: false,
-              include: [
-                {
-                  model: MenuItem,
-                  as: 'MenuItem',
-                  attributes: ['name', 'price'],
-                },
-              ],
-            },
-          ],
+          include: [{ model: MenuItem, attributes: ["name", "price"] }],
         },
       ],
-      order: [['reservation_time', 'DESC']],
+      order: [["arrival_time", "DESC"]],
     });
 
-    if (!reservation) return null;
+    if (!order) return null;
 
-    // Nếu bàn trống: chỉ return null khi reservation đã hoàn tất hoặc giờ đặt đã qua hẳn.
-    // Trường hợp bàn còn 'available' nhưng reservation là tương lai (chưa tới giờ) → vẫn hiển thị.
-    if (reservation.Table && reservation.Table.status === 'available') {
-      const resTime = new Date(reservation.reservation_time);
-      const isFuture = resTime > new Date();
-      if (!isFuture) return null; // đã quá giờ mà bàn vẫn trống → phiên kết thúc
+    if (order.Table && order.Table.status === "available") {
+      const arrival = new Date(order.arrival_time);
+      const isFuture = arrival > new Date();
+      if (!isFuture) return null;
     }
 
-    // Lấy thêm các order do nhân viên tạo trực tiếp theo bàn (không gắn reservation_id)
-    if (reservation.table_id) {
-      const waiterOrders = await Order.findAll({
-        where: {
-          table_id: reservation.table_id,
-        },
-        include: [
-          {
-            model: OrderItem,
-            as: 'OrderItems',
-            required: false,
-            include: [
-              {
-                model: MenuItem,
-                as: 'MenuItem',
-                attributes: ['name', 'price'],
-              },
-            ],
-          },
-        ],
-        order: [['created_at', 'DESC']],
-      });
-
-      const existingOrders = Array.isArray(reservation.Orders) ? reservation.Orders : [];
-      const merged = [
-        ...existingOrders,
-        // loại bỏ những order đã có trong existingOrders (theo order_id) để tránh trùng
-        ...waiterOrders.filter(
-          (wo) => !existingOrders.some((eo) => eo.order_id === wo.order_id)
-        ),
-      ];
-
-      reservation.Orders = merged;
-    }
-
-    return reservation;
+    const json = order.toJSON();
+    return {
+      ...json,
+      reservation_id: json.order_id,
+      reservation_time: json.arrival_time,
+      Orders: [{ ...json, OrderItems: json.OrderItems || [] }],
+      order: json,
+    };
   } catch (error) {
-    console.error('Lỗi getCurrentTableSession:', error);
-    throw new Error('Không thể lấy thông tin bàn hiện tại');
+    console.error("Lỗi getCurrentTableSession:", error);
+    throw new Error("Không thể lấy thông tin bàn hiện tại");
   }
 };

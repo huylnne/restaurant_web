@@ -11,7 +11,7 @@
           placeholder="Chọn chi nhánh"
           class="filter-branch-select"
           :disabled="!isSuperAdmin"
-          @change="fetchAll"
+          @change="handleFilterChange"
         >
           <el-option
             v-for="branch in branches"
@@ -25,7 +25,7 @@
           placeholder="Số sao"
           clearable
           class="filter-rating-select"
-          @change="fetchAll"
+          @change="handleFilterChange"
         >
           <el-option v-for="n in [5,4,3,2,1]" :key="n" :label="`${n} sao`" :value="n" />
         </el-select>
@@ -34,8 +34,8 @@
           clearable
           placeholder="Tìm tên, SĐT, nội dung..."
           class="filter-keyword-input"
-          @keyup.enter="fetchAll"
-          @clear="fetchAll"
+          @keyup.enter="handleFilterChange"
+          @clear="handleFilterChange"
         />
         <el-button type="primary" @click="fetchAll">Làm mới</el-button>
       </div>
@@ -69,8 +69,8 @@
         </el-table-column>
         <el-table-column prop="full_name" label="Khách hàng" width="180" />
         <el-table-column prop="phone" label="SĐT" width="130" />
-        <el-table-column label="Reservation" width="110">
-          <template #default="{ row }">#{{ row.reservation_id }}</template>
+        <el-table-column label="Order" width="110">
+          <template #default="{ row }">#{{ row.order_id }}</template>
         </el-table-column>
         <el-table-column label="Bàn" width="80">
           <template #default="{ row }">{{ row.table_number ? `B${row.table_number}` : "-" }}</template>
@@ -82,6 +82,18 @@
         </el-table-column>
         <el-table-column prop="comment" label="Nhận xét" min-width="320" />
       </el-table>
+
+      <div class="pagination-container">
+        <el-pagination
+          v-model:current-page="currentPage"
+          v-model:page-size="pageSize"
+          :page-sizes="[10, 20, 50]"
+          :total="total"
+          layout="total, sizes, prev, pager, next"
+          @size-change="handleSizeChange"
+          @current-change="handlePageChange"
+        />
+      </div>
     </el-card>
   </div>
 </template>
@@ -102,6 +114,9 @@ const selectedBranchId = ref(getDefaultBranchIdForUser(currentUser));
 const ratingFilter = ref(null);
 const keyword = ref("");
 const reviews = ref([]);
+const currentPage = ref(1);
+const pageSize = ref(10);
+const total = ref(0);
 const summary = ref({
   totalReviews: 0,
   avgRating: 0,
@@ -130,7 +145,11 @@ async function fetchBranches() {
 }
 
 function buildParams() {
-  const params = { branchId: selectedBranchId.value, limit: 200 };
+  const params = {
+    branchId: selectedBranchId.value,
+    page: currentPage.value,
+    limit: pageSize.value,
+  };
   if (ratingFilter.value) params.rating = ratingFilter.value;
   if (keyword.value.trim()) params.q = keyword.value.trim();
   return params;
@@ -147,13 +166,31 @@ async function fetchAll() {
       axios.get(`${API_BASE}/api/admin/reviews/summary`, { headers, params }),
     ]);
 
-    reviews.value = listRes.data || [];
+    const data = listRes.data || {};
+    reviews.value = Array.isArray(data) ? data : data.reviews || [];
+    total.value = Array.isArray(data) ? data.length : Number(data.total || 0);
     summary.value = summaryRes.data || summary.value;
   } catch (error) {
     ElMessage.error(error.response?.data?.message || "Không thể tải dữ liệu đánh giá");
   } finally {
     loading.value = false;
   }
+}
+
+function handleFilterChange() {
+  currentPage.value = 1;
+  fetchAll();
+}
+
+function handlePageChange(page) {
+  currentPage.value = page;
+  fetchAll();
+}
+
+function handleSizeChange(size) {
+  pageSize.value = size;
+  currentPage.value = 1;
+  fetchAll();
 }
 
 onMounted(async () => {
@@ -234,6 +271,12 @@ onMounted(async () => {
 
 .reviews-table-card :deep(.el-table) {
   min-width: 720px;
+}
+
+.pagination-container {
+  margin-top: var(--hl-space-lg);
+  display: flex;
+  justify-content: flex-end;
 }
 
 @media (max-width: 900px) {

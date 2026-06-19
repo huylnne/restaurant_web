@@ -15,25 +15,22 @@ const OVERDUE_MINUTES = 15;
 const PRE_ORDER_MINUTES = 15;
 
 /**
- * Đồng bộ trạng thái bàn dựa theo reservation:
- *  1. Đánh dấu reservation no-show (quá OVERDUE_MINUTES) → 'completed', giải phóng bàn
- *  2. Chuyển bàn sang 'pre-ordered' khi còn ≤ PRE_ORDER_MINUTES trước giờ đặt
- *
- * @param {number} branchId
- * @param {Date} [cutoff] - Thời điểm cắt no-show. Mặc định = now - OVERDUE_MINUTES.
+ * Đồng bộ trạng thái bàn dựa theo orders (phiên đặt bàn):
+ *  1. No-show reservation orders → completed, giải phóng bàn
+ *  2. Chuyển bàn sang 'pre-ordered' khi còn ≤ PRE_ORDER_MINUTES trước giờ đến
  */
 async function expireReservationsForBranch(branchId, cutoff) {
   const now = new Date();
   const nowIso = now.toISOString();
-  const noShowDeadline  = cutoff || new Date(now.getTime() - OVERDUE_MINUTES * 60 * 1000);
+  const noShowDeadline = cutoff || new Date(now.getTime() - OVERDUE_MINUTES * 60 * 1000);
   const preOrderTrigger = new Date(now.getTime() + PRE_ORDER_MINUTES * 60 * 1000);
 
-  // 1. Đánh dấu reservation no-show là 'completed'
   await db.sequelize.query(
-    `UPDATE reservations
+    `UPDATE orders
      SET status = 'completed'
-     WHERE status = 'confirmed'
-       AND reservation_time <= :noShowDeadline
+     WHERE order_type = 'reservation'
+       AND status = 'confirmed'
+       AND arrival_time <= :noShowDeadline
        AND table_id IN (
          SELECT table_id FROM tables
          WHERE branch_id = :branchId AND status = :preOrdered
@@ -48,17 +45,17 @@ async function expireReservationsForBranch(branchId, cutoff) {
     }
   );
 
-  // 2. Giải phóng bàn không còn reservation active
   await db.sequelize.query(
     `UPDATE tables t
      SET status = :available
      WHERE t.branch_id = :branchId
        AND t.status = :preOrdered
        AND t.table_id NOT IN (
-         SELECT table_id FROM reservations
-         WHERE status IN ('confirmed', 'pre-ordered')
-           AND reservation_time > :now
-           AND reservation_time <= :preOrderTrigger
+         SELECT table_id FROM orders
+         WHERE order_type = 'reservation'
+           AND status IN ('confirmed', 'pre-ordered')
+           AND arrival_time > :now
+           AND arrival_time <= :preOrderTrigger
        )`,
     {
       replacements: {
@@ -72,17 +69,17 @@ async function expireReservationsForBranch(branchId, cutoff) {
     }
   );
 
-  // 3. Chuyển bàn sang 'pre-ordered' khi còn ≤ PRE_ORDER_MINUTES trước giờ đặt
   await db.sequelize.query(
     `UPDATE tables t
      SET status = :preOrdered
      WHERE t.branch_id = :branchId
        AND t.status = :available
        AND t.table_id IN (
-         SELECT table_id FROM reservations
-         WHERE status = 'confirmed'
-           AND reservation_time <= :preOrderTrigger
-           AND reservation_time > :now
+         SELECT table_id FROM orders
+         WHERE order_type = 'reservation'
+           AND status = 'confirmed'
+           AND arrival_time <= :preOrderTrigger
+           AND arrival_time > :now
        )`,
     {
       replacements: {
@@ -97,13 +94,6 @@ async function expireReservationsForBranch(branchId, cutoff) {
   );
 }
 
-/**
- * Đếm bàn theo UC10:
- * - Trống = available, không có reservation tương lai
- * - Đã đặt = pre-ordered hoặc available + reservation sắp tới
- * - Đang phục vụ = occupied
- * - Chờ dọn = cleaning (tách khỏi trống)
- */
 async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
   await expireReservationsForBranch(branchId);
 
@@ -124,10 +114,11 @@ async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
          OR (
            t.status = 'available'
            AND EXISTS (
-             SELECT 1 FROM reservations r
-             WHERE r.table_id = t.table_id
-               AND r.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
-               AND r.reservation_time > :now
+             SELECT 1 FROM orders o
+             WHERE o.table_id = t.table_id
+               AND o.order_type = 'reservation'
+               AND o.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
+               AND o.arrival_time > :now
            )
          )
        )`,
@@ -139,10 +130,11 @@ async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
      WHERE t.branch_id = :branchId
        AND t.status = 'available'
        AND NOT EXISTS (
-         SELECT 1 FROM reservations r
-         WHERE r.table_id = t.table_id
-           AND r.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
-           AND r.reservation_time > :now
+         SELECT 1 FROM orders o
+         WHERE o.table_id = t.table_id
+           AND o.order_type = 'reservation'
+           AND o.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
+           AND o.arrival_time > :now
        )`,
     { replacements: { branchId, now: nowIso }, type: Sequelize.QueryTypes.SELECT }
   );

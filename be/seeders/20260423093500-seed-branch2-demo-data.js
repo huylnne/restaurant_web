@@ -1,15 +1,12 @@
 'use strict';
 
 /**
- * Seed thêm dữ liệu vận hành cho chi nhánh 2:
- * - reservations
- * - orders COMPLETED
- * - order_items
+ * Seed thêm dữ liệu vận hành cho chi nhánh 2: orders COMPLETED + order_items
  */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const menuItems = await queryInterface.sequelize.query(
-      `SELECT item_id FROM menu_items WHERE branch_id = 2`,
+      `SELECT item_id, price FROM menu_items WHERE branch_id = 2`,
       { type: Sequelize.QueryTypes.SELECT }
     );
     const users = await queryInterface.sequelize.query(
@@ -26,6 +23,7 @@ module.exports = {
     }
 
     const itemIds = menuItems.map((m) => m.item_id);
+    const priceByItemId = Object.fromEntries(menuItems.map((m) => [m.item_id, m.price]));
     const userIds = users.map((u) => u.user_id);
     const tableIds = tables.map((t) => t.table_id);
 
@@ -44,7 +42,6 @@ module.exports = {
       }
     }
 
-    // 4 tháng gần nhất cho branch 2
     addRange(new Date('2025-12-01'), 31, 2, 6);
     addRange(new Date('2026-01-01'), 31, 3, 8);
     addRange(new Date('2026-02-01'), 28, 2, 7);
@@ -57,7 +54,6 @@ module.exports = {
       return d;
     }
 
-    const reservations = [];
     const orders = [];
     const orderItems = [];
     let orderIdx = 0;
@@ -65,26 +61,21 @@ module.exports = {
     for (const { date, count } of schedule) {
       for (let i = 0; i < count; i++) {
         const meal = i % 2 === 0 ? 'lunch' : 'dinner';
-        const resTime = mealTime(date, meal);
-        const orderTime = new Date(resTime.getTime() + rand(8, 25) * 60 * 1000);
+        const arrivalTime = mealTime(date, meal);
+        const orderTime = new Date(arrivalTime.getTime() + rand(8, 25) * 60 * 1000);
 
         const userId = pick(userIds);
         const tableId = pick(tableIds);
 
-        reservations.push({
+        orders.push({
           user_id: userId,
           branch_id: 2,
           table_id: tableId,
-          reservation_time: resTime,
+          arrival_time: arrivalTime,
           number_of_guests: rand(1, 8),
-          status: 'confirmed',
-          created_at: resTime,
-        });
-
-        orders.push({
-          table_id: tableId,
-          user_id: userId,
-          status: 'COMPLETED',
+          status: 'completed',
+          order_type: 'reservation',
+          payment_status: 'succeeded',
           created_at: orderTime,
         });
 
@@ -101,22 +92,7 @@ module.exports = {
       }
     }
 
-    await queryInterface.bulkInsert('reservations', reservations, {});
-
-    const insertedReservations = await queryInterface.sequelize.query(
-      `SELECT reservation_id FROM reservations ORDER BY reservation_id DESC LIMIT ${reservations.length}`,
-      { type: Sequelize.QueryTypes.SELECT }
-    );
-    insertedReservations.reverse();
-
-    const ordersToInsert = orders.map((o, idx) => ({
-      reservation_id: insertedReservations[idx]?.reservation_id ?? null,
-      table_id: o.table_id,
-      user_id: o.user_id,
-      status: o.status,
-      created_at: o.created_at,
-    }));
-    await queryInterface.bulkInsert('orders', ordersToInsert, {});
+    await queryInterface.bulkInsert('orders', orders, {});
 
     const insertedOrders = await queryInterface.sequelize.query(
       `SELECT order_id FROM orders ORDER BY order_id DESC LIMIT ${orders.length}`,
@@ -129,6 +105,7 @@ module.exports = {
         order_id: insertedOrders[oi._orderIdx]?.order_id,
         item_id: oi.item_id,
         quantity: oi.quantity,
+        price: priceByItemId[oi.item_id] ?? 0,
         status: oi.status,
       }))
       .filter((x) => x.order_id != null);
@@ -136,7 +113,7 @@ module.exports = {
     await queryInterface.bulkInsert('order_items', orderItemsToInsert, {});
 
     console.log(
-      `✅ Branch 2 demo: ${reservations.length} reservations, ${orders.length} orders, ${orderItemsToInsert.length} order_items`
+      `✅ Branch 2 demo: ${orders.length} orders, ${orderItemsToInsert.length} order_items`
     );
   },
 
@@ -144,16 +121,11 @@ module.exports = {
     await queryInterface.sequelize.query(
       `DELETE FROM order_items
        WHERE order_id IN (
-         SELECT o.order_id
-         FROM orders o
-         JOIN reservations r ON r.reservation_id = o.reservation_id
-         WHERE r.branch_id = 2
+         SELECT order_id FROM orders WHERE branch_id = 2 AND order_type = 'reservation'
        )`
     );
     await queryInterface.sequelize.query(
-      `DELETE FROM orders
-       WHERE reservation_id IN (SELECT reservation_id FROM reservations WHERE branch_id = 2)`
+      `DELETE FROM orders WHERE branch_id = 2 AND order_type = 'reservation'`
     );
-    await queryInterface.sequelize.query(`DELETE FROM reservations WHERE branch_id = 2`);
   },
 };

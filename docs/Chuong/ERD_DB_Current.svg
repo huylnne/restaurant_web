@@ -1,0 +1,201 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2400" height="1500" viewBox="0 0 2400 1500">
+  <defs>
+    <style>
+      .title { font: 700 22px Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 14px Arial, sans-serif; fill: #334155; }
+      .box { fill: #f8fafc; stroke: #334155; stroke-width: 1.5; rx: 10; ry: 10; }
+      .head { fill: #dbeafe; stroke: #334155; stroke-width: 1.5; rx: 10; ry: 10; }
+      .entity { font: 700 15px Arial, sans-serif; fill: #0f172a; }
+      .col { font: 13px Consolas, "Courier New", monospace; fill: #111827; }
+      .pk { fill: #0b3b8a; font-weight: 700; }
+      .fk { fill: #0f766e; font-weight: 700; }
+      .line { stroke: #334155; stroke-width: 1.6; fill: none; }
+      .label { font: 12px Arial, sans-serif; fill: #1e293b; }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <path d="M0,0 L12,4 L0,8 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="2400" height="1500" fill="#eef2ff"/>
+  <text x="50" y="50" class="title">ERD - restaurant_web (from be/models)</text>
+  <text x="50" y="76" class="subtitle">Schema hien tai KHONG co bang reservations (da bo theo codebase)</text>
+
+  <!-- branches -->
+  <rect class="box" x="60" y="120" width="410" height="310"/>
+  <rect class="head" x="60" y="120" width="410" height="40"/>
+  <text class="entity" x="80" y="146">branches</text>
+  <text class="col pk" x="80" y="182">PK  branch_id : INTEGER</text>
+  <text class="col" x="80" y="206">name : STRING(50)</text>
+  <text class="col" x="80" y="230">address : TEXT</text>
+  <text class="col" x="80" y="254">phone : STRING(10)</text>
+  <text class="col" x="80" y="278">open_time : STRING(8)</text>
+  <text class="col" x="80" y="302">close_time : STRING(8)</text>
+  <text class="col" x="80" y="326">image_url : TEXT</text>
+  <text class="col" x="80" y="350">latitude, longitude : DECIMAL(10,7)</text>
+  <text class="col" x="80" y="374">is_active, created_at, updated_at</text>
+
+  <!-- users -->
+  <rect class="box" x="560" y="120" width="460" height="355"/>
+  <rect class="head" x="560" y="120" width="460" height="40"/>
+  <text class="entity" x="580" y="146">users</text>
+  <text class="col pk" x="580" y="182">PK  user_id : INTEGER</text>
+  <text class="col fk" x="580" y="206">FK  branch_id -> branches.branch_id (nullable)</text>
+  <text class="col" x="580" y="230">username : STRING(30) [unique]</text>
+  <text class="col" x="580" y="254">password_hash : STRING(60)</text>
+  <text class="col" x="580" y="278">full_name : STRING(50)</text>
+  <text class="col" x="580" y="302">phone : STRING(10) [unique, nullable]</text>
+  <text class="col" x="580" y="326">role : ENUM(admin, waiter, kitchen, manager, user)</text>
+  <text class="col" x="580" y="350">avatar_url : TEXT, is_active : BOOLEAN</text>
+  <text class="col" x="580" y="374">locked : BOOLEAN, created_at : DATE</text>
+
+  <!-- employees -->
+  <rect class="box" x="1080" y="120" width="470" height="280"/>
+  <rect class="head" x="1080" y="120" width="470" height="40"/>
+  <text class="entity" x="1100" y="146">employees</text>
+  <text class="col pk" x="1100" y="182">PK  employee_id : INTEGER</text>
+  <text class="col fk" x="1100" y="206">FK  user_id -> users.user_id</text>
+  <text class="col fk" x="1100" y="230">FK  branch_id -> branches.branch_id</text>
+  <text class="col" x="1100" y="254">position : STRING(20)</text>
+  <text class="col" x="1100" y="278">salary : DECIMAL(10,2), hire_date : DATE</text>
+  <text class="col" x="1100" y="302">status : ENUM(active, inactive, on_leave)</text>
+  <text class="col" x="1100" y="326">created_at, updated_at (timestamps)</text>
+
+  <!-- tables -->
+  <rect class="box" x="60" y="500" width="410" height="280"/>
+  <rect class="head" x="60" y="500" width="410" height="40"/>
+  <text class="entity" x="80" y="526">tables</text>
+  <text class="col pk" x="80" y="562">PK  table_id : INTEGER</text>
+  <text class="col fk" x="80" y="586">FK  branch_id -> branches.branch_id</text>
+  <text class="col" x="80" y="610">table_number : INTEGER</text>
+  <text class="col" x="80" y="634">capacity : INTEGER</text>
+  <text class="col" x="80" y="658">status : STRING(15)</text>
+  <text class="col" x="80" y="682">qr_token : STRING(32) [unique, nullable]</text>
+  <text class="col" x="80" y="706">created_at : DATE</text>
+
+  <!-- menu_items -->
+  <rect class="box" x="560" y="540" width="460" height="330"/>
+  <rect class="head" x="560" y="540" width="460" height="40"/>
+  <text class="entity" x="580" y="566">menu_items</text>
+  <text class="col pk" x="580" y="602">PK  item_id : INTEGER</text>
+  <text class="col fk" x="580" y="626">FK  branch_id -> branches.branch_id</text>
+  <text class="col" x="580" y="650">name : STRING(50), description : TEXT</text>
+  <text class="col" x="580" y="674">price : DECIMAL(10,2)</text>
+  <text class="col" x="580" y="698">sale_price : DECIMAL(10,2) nullable</text>
+  <text class="col" x="580" y="722">category : STRING(15)</text>
+  <text class="col" x="580" y="746">is_available : BOOLEAN, is_featured : BOOLEAN</text>
+  <text class="col" x="580" y="770">image_url : TEXT nullable</text>
+  <text class="col" x="580" y="794">created_at : DATE</text>
+
+  <!-- orders -->
+  <rect class="box" x="1080" y="470" width="550" height="430"/>
+  <rect class="head" x="1080" y="470" width="550" height="40"/>
+  <text class="entity" x="1100" y="496">orders</text>
+  <text class="col pk" x="1100" y="532">PK  order_id : INTEGER</text>
+  <text class="col fk" x="1100" y="556">FK  user_id -> users.user_id (nullable)</text>
+  <text class="col fk" x="1100" y="580">FK  branch_id -> branches.branch_id (nullable)</text>
+  <text class="col fk" x="1100" y="604">FK  table_id -> tables.table_id (nullable)</text>
+  <text class="col" x="1100" y="628">arrival_time : DATE nullable</text>
+  <text class="col" x="1100" y="652">number_of_guests : INTEGER nullable</text>
+  <text class="col" x="1100" y="676">status : STRING(20) default pending</text>
+  <text class="col" x="1100" y="700">total_amount : DECIMAL(10,2) nullable</text>
+  <text class="col" x="1100" y="724">note : STRING(200) nullable</text>
+  <text class="col" x="1100" y="748">order_type : STRING(15) default dine_in</text>
+  <text class="col" x="1100" y="772">payment_status : STRING(16) default unpaid</text>
+  <text class="col" x="1100" y="796">booking_group_id : STRING(36) nullable</text>
+  <text class="col" x="1100" y="820">created_at : DATE</text>
+
+  <!-- order_items -->
+  <rect class="box" x="1700" y="500" width="520" height="300"/>
+  <rect class="head" x="1700" y="500" width="520" height="40"/>
+  <text class="entity" x="1720" y="526">order_items</text>
+  <text class="col pk" x="1720" y="562">PK  order_item_id : INTEGER</text>
+  <text class="col fk" x="1720" y="586">FK  order_id -> orders.order_id</text>
+  <text class="col fk" x="1720" y="610">FK  item_id -> menu_items.item_id</text>
+  <text class="col" x="1720" y="634">quantity : INTEGER</text>
+  <text class="col" x="1720" y="658">price : DECIMAL(10,2)</text>
+  <text class="col" x="1720" y="682">note : STRING(200) nullable</text>
+  <text class="col" x="1720" y="706">status : ENUM(pending, processing, done, served)</text>
+
+  <!-- payments -->
+  <rect class="box" x="1700" y="850" width="520" height="300"/>
+  <rect class="head" x="1700" y="850" width="520" height="40"/>
+  <text class="entity" x="1720" y="876">payments</text>
+  <text class="col pk" x="1720" y="912">PK  payment_id : INTEGER</text>
+  <text class="col fk" x="1720" y="936">FK  order_id -> orders.order_id</text>
+  <text class="col" x="1720" y="960">amount : DECIMAL(10,2)</text>
+  <text class="col" x="1720" y="984">method : STRING(15)</text>
+  <text class="col" x="1720" y="1008">status : STRING(16) default pending</text>
+  <text class="col" x="1720" y="1032">transaction_ref : STRING(64) nullable</text>
+  <text class="col" x="1720" y="1056">paid_at, invoice_no, invoice_issued_at</text>
+  <text class="col" x="1720" y="1080">created_at : DATE</text>
+
+  <!-- reviews -->
+  <rect class="box" x="1080" y="960" width="550" height="240"/>
+  <rect class="head" x="1080" y="960" width="550" height="40"/>
+  <text class="entity" x="1100" y="986">reviews</text>
+  <text class="col pk" x="1100" y="1022">PK  review_id : INTEGER</text>
+  <text class="col fk" x="1100" y="1046">FK  order_id -> orders.order_id [unique]</text>
+  <text class="col fk" x="1100" y="1070">FK  user_id -> users.user_id</text>
+  <text class="col" x="1100" y="1094">rating : INTEGER (1..5)</text>
+  <text class="col" x="1100" y="1118">comment : TEXT</text>
+  <text class="col" x="1100" y="1142">created_at : DATE</text>
+
+  <!-- operation_logs -->
+  <rect class="box" x="60" y="860" width="960" height="340"/>
+  <rect class="head" x="60" y="860" width="960" height="40"/>
+  <text class="entity" x="80" y="886">operation_logs</text>
+  <text class="col pk" x="80" y="922">PK  log_id : INTEGER</text>
+  <text class="col fk" x="80" y="946">FK  user_id -> users.user_id (nullable, via association)</text>
+  <text class="col" x="80" y="970">username, role, branch_id, action, module</text>
+  <text class="col" x="80" y="994">description, entity_type, entity_id</text>
+  <text class="col" x="80" y="1018">http_method, path, ip_address, user_agent</text>
+  <text class="col" x="80" y="1042">request_body : JSONB, metadata : JSONB</text>
+  <text class="col" x="80" y="1066">status_code : INTEGER</text>
+  <text class="col" x="80" y="1090">created_at : DATE (updated_at disabled)</text>
+  <text class="col" x="80" y="1114">indexes: created_at, module, action, user_id, branch_id</text>
+
+  <!-- Relationships -->
+  <path class="line" marker-end="url(#arrow)" d="M470 200 L560 200"/>
+  <text class="label" x="495" y="190">branches 1 - N users</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M470 240 L1080 240"/>
+  <text class="label" x="730" y="230">branches 1 - N employees</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M265 430 L265 500"/>
+  <text class="label" x="275" y="470">branches 1 - N tables</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M470 300 L560 620"/>
+  <text class="label" x="475" y="470">branches 1 - N menu_items</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M470 340 L1080 560"/>
+  <text class="label" x="690" y="515">branches 1 - N orders</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M1020 390 L1080 560"/>
+  <text class="label" x="1025" y="500">users 1 - N orders</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M1540 560 L1700 586"/>
+  <text class="label" x="1555" y="548">orders 1 - N order_items</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M1020 700 L1700 610"/>
+  <text class="label" x="1330" y="640">menu_items 1 - N order_items</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M1630 740 L1700 936"/>
+  <text class="label" x="1640" y="850">orders 1 - 1 payments</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M1540 900 L1540 960"/>
+  <text class="label" x="1550" y="940">orders 1 - 1 reviews</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M900 475 L1200 960"/>
+  <text class="label" x="945" y="740">users 1 - N reviews</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M470 710 L1080 604"/>
+  <text class="label" x="690" y="650">tables 1 - N orders</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M860 475 L1300 120"/>
+  <text class="label" x="940" y="300">users 1 - 1 employees</text>
+
+  <path class="line" marker-end="url(#arrow)" d="M560 430 L560 860"/>
+  <text class="label" x="570" y="640">users 1 - N operation_logs</text>
+
+</svg>

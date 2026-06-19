@@ -1,40 +1,42 @@
 /**
- * Trạng thái phiên đặt bàn (reservations.status)
+ * Trạng thái phiên bàn — giờ lưu trên orders.status (alias giữ tên cũ cho tương thích import).
  */
 
-const RESERVATION_STATUS = {
-  PENDING: "pending",
-  CONFIRMED: "confirmed",
-  PRE_ORDERED: "pre-ordered",
-  WAITING_PAYMENT: "waiting_payment",
-  COMPLETED: "completed",
-  CANCELLED: "cancelled",
-};
+const { ORDER_STATUS } = require("./orderStatus");
+
+const RESERVATION_STATUS = ORDER_STATUS;
 
 const ACTIVE_RESERVATION_STATUSES = [
-  RESERVATION_STATUS.CONFIRMED,
-  RESERVATION_STATUS.PRE_ORDERED,
-  RESERVATION_STATUS.WAITING_PAYMENT,
+  ORDER_STATUS.CONFIRMED,
+  ORDER_STATUS.PRE_ORDERED,
+  ORDER_STATUS.IN_PROGRESS,
+  ORDER_STATUS.WAITING_PAYMENT,
 ];
 
 const CHECK_IN_RESERVATION_STATUSES = [
-  RESERVATION_STATUS.CONFIRMED,
-  RESERVATION_STATUS.PENDING,
+  ORDER_STATUS.CONFIRMED,
+  ORDER_STATUS.PENDING,
 ];
 
 const ACTIVE_SESSION_STATUSES = [
-  RESERVATION_STATUS.PRE_ORDERED,
-  RESERVATION_STATUS.WAITING_PAYMENT,
+  ORDER_STATUS.PRE_ORDERED,
+  ORDER_STATUS.IN_PROGRESS,
+  ORDER_STATUS.WAITING_PAYMENT,
 ];
 
 const CANCELABLE_RESERVATION_STATUSES = [
-  RESERVATION_STATUS.PENDING,
-  RESERVATION_STATUS.CONFIRMED,
+  ORDER_STATUS.PENDING,
+  ORDER_STATUS.CONFIRMED,
 ];
 
 function activeReservationStatusWhere() {
   const { Op } = require("sequelize");
   return { [Op.in]: ACTIVE_RESERVATION_STATUSES };
+}
+
+function activeSessionStatusWhere() {
+  const { Op } = require("sequelize");
+  return { [Op.in]: ACTIVE_SESSION_STATUSES };
 }
 
 module.exports = {
@@ -44,4 +46,5 @@ module.exports = {
   ACTIVE_SESSION_STATUSES,
   CANCELABLE_RESERVATION_STATUSES,
   activeReservationStatusWhere,
+  activeSessionStatusWhere,
 };

@@ -55,27 +55,28 @@ class UserAccountService {
     });
 
     const userIds = rows.map((u) => u.user_id);
-    let reservationCounts = {};
+    let orderCounts = {};
 
     if (userIds.length > 0) {
-      const counts = await db.Reservation.findAll({
+      const counts = await db.Order.findAll({
         attributes: [
           'user_id',
-          [db.sequelize.fn('COUNT', db.sequelize.col('reservation_id')), 'total'],
+          [db.sequelize.fn('COUNT', db.sequelize.col('order_id')), 'total'],
         ],
-        where: { user_id: { [Op.in]: userIds } },
+        where: {
+          user_id: { [Op.in]: userIds },
+          order_type: 'reservation',
+        },
         group: ['user_id'],
         raw: true,
       });
-      reservationCounts = Object.fromEntries(
-        counts.map((c) => [c.user_id, Number(c.total)])
-      );
+      orderCounts = Object.fromEntries(counts.map((c) => [c.user_id, Number(c.total)]));
     }
 
     return {
       users: rows.map((u) => ({
         ...u.toJSON(),
-        reservation_count: reservationCounts[u.user_id] || 0,
+        reservation_count: orderCounts[u.user_id] || 0,
       })),
       total: count,
       totalPages: Math.ceil(count / limit),
@@ -103,17 +104,26 @@ class UserAccountService {
       throw new Error('Không tìm thấy người dùng');
     }
 
+    const reservationWhere = { user_id: userId, order_type: 'reservation' };
+
     const [reservationCount, activeReservations, recentReservations] = await Promise.all([
-      db.Reservation.count({ where: { user_id: userId } }),
-      db.Reservation.count({
+      db.Order.count({ where: reservationWhere }),
+      db.Order.count({
         where: {
-          user_id: userId,
+          ...reservationWhere,
           status: { [Op.notIn]: ['cancelled', 'completed'] },
         },
       }),
-      db.Reservation.findAll({
-        where: { user_id: userId },
-        attributes: ['reservation_id', 'reservation_time', 'status', 'branch_id', 'created_at'],
+      db.Order.findAll({
+        where: reservationWhere,
+        attributes: [
+          'order_id',
+          'arrival_time',
+          'status',
+          'branch_id',
+          'created_at',
+          'order_type',
+        ],
         order: [['created_at', 'DESC']],
         limit: 5,
       }),
@@ -125,7 +135,14 @@ class UserAccountService {
         reservation_count: reservationCount,
         active_reservations: activeReservations,
       },
-      recent_reservations: recentReservations,
+      recent_reservations: recentReservations.map((o) => {
+        const json = o.toJSON();
+        return {
+          ...json,
+          reservation_id: json.order_id,
+          reservation_time: json.arrival_time,
+        };
+      }),
     };
   }
 

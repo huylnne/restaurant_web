@@ -1,4 +1,4 @@
-const { Reservation, Table, User, sequelize } = require("../../models");
+const { Order, Table, User, sequelize } = require("../../models");
 const { Op } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
 const { TABLE_STATUS, isBookableTableStatus } = require("../../utils/tableStatus");
@@ -10,8 +10,8 @@ const {
 
 const CHECK_IN_STATUSES = CHECK_IN_RESERVATION_STATUSES;
 
-function mapArrivalRow(r, { groupTables } = {}) {
-  const data = r.toJSON();
+function mapArrivalRow(o, { groupTables } = {}) {
+  const data = o.toJSON();
   const canCheckIn = CHECK_IN_STATUSES.includes(data.status);
   const alreadyCheckedIn = ACTIVE_SESSION_STATUSES.includes(data.status);
   const tables = groupTables?.length
@@ -28,11 +28,14 @@ function mapArrivalRow(r, { groupTables } = {}) {
       : [];
 
   return {
-    reservation_id: data.reservation_id,
+    order_id: data.order_id,
+    reservation_id: data.order_id,
     booking_group_id: data.booking_group_id || null,
-    reservation_time: data.reservation_time,
+    arrival_time: data.arrival_time,
+    reservation_time: data.arrival_time,
     number_of_guests: data.number_of_guests,
     status: data.status,
+    order_type: data.order_type,
     canCheckIn,
     alreadyCheckedIn,
     multiTable: tables.length > 1,
@@ -52,11 +55,11 @@ function dedupeArrivalRows(rows) {
   const seenGroups = new Set();
   const result = [];
 
-  for (const r of rows) {
-    const data = r.toJSON();
+  for (const o of rows) {
+    const data = o.toJSON();
     const gid = data.booking_group_id;
     if (!gid) {
-      result.push(mapArrivalRow(r));
+      result.push(mapArrivalRow(o));
       continue;
     }
     if (seenGroups.has(gid)) continue;
@@ -90,7 +93,6 @@ const arrivalIncludes = [
   },
 ];
 
-/** Khung giờ hiển thị đặt bàn: từ đầu ngày (lùi 2h) đến 7 ngày sau — tránh lọt đặt bàn xa trong ngày/tuần. */
 function arrivalTimeWindow() {
   const now = new Date();
   const windowStart = new Date(now);
@@ -100,36 +102,30 @@ function arrivalTimeWindow() {
   return { windowStart, windowEnd };
 }
 
-/**
- * Danh sách đặt bàn trong khung giờ (không cần nhập từ khóa) — dùng khi mở dialog tiếp nhận.
- */
 async function listUpcomingArrivals(branchId) {
   await tableSummaryService.expireReservationsForBranch(branchId);
   const { windowStart, windowEnd } = arrivalTimeWindow();
 
-  const rows = await Reservation.findAll({
+  const rows = await Order.findAll({
     where: {
       branch_id: branchId,
+      order_type: "reservation",
       status: { [Op.in]: [...CHECK_IN_STATUSES, ...ACTIVE_SESSION_STATUSES] },
-      reservation_time: { [Op.between]: [windowStart, windowEnd] },
+      arrival_time: { [Op.between]: [windowStart, windowEnd] },
     },
     include: arrivalIncludes,
-    order: [["reservation_time", "ASC"]],
+    order: [["arrival_time", "ASC"]],
     limit: 30,
   });
 
   return dedupeArrivalRows(rows);
 }
 
-/**
- * Tìm đặt bàn chờ tiếp nhận theo SĐT / tên / mã đặt bàn.
- */
 async function searchArrivals(branchId, query) {
   const q = String(query || "").trim();
   if (!q) return [];
 
   await tableSummaryService.expireReservationsForBranch(branchId);
-
   const { windowStart, windowEnd } = arrivalTimeWindow();
 
   const orConditions = [
@@ -140,22 +136,23 @@ async function searchArrivals(branchId, query) {
   const idStr = q.replace(/^#/, "").trim();
   const searchById = /^\d+$/.test(idStr);
   if (searchById) {
-    orConditions.push({ reservation_id: parseInt(idStr, 10) });
+    orConditions.push({ order_id: parseInt(idStr, 10) });
   }
 
   const where = {
     branch_id: branchId,
+    order_type: "reservation",
     status: { [Op.in]: [...CHECK_IN_STATUSES, ...ACTIVE_SESSION_STATUSES] },
     [Op.or]: orConditions,
   };
   if (!searchById) {
-    where.reservation_time = { [Op.between]: [windowStart, windowEnd] };
+    where.arrival_time = { [Op.between]: [windowStart, windowEnd] };
   }
 
-  const rows = await Reservation.findAll({
+  const rows = await Order.findAll({
     where,
     include: arrivalIncludes,
-    order: [["reservation_time", "ASC"]],
+    order: [["arrival_time", "ASC"]],
     limit: 20,
     subQuery: false,
   });
@@ -163,66 +160,62 @@ async function searchArrivals(branchId, query) {
   return dedupeArrivalRows(rows);
 }
 
-/**
- * Xác nhận khách có đặt trước → bàn occupied, phiên pre-ordered.
- */
-async function confirmArrival(reservationId, branchId) {
+async function confirmArrival(orderId, branchId) {
   await tableSummaryService.expireReservationsForBranch(branchId);
 
-  const reservation = await Reservation.findOne({
-    where: { reservation_id: reservationId, branch_id: branchId },
+  const order = await Order.findOne({
+    where: { order_id: orderId, branch_id: branchId, order_type: "reservation" },
     include: [{ model: Table }],
   });
 
-  if (!reservation) {
+  if (!order) {
     const err = new Error("Không tìm thấy đặt bàn");
     err.code = "NOT_FOUND";
     throw err;
   }
 
-  const groupId = reservation.booking_group_id;
-  const partyReservations = groupId
-    ? await Reservation.findAll({
-        where: { booking_group_id: groupId, branch_id: branchId },
+  const groupId = order.booking_group_id;
+  const partyOrders = groupId
+    ? await Order.findAll({
+        where: { booking_group_id: groupId, branch_id: branchId, order_type: "reservation" },
         include: [{ model: Table }],
       })
-    : [reservation];
+    : [order];
 
-  const allCheckedIn = partyReservations.every((r) =>
-    ACTIVE_SESSION_STATUSES.includes(r.status)
-  );
+  const allCheckedIn = partyOrders.every((o) => ACTIVE_SESSION_STATUSES.includes(o.status));
   if (allCheckedIn) {
     return {
-      reservation: reservation.toJSON(),
-      table: reservation.Table?.toJSON?.() ?? reservation.Table,
+      order: order.toJSON(),
+      reservation: order.toJSON(),
+      table: order.Table?.toJSON?.() ?? order.Table,
       alreadyCheckedIn: true,
     };
   }
 
-  const toCheckIn = partyReservations.filter((r) => CHECK_IN_STATUSES.includes(r.status));
+  const toCheckIn = partyOrders.filter((o) => CHECK_IN_STATUSES.includes(o.status));
   if (!toCheckIn.length) {
     const err = new Error("Đặt bàn này không thể tiếp nhận (đã hủy hoặc hoàn tất)");
     err.code = "INVALID_STATUS";
     throw err;
   }
 
-  for (const res of toCheckIn) {
-    if (!res.table_id) {
+  for (const sess of toCheckIn) {
+    if (!sess.table_id) {
       const err = new Error("Đặt bàn chưa gán bàn");
       err.code = "NO_TABLE";
       throw err;
     }
-    const table = await Table.findByPk(res.table_id);
+    const table = await Table.findByPk(sess.table_id);
     if (!table || table.branch_id !== branchId) {
       const err = new Error("Bàn không hợp lệ");
       err.code = "NO_TABLE";
       throw err;
     }
     if (table.status === "occupied") {
-      const activeOnTable = await Reservation.findOne({
+      const activeOnTable = await Order.findOne({
         where: {
           table_id: table.table_id,
-          reservation_id: { [Op.ne]: res.reservation_id },
+          order_id: { [Op.ne]: sess.order_id },
           status: { [Op.in]: ACTIVE_SESSION_STATUSES },
         },
       });
@@ -235,28 +228,28 @@ async function confirmArrival(reservationId, branchId) {
   }
 
   await sequelize.transaction(async (t) => {
-    for (const res of toCheckIn) {
-      await res.update({ status: RESERVATION_STATUS.PRE_ORDERED }, { transaction: t });
-      const table = await Table.findByPk(res.table_id, { transaction: t });
+    for (const sess of toCheckIn) {
+      await sess.update({ status: RESERVATION_STATUS.PRE_ORDERED }, { transaction: t });
+      const table = await Table.findByPk(sess.table_id, { transaction: t });
       if (table && isBookableTableStatus(table.status)) {
         await table.update({ status: TABLE_STATUS.OCCUPIED }, { transaction: t });
       }
     }
   });
 
-  await reservation.reload({ include: [{ model: Table }, { model: User, attributes: ["full_name", "phone"] }] });
+  await order.reload({
+    include: [{ model: Table }, { model: User, attributes: ["full_name", "phone"] }],
+  });
 
   return {
-    reservation: reservation.toJSON(),
-    table: reservation.Table?.toJSON?.() ?? reservation.Table,
+    order: order.toJSON(),
+    reservation: order.toJSON(),
+    table: order.Table?.toJSON?.() ?? order.Table,
     checkedInCount: toCheckIn.length,
     alreadyCheckedIn: false,
   };
 }
 
-/**
- * Khách vãng lai → chọn bàn trống → occupied + phiên pre-ordered.
- */
 async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId }) {
   const guests = Number(numberOfGuests);
   if (!Number.isFinite(guests) || guests < 1) {
@@ -292,11 +285,12 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
   }
 
   const now = new Date();
-  const upcoming = await Reservation.findOne({
+  const upcoming = await Order.findOne({
     where: {
       table_id: tableId,
+      order_type: "reservation",
       status: "confirmed",
-      reservation_time: { [Op.gt]: now },
+      arrival_time: { [Op.gt]: now },
     },
   });
 
@@ -306,7 +300,7 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
     throw err;
   }
 
-  const existing = await Reservation.findOne({
+  const existing = await Order.findOne({
     where: {
       table_id: tableId,
       status: { [Op.in]: ACTIVE_SESSION_STATUSES },
@@ -319,16 +313,18 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
     throw err;
   }
 
-  let reservation;
+  let order;
   await sequelize.transaction(async (t) => {
-    reservation = await Reservation.create(
+    order = await Order.create(
       {
         user_id: staffUserId,
         branch_id: branchId,
         table_id: tableId,
-        reservation_time: now,
+        arrival_time: now,
         number_of_guests: guests,
         status: RESERVATION_STATUS.PRE_ORDERED,
+        order_type: "walk_in",
+        payment_status: "unpaid",
         created_at: now,
       },
       { transaction: t }
@@ -337,14 +333,12 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
   });
 
   return {
-    reservation: reservation.toJSON(),
+    order: order.toJSON(),
+    reservation: order.toJSON(),
     table: table.toJSON(),
   };
 }
 
-/**
- * Bàn có thể chọn cho walk-in (trống, đủ chỗ).
- */
 async function getWalkInTables(branchId, guests = 1) {
   await tableSummaryService.expireReservationsForBranch(branchId);
 
@@ -363,16 +357,17 @@ async function getWalkInTables(branchId, guests = 1) {
   const tableIds = tables.map((t) => t.table_id);
   if (!tableIds.length) return [];
 
-  const upcomingList = await Reservation.findAll({
+  const upcomingList = await Order.findAll({
     where: {
       table_id: { [Op.in]: tableIds },
+      order_type: "reservation",
       status: "confirmed",
-      reservation_time: { [Op.gt]: now },
+      arrival_time: { [Op.gt]: now },
     },
-    attributes: ["table_id", "reservation_time", "number_of_guests"],
+    attributes: ["table_id", "arrival_time", "number_of_guests"],
   });
 
-  const upcomingByTable = new Map(upcomingList.map((r) => [r.table_id, r.toJSON()]));
+  const upcomingByTable = new Map(upcomingList.map((o) => [o.table_id, o.toJSON()]));
 
   return tables
     .map((t) => {
@@ -381,7 +376,12 @@ async function getWalkInTables(branchId, guests = 1) {
       return {
         ...data,
         walkInAvailable: !upcoming,
-        upcomingReservation: upcoming,
+        upcomingReservation: upcoming
+          ? {
+              ...upcoming,
+              reservation_time: upcoming.arrival_time,
+            }
+          : null,
       };
     })
     .filter((t) => t.walkInAvailable);

@@ -12,7 +12,7 @@ const getFeaturedMenuItems = async (req, res) => {
         where: {
           branch_id,
           is_featured: true,
-          is_active: true,
+          is_available: true,
         },
       });
   
@@ -49,7 +49,7 @@ const getAllMenuItems = async (req, res) => {
     const branch_id = parseInt(req.query.branch_id || req.query.branchId, 10) || 1;
 
     // Tạo điều kiện filter
-    const where = { is_active: true, branch_id };
+    const where = { is_available: true, branch_id };
     if (category) {
       where.category = category;
     }

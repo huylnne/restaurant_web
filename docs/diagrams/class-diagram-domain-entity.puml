@@ -1,5 +1,5 @@
 @startuml class-diagram-domain-entity
-' Biểu đồ quan hệ entity — tách riêng để tránh rối
+' Quan hệ entity — 6 bảng lõi (không reservations)
 skinparam defaultFontSize 11
 skinparam classAttributeIconSize 0
 skinparam shadowing false
@@ -30,14 +30,10 @@ class MenuItem <<entity>> {
   price
 }
 
-class Reservation <<entity>> {
-  reservation_id
-  status
-}
-
 class Order <<entity>> {
   order_id
-  status
+  arrival_time
+  payment_status
 }
 
 class OrderItem <<entity>> {
@@ -48,11 +44,8 @@ class OrderItem <<entity>> {
 Branch -down-> User : 1..*
 Branch -down-> Table : 1..*
 Branch -down-> MenuItem : 1..*
+Branch -down-> Order : 1..*
 
-User -down-> Reservation : 1..*
-Table -down-> Reservation : 1..*
-
-Reservation -down-> Order : 1..*
 User -down-> Order : 1..*
 Table -down-> Order : 1..*
 

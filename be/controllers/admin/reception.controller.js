@@ -27,14 +27,14 @@ exports.searchArrivals = async (req, res) => {
 exports.confirmArrival = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.body.branch_id || req.query.branchId, 1);
-    const reservationId = req.body.reservation_id;
-    if (!reservationId) {
-      return res.status(400).json({ message: "Thiếu reservation_id" });
+    const orderId = req.body.order_id || req.body.reservation_id;
+    if (!orderId) {
+      return res.status(400).json({ message: "Thiếu order_id" });
     }
-    const result = await receptionService.confirmArrival(reservationId, branchId);
+    const result = await receptionService.confirmArrival(orderId, branchId);
     req.audit = {
-      entityId: reservationId,
-      description: `Tiếp nhận đặt bàn #${reservationId}`,
+      entityId: orderId,
+      description: `Tiếp nhận đặt bàn #${orderId}`,
       metadata: { branchId, table_id: result.table?.table_id },
     };
     res.json({
@@ -73,7 +73,7 @@ exports.walkInCheckIn = async (req, res) => {
       staffUserId,
     });
     req.audit = {
-      entityId: result.reservation?.reservation_id,
+      entityId: result.order?.order_id,
       description: `Tiếp nhận walk-in bàn #${table_id}`,
       metadata: { branchId, number_of_guests },
     };

@@ -31,7 +31,7 @@ function isBookableTableStatus(status) {
   return normalizeTableStatus(status) === TABLE_STATUS.AVAILABLE;
 }
 
-/** Kết thúc phiên (đơn + reservation) khi khách rời — trước khi trống hoặc khi chuyển chờ dọn */
+/** Kết thúc phiên (order) khi khách rời — trước khi trống hoặc khi chuyển chờ dọn */
 function shouldEndTableSession(status) {
   const s = normalizeTableStatus(status);
   return s === TABLE_STATUS.AVAILABLE || s === TABLE_STATUS.CLEANING;

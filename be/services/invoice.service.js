@@ -39,13 +39,19 @@ function buildItemRows(items = []) {
   ]);
 }
 
-async function buildInvoicePdf({ payment, reservation, bill, branch, table, user, methodLabel }) {
+async function buildInvoicePdf({ payment, order, reservation, bill, branch, table, user, methodLabel }) {
   ensurePdfFontsLoaded();
 
   const invoiceNo = payment?.invoice_no || `INV-${payment?.payment_id || ""}`;
   const issuedAt = payment?.invoice_issued_at || payment?.paid_at || new Date();
   const tableNumber = table?.table_number ?? bill?.table?.table_number ?? "-";
-  const reservationId = reservation?.reservation_id ?? bill?.reservation?.reservation_id ?? "-";
+  const sessionOrderId =
+    order?.order_id ??
+    reservation?.order_id ??
+    reservation?.reservation_id ??
+    bill?.order?.order_id ??
+    bill?.reservation?.reservation_id ??
+    "-";
 
   const doc = {
     content: [
@@ -66,7 +72,7 @@ async function buildInvoicePdf({ payment, reservation, bill, branch, table, user
               { text: `Số hóa đơn: ${invoiceNo}` },
               { text: `Ngày: ${formatDateTime(issuedAt)}` },
               { text: `Bàn: ${tableNumber}` },
-              { text: `Mã đặt bàn: ${reservationId}` },
+              { text: `Mã đơn: ${sessionOrderId}` },
             ],
           },
         ],

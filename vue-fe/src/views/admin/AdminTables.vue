@@ -133,26 +133,26 @@
         <div class="table-info">
           <p class="capacity">{{ table.capacity }} chỗ</p>
 
-          <!-- Bàn đang phục vụ / đã đặt trước → hiện info reservation -->
-          <div v-if="table.activeReservation" class="reservation-info">
+          <!-- Bàn đang phục vụ / đã đặt trước → hiện info order -->
+          <div v-if="table.activeOrder" class="reservation-info">
             <p class="guests">
               <el-icon><User /></el-icon>
-              {{ table.activeReservation.number_of_guests }} khách
+              {{ table.activeOrder.number_of_guests }} khách
             </p>
             <p class="time">
               <el-icon><Clock /></el-icon>
-              {{ formatTime(table.activeReservation.reservation_time) }}
+              {{ formatTime(table.activeOrder.arrival_time) }}
             </p>
             <p class="revenue">{{ formatCurrency(table.totalRevenue) }}</p>
           </div>
 
           <!-- Bàn Trống nhưng có đặt trước tương lai → cảnh báo nhân viên -->
-          <div v-else-if="table.upcomingReservation" class="upcoming-reservation-info">
+          <div v-else-if="table.upcomingOrder" class="upcoming-reservation-info">
             <p class="status-ready-text">Sẵn sàng phục vụ</p>
             <p class="upcoming-badge">
               <el-icon><Clock /></el-icon>
-              Đặt trước lúc {{ formatTime(table.upcomingReservation.reservation_time) }}
-              · {{ table.upcomingReservation.number_of_guests }} khách
+              Đặt trước lúc {{ formatTime(table.upcomingOrder.arrival_time) }}
+              · {{ table.upcomingOrder.number_of_guests }} khách
             </p>
           </div>
 
@@ -253,7 +253,7 @@
         </el-descriptions>
 
         <!-- Cảnh báo: bàn Trống nhưng có đặt trước tương lai -->
-        <div v-if="selectedTable?.upcomingReservation && normalizeTableStatus(selectedTable?.status) === 'available'"
+        <div v-if="selectedTable?.upcomingOrder && normalizeTableStatus(selectedTable?.status) === 'available'"
              class="orders-section upcoming-section">
           <div class="orders-section-header">
             <h4>⏰ Đặt trước sắp tới</h4>
@@ -262,11 +262,11 @@
           <div class="upcoming-detail">
             <p>
               <strong>Giờ đặt:</strong>
-              {{ new Date(selectedTable.upcomingReservation.reservation_time).toLocaleString('vi-VN') }}
+              {{ new Date(selectedTable.upcomingOrder.arrival_time).toLocaleString('vi-VN') }}
             </p>
             <p>
               <strong>Số khách:</strong>
-              {{ selectedTable.upcomingReservation.number_of_guests }} người
+              {{ selectedTable.upcomingOrder.number_of_guests }} người
             </p>
             <p class="upcoming-note">
               Bàn này có đặt trước, không nên xếp khách vãng lai vào trong khoảng thời gian trên.
@@ -543,11 +543,11 @@
             </p>
             <div
               v-for="item in receptionResults"
-              :key="item.reservation_id"
+              :key="item.order_id"
               class="reception-result-card"
             >
               <div class="reception-result-main">
-                <strong>#{{ item.reservation_id }}</strong>
+                <strong>#{{ item.order_id }}</strong>
                 <span class="guest-name">{{ item.guest?.full_name || "—" }}</span>
                 <span class="guest-phone">
                   SĐT: <strong>{{ item.guest?.phone || "—" }}</strong>
@@ -558,7 +558,7 @@
                   {{ formatReceptionTables(item) }} · {{ item.number_of_guests }} khách
                   <el-tag v-if="item.multiTable" size="small" type="info" class="ml-1">Bàn liền kề</el-tag>
                 </span>
-                <span>{{ formatReceptionTime(item.reservation_time) }}</span>
+                <span>{{ formatReceptionTime(item.arrival_time) }}</span>
                 <el-tag :type="item.canCheckIn ? 'warning' : 'success'" size="small">
                   {{ item.canCheckIn ? "Chờ tiếp nhận" : "Đã vào bàn" }}
                 </el-tag>
@@ -567,7 +567,7 @@
                 v-if="item.canCheckIn"
                 type="primary"
                 size="small"
-                :loading="receptionConfirmLoading === item.reservation_id"
+                :loading="receptionConfirmLoading === item.order_id"
                 @click="confirmReception(item)"
               >
                 Xác nhận tiếp nhận
@@ -997,7 +997,7 @@ const fetchTablePayment = async (table_id) => {
     if (res.data?.payment) {
       paymentInfo.value = {
         ...res.data.payment,
-        reservation_id: res.data?.reservation_id ?? res.data.payment.reservation_id,
+        order_id: res.data?.order_id ?? res.data.payment.order_id,
       };
     } else {
       paymentInfo.value = null;
@@ -1316,14 +1316,14 @@ const finalizePayment = async () => {
 };
 
 const downloadInvoice = async () => {
-  if (!paymentInfo.value?.reservation_id) {
+  if (!paymentInfo.value?.order_id) {
     ElMessage.warning("Chưa có hóa đơn để tải");
     return;
   }
   try {
     const token = localStorage.getItem("token");
     const res = await axios.get(
-      `${WAITER_API}/reservations/${paymentInfo.value.reservation_id}/invoice.pdf`,
+      `${WAITER_API}/reservations/${paymentInfo.value.order_id}/invoice.pdf`,
       { headers: { Authorization: `Bearer ${token}` }, responseType: "blob" }
     );
     const blob = new Blob([res.data], { type: "application/pdf" });
@@ -1422,11 +1422,11 @@ const searchReception = async () => {
 };
 
 const confirmReception = async (item) => {
-  receptionConfirmLoading.value = item.reservation_id;
+  receptionConfirmLoading.value = item.order_id;
   try {
     const res = await axios.post(
       `${RECEPTION_API}/check-in`,
-      { reservation_id: item.reservation_id, branch_id: selectedBranchId.value },
+      { order_id: item.order_id, branch_id: selectedBranchId.value },
       { headers: authHeaders() }
     );
     ElMessage.success(res.data?.message || "Tiếp nhận thành công");

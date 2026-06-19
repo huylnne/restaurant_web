@@ -24,15 +24,17 @@
           <div class="highlight-card__body">
             <h3>{{ dish.name }}</h3>
             <p class="highlight-card__desc">{{ dish.description }}</p>
-            <MenuItemPrice :dish="dish" />
-            <el-button
-              v-if="showOrderButton"
-              type="primary"
-              class="highlight-card__btn"
-              @click="$emit('order', dish)"
-            >
-              Đặt món
-            </el-button>
+            <div class="highlight-card__footer">
+              <MenuItemPrice :dish="dish" />
+              <el-button
+                v-if="showOrderButton"
+                type="primary"
+                class="highlight-card__btn"
+                @click="$emit('order', dish)"
+              >
+                Đặt món
+              </el-button>
+            </div>
           </div>
         </article>
       </div>
@@ -61,16 +63,18 @@
           <div class="highlight-card__body">
             <h3>{{ dish.name }}</h3>
             <p class="highlight-card__desc">{{ dish.description }}</p>
-            <MenuItemPrice :dish="dish" />
-            <el-button
-              v-if="showOrderButton"
-              type="danger"
-              plain
-              class="highlight-card__btn"
-              @click="$emit('order', dish)"
-            >
-              Đặt món
-            </el-button>
+            <div class="highlight-card__footer">
+              <MenuItemPrice :dish="dish" />
+              <el-button
+                v-if="showOrderButton"
+                type="danger"
+                plain
+                class="highlight-card__btn"
+                @click="$emit('order', dish)"
+              >
+                Đặt món
+              </el-button>
+            </div>
           </div>
         </article>
       </div>
@@ -152,7 +156,7 @@ watch(() => props.branchId, fetchHighlights, { immediate: true });
   display: flex;
   gap: var(--hl-space-md);
   overflow-x: auto;
-  padding-bottom: var(--hl-space-sm);
+  padding: 2px 2px var(--hl-space-sm);
   scroll-snap-type: x mandatory;
   -webkit-overflow-scrolling: touch;
 }
@@ -167,7 +171,8 @@ watch(() => props.branchId, fetchHighlights, { immediate: true });
 }
 
 .highlight-card {
-  flex: 0 0 min(280px, 85vw);
+  flex: 0 0 min(284px, 85vw);
+  min-height: 342px;
   scroll-snap-align: start;
   background: var(--hl-bg-card);
   border: 1px solid var(--hl-border-light);
@@ -176,6 +181,12 @@ watch(() => props.branchId, fetchHighlights, { immediate: true });
   box-shadow: var(--hl-shadow-sm);
   display: flex;
   flex-direction: column;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.highlight-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--hl-shadow-card);
 }
 
 .highlight-card--sale {
@@ -184,7 +195,8 @@ watch(() => props.branchId, fetchHighlights, { immediate: true });
 
 .highlight-card__media {
   position: relative;
-  height: 160px;
+  height: 154px;
+  flex: 0 0 154px;
 }
 
 .highlight-card__media img {
@@ -229,12 +241,19 @@ watch(() => props.branchId, fetchHighlights, { immediate: true });
   flex-direction: column;
   gap: var(--hl-space-sm);
   flex: 1;
+  min-height: 0;
 }
 
 .highlight-card__body h3 {
   margin: 0;
   font-size: 1rem;
   font-weight: 600;
+  line-height: 1.35;
+  color: var(--hl-text);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 
 .highlight-card__desc {
@@ -248,12 +267,31 @@ watch(() => props.branchId, fetchHighlights, { immediate: true });
   overflow: hidden;
 }
 
-.highlight-card__btn {
+.highlight-card__footer {
   margin-top: auto;
+  display: flex;
+  flex-direction: column;
+  gap: var(--hl-space-sm);
+}
+
+.highlight-card__btn {
   width: 100%;
+  font-weight: 700;
 }
 
 .highlight-skeleton {
   margin-top: var(--hl-space-md);
+}
+
+@media (max-width: 640px) {
+  .highlight-card {
+    flex-basis: min(245px, 82vw);
+    min-height: 330px;
+  }
+
+  .highlight-card__media {
+    height: 140px;
+    flex-basis: 140px;
+  }
 }
 </style>

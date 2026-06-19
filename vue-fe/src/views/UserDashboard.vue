@@ -237,14 +237,14 @@ const prevPage = () => {
 };
 
 const handleOrderClick = () => {
-  const reservation = JSON.parse(localStorage.getItem("reservation"));
+  const order = JSON.parse(localStorage.getItem("activeOrder"));
 
-  if (reservation && reservation.status === "confirmed") {
+  if (order && order.status === "confirmed") {
     router.push({
       name: "OrderMenu",
       query: {
-        reservation_id: reservation.reservation_id,
-        branch_id: reservation.branch_id,
+        order_id: order.order_id,
+        branch_id: order.branch_id,
       },
     });
   } else {

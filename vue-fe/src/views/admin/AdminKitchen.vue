@@ -214,7 +214,7 @@ const changeStatus = async (item, status) => {
 };
 
 const groupKey = (group) =>
-  `${group.table_id ?? "x"}-${group.reservation_id ?? ""}-${group.items?.[0]?.order_item_id ?? ""}`;
+  `${group.table_id ?? "x"}-${group.order_id ?? ""}-${group.items?.[0]?.order_item_id ?? ""}`;
 
 const formatTableNumber = (group) => {
   if (group.table_number != null && group.table_number !== "") return group.table_number;

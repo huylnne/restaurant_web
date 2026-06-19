@@ -226,19 +226,26 @@ function readCssPxVar(name, fallback) {
   return Number.isFinite(n) ? n : fallback;
 }
 
+function getMenuGridCols(width, adminView) {
+  if (adminView) {
+    const minCard = readCssPxVar("--hl-admin-grid-min", 260);
+    const gap = readCssPxVar("--hl-admin-grid-gap", 20);
+    return Math.max(1, Math.floor((width + gap) / (minCard + gap)));
+  }
+  if (width > 1200) return 5;
+  if (width > 992) return 4;
+  if (width > 768) return 3;
+  if (width > 640) return 2;
+  return 1;
+}
+
 function computeMenuPageSize() {
   const el = dishListRef.value;
   if (!el || typeof window === "undefined") return;
   const w = el.clientWidth;
   if (w < 80) return;
 
-  const minCard = isAdminView.value
-    ? readCssPxVar("--hl-admin-grid-min", 260)
-    : 260;
-  const gap = isAdminView.value
-    ? readCssPxVar("--hl-admin-grid-gap", 20)
-    : readCssPxVar("--hl-space-lg", 24);
-  const cols = Math.max(1, Math.floor((w + gap) / (minCard + gap)));
+  const cols = getMenuGridCols(w, isAdminView.value);
 
   const rect = el.getBoundingClientRect();
   const reserveBottom = 100;
@@ -368,13 +375,13 @@ const selectCategory = (category) => {
 };
 
 const handleOrderClick = () => {
-  const reservation = JSON.parse(localStorage.getItem("reservation") || "null");
-  if (reservation && reservation.status === "confirmed") {
+  const order = JSON.parse(localStorage.getItem("activeOrder") || "null");
+  if (order && order.status === "confirmed") {
     router.push({
       name: "OrderMenu",
       query: {
-        reservation_id: reservation.reservation_id,
-        branch_id: reservation.branch_id,
+        order_id: order.order_id,
+        branch_id: order.branch_id,
       },
     });
   } else {
@@ -554,12 +561,7 @@ const handleSubmit = async () => {
 
 /* ----- Thanh lọc danh mục ----- */
 .menu-content {
-  max-width: 1280px;
-  margin: 0 auto;
   width: 100%;
-}
-
-.menu-page--admin .menu-content {
   max-width: 100%;
 }
 
@@ -627,7 +629,7 @@ const handleSubmit = async () => {
 
 .dish-list {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr));
+  grid-template-columns: repeat(5, minmax(0, 1fr));
   gap: var(--hl-space-lg);
   width: 100%;
   max-width: 100%;
@@ -940,9 +942,21 @@ const handleSubmit = async () => {
 }
 
 /* ----- Responsive ----- */
+@media (max-width: 1200px) {
+  .dish-list {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
 @media (max-width: 992px) {
   .dish-list {
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 768px) {
+  .dish-list {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
 

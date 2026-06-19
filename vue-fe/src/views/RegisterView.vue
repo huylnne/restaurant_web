@@ -37,7 +37,7 @@
           />
           <p v-if="confirmWarning" class="field-warning">{{ confirmWarning }}</p>
 
-          <input v-model="fullName" placeholder="Họ và tên" required />
+          <input v-model="fullName" placeholder="Họ và tên" maxlength="50" required />
 
           <input v-model="phone" placeholder="Số điện thoại" required @blur="checkPhoneTaken" />
           <p v-if="phoneTakenError || phoneWarning" class="field-warning">

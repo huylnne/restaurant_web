@@ -31,9 +31,9 @@
             </h2>
             <p class="muted">
               Số khách:
-              {{ activeSession.reservation?.number_of_guests ?? "-" }} •
+              {{ activeSession.order?.number_of_guests ?? "-" }} •
               Giờ đặt:
-              {{ formatDateTime(activeSession.reservation?.reservation_time) }}
+              {{ formatDateTime(activeSession.order?.arrival_time) }}
             </p>
           </div>
           <div class="table-status">
@@ -41,7 +41,7 @@
               {{ tableStatusText }}
             </span>
             <span
-              v-if="activeSession.reservation?.status === 'waiting_payment'"
+              v-if="activeSession.order?.status === 'waiting_payment'"
               class="status-note"
             >
               Đã gửi yêu cầu thanh toán • Vui lòng chờ nhân viên
@@ -57,8 +57,8 @@
               :to="{
                 name: 'OrderMenu',
                 query: {
-                  reservation_id: activeSession.reservation?.reservation_id,
-                  branch_id: activeSession.reservation?.branch_id,
+                  order_id: activeSession.order?.order_id,
+                  branch_id: activeSession.order?.branch_id,
                 },
               }"
               class="link-primary"
@@ -181,13 +181,13 @@ const tableStatusText = computed(() =>
 const callDisabled = computed(
   () =>
     !activeSession.value ||
-    activeSession.value.reservation?.status === "waiting_payment" ||
+    activeSession.value.order?.status === "waiting_payment" ||
     !orderItems.value.length
 );
 
 const callButtonText = computed(() => {
   if (!orderItems.value.length) return "Gọi thanh toán (chưa có món)";
-  if (activeSession.value?.reservation?.status === "waiting_payment")
+  if (activeSession.value?.order?.status === "waiting_payment")
     return "Đã gọi thanh toán";
   return "Gọi nhân viên thanh toán";
 });
@@ -210,7 +210,7 @@ const requestBill = async () => {
     await axios.post(
       "http://localhost:3000/api/reservations/request-bill",
       {
-        reservation_id: activeSession.value.reservation?.reservation_id,
+        order_id: activeSession.value.order?.order_id,
       },
       {
         headers: { Authorization: `Bearer ${token}` },
@@ -219,11 +219,11 @@ const requestBill = async () => {
     ElMessage.success(
       "Đã gửi yêu cầu thanh toán, vui lòng chờ nhân viên hỗ trợ."
     );
-    if (bill.value && bill.value.reservation) {
+    if (bill.value && bill.value.order) {
       bill.value = {
         ...bill.value,
-        reservation: {
-          ...bill.value.reservation,
+        order: {
+          ...bill.value.order,
           status: "waiting_payment",
         },
       };

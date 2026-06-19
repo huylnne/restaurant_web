@@ -1,0 +1,191 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="2600" height="1600" viewBox="0 0 2600 1600">
+  <defs>
+    <style>
+      .title { font: 700 28px Arial, sans-serif; fill: #0f172a; }
+      .subtitle { font: 400 14px Arial, sans-serif; fill: #334155; }
+      .layer { font: 700 18px Arial, sans-serif; fill: #0b3b8a; }
+      .box { fill: #f8fafc; stroke: #334155; stroke-width: 1.5; rx: 10; ry: 10; }
+      .header-controller { fill: #fee2e2; stroke: #334155; stroke-width: 1.5; rx: 10; ry: 10; }
+      .header-service { fill: #dcfce7; stroke: #334155; stroke-width: 1.5; rx: 10; ry: 10; }
+      .header-model { fill: #dbeafe; stroke: #334155; stroke-width: 1.5; rx: 10; ry: 10; }
+      .class { font: 700 14px Arial, sans-serif; fill: #0f172a; }
+      .item { font: 12px Consolas, "Courier New", monospace; fill: #111827; }
+      .line-dep { stroke: #475569; stroke-width: 1.7; fill: none; stroke-dasharray: 8 6; }
+      .line-rel { stroke: #0f172a; stroke-width: 1.7; fill: none; }
+      .label { font: 12px Arial, sans-serif; fill: #1e293b; }
+    </style>
+    <marker id="arrow" markerWidth="12" markerHeight="8" refX="10" refY="4" orient="auto">
+      <path d="M0,0 L12,4 L0,8 z" fill="#334155"/>
+    </marker>
+  </defs>
+
+  <rect x="0" y="0" width="2600" height="1600" fill="#f1f5f9"/>
+  <text x="40" y="45" class="title">Class Diagram - 3 Layer Monolith (restaurant_web/be)</text>
+  <text x="40" y="70" class="subtitle">Generated from controllers + services + models (reservation table removed, reservation flow uses orders)</text>
+
+  <rect x="20" y="95" width="2560" height="430" fill="#fff1f2" opacity="0.45"/>
+  <rect x="20" y="545" width="2560" height="390" fill="#f0fdf4" opacity="0.45"/>
+  <rect x="20" y="955" width="2560" height="620" fill="#eff6ff" opacity="0.45"/>
+
+  <text x="40" y="125" class="layer">Presentation Layer (Controllers)</text>
+  <text x="40" y="575" class="layer">Business Layer (Services)</text>
+  <text x="40" y="985" class="layer">Data Layer (Sequelize Entities)</text>
+
+  <!-- Controllers -->
+  <rect class="box" x="80" y="150" width="360" height="170"/><rect class="header-controller" x="80" y="150" width="360" height="36"/>
+  <text class="class" x="96" y="173">AuthController</text>
+  <text class="item" x="96" y="205">+ register()</text><text class="item" x="96" y="227">+ login()</text>
+  <text class="item" x="96" y="249">+ checkPhone()</text><text class="item" x="96" y="271">+ getCaptchaChallenge()</text>
+
+  <rect class="box" x="470" y="150" width="420" height="200"/><rect class="header-controller" x="470" y="150" width="420" height="36"/>
+  <text class="class" x="486" y="173">ReservationController</text>
+  <text class="item" x="486" y="205">+ createReservation()</text><text class="item" x="486" y="227">+ getAvailableTables()</text>
+  <text class="item" x="486" y="249">+ getUserReservations()</text><text class="item" x="486" y="271">+ cancelReservation()</text>
+  <text class="item" x="486" y="293">+ requestBill()</text>
+
+  <rect class="box" x="930" y="150" width="430" height="220"/><rect class="header-controller" x="930" y="150" width="430" height="36"/>
+  <text class="class" x="946" y="173">WaiterController</text>
+  <text class="item" x="946" y="205">+ createOrder()</text><text class="item" x="946" y="227">+ listOrdersByTable()</text>
+  <text class="item" x="946" y="249">+ serveOrderItem()</text><text class="item" x="946" y="271">+ getTableBill()</text>
+  <text class="item" x="946" y="293">+ finalizePayment()</text><text class="item" x="946" y="315">+ getInvoicePdf()</text>
+
+  <rect class="box" x="1410" y="150" width="390" height="190"/><rect class="header-controller" x="1410" y="150" width="390" height="36"/>
+  <text class="class" x="1426" y="173">ReportController</text>
+  <text class="item" x="1426" y="205">+ getOverviewStats()</text><text class="item" x="1426" y="227">+ getRevenueByDay()</text>
+  <text class="item" x="1426" y="249">+ getTopSellingItems()</text><text class="item" x="1426" y="271">+ getTableStats()</text>
+  <text class="item" x="1426" y="293">+ exportReport()</text>
+
+  <rect class="box" x="1840" y="150" width="340" height="170"/><rect class="header-controller" x="1840" y="150" width="340" height="36"/>
+  <text class="class" x="1856" y="173">AdminMenuController</text>
+  <text class="item" x="1856" y="205">+ getAll()</text><text class="item" x="1856" y="227">+ getById()</text>
+  <text class="item" x="1856" y="249">+ create()</text><text class="item" x="1856" y="271">+ update(), remove()</text>
+
+  <rect class="box" x="2210" y="150" width="330" height="170"/><rect class="header-controller" x="2210" y="150" width="330" height="36"/>
+  <text class="class" x="2226" y="173">PublicTablesController</text>
+  <text class="item" x="2226" y="205">+ getTableByToken()</text><text class="item" x="2226" y="227">+ getBillByToken()</text>
+  <text class="item" x="2226" y="249">+ checkinByToken()</text>
+
+  <!-- Services -->
+  <rect class="box" x="80" y="605" width="320" height="140"/><rect class="header-service" x="80" y="605" width="320" height="36"/>
+  <text class="class" x="96" y="628">CaptchaService</text>
+  <text class="item" x="96" y="660">+ verifyRegistrationCaptcha()</text>
+
+  <rect class="box" x="430" y="605" width="380" height="180"/><rect class="header-service" x="430" y="605" width="380" height="36"/>
+  <text class="class" x="446" y="628">ReservationService</text>
+  <text class="item" x="446" y="660">+ createReservation()</text>
+  <text class="item" x="446" y="682">+ pickAvailableTable()</text>
+  <text class="item" x="446" y="704">+ cancelReservationGroup()</text>
+
+  <rect class="box" x="840" y="605" width="380" height="200"/><rect class="header-service" x="840" y="605" width="380" height="36"/>
+  <text class="class" x="856" y="628">WaiterService</text>
+  <text class="item" x="856" y="660">+ findOrCreateSessionOrder()</text>
+  <text class="item" x="856" y="682">+ createOrder()</text>
+  <text class="item" x="856" y="704">+ getOrdersByTable()</text>
+  <text class="item" x="856" y="726">+ markItemServed()</text>
+  <text class="item" x="856" y="748">+ updateTableStatus()</text>
+
+  <rect class="box" x="1250" y="605" width="380" height="220"/><rect class="header-service" x="1250" y="605" width="380" height="36"/>
+  <text class="class" x="1266" y="628">PaymentService</text>
+  <text class="item" x="1266" y="660">+ createSession()</text><text class="item" x="1266" y="682">+ handleMomoWebhook()</text>
+  <text class="item" x="1266" y="704">+ createOrUpdatePaymentForOrder()</text>
+  <text class="item" x="1266" y="726">+ finalizeReservationPayment()</text>
+  <text class="item" x="1266" y="748">+ getPaymentByOrder()</text>
+
+  <rect class="box" x="1660" y="605" width="340" height="170"/><rect class="header-service" x="1660" y="605" width="340" height="36"/>
+  <text class="class" x="1676" y="628">BillService</text>
+  <text class="item" x="1676" y="660">+ getBillForUser()</text>
+  <text class="item" x="1676" y="682">+ getBillByTable()</text>
+  <text class="item" x="1676" y="704">+ buildBill()</text>
+
+  <rect class="box" x="2030" y="605" width="340" height="190"/><rect class="header-service" x="2030" y="605" width="340" height="36"/>
+  <text class="class" x="2046" y="628">ReportService</text>
+  <text class="item" x="2046" y="660">+ getOverviewStats()</text>
+  <text class="item" x="2046" y="682">+ getRevenueByDay()</text>
+  <text class="item" x="2046" y="704">+ getTopSellingItems()</text>
+  <text class="item" x="2046" y="726">+ getTopCustomers()</text>
+
+  <rect class="box" x="80" y="770" width="320" height="150"/><rect class="header-service" x="80" y="770" width="320" height="36"/>
+  <text class="class" x="96" y="793">BranchService</text>
+  <text class="item" x="96" y="825">+ listBranches()</text><text class="item" x="96" y="847">+ createBranch()</text>
+  <text class="item" x="96" y="869">+ updateMyBranch()</text>
+
+  <rect class="box" x="430" y="800" width="280" height="120"/><rect class="header-service" x="430" y="800" width="280" height="36"/>
+  <text class="class" x="446" y="823">AdminMenuService</text>
+  <text class="item" x="446" y="855">+ getAll(), getById()</text><text class="item" x="446" y="877">+ create(), update(), remove()</text>
+
+  <!-- Models -->
+  <rect class="box" x="80" y="1030" width="220" height="120"/><rect class="header-model" x="80" y="1030" width="220" height="32"/>
+  <text class="class" x="95" y="1051">User</text><text class="item" x="95" y="1080">user_id PK</text><text class="item" x="95" y="1100">branch_id FK</text>
+
+  <rect class="box" x="330" y="1030" width="220" height="120"/><rect class="header-model" x="330" y="1030" width="220" height="32"/>
+  <text class="class" x="345" y="1051">Branch</text><text class="item" x="345" y="1080">branch_id PK</text><text class="item" x="345" y="1100">name, address</text>
+
+  <rect class="box" x="580" y="1030" width="220" height="120"/><rect class="header-model" x="580" y="1030" width="220" height="32"/>
+  <text class="class" x="595" y="1051">Table</text><text class="item" x="595" y="1080">table_id PK</text><text class="item" x="595" y="1100">branch_id FK</text>
+
+  <rect class="box" x="830" y="1030" width="220" height="120"/><rect class="header-model" x="830" y="1030" width="220" height="32"/>
+  <text class="class" x="845" y="1051">Order</text><text class="item" x="845" y="1080">order_id PK</text><text class="item" x="845" y="1100">user_id, table_id FK</text>
+
+  <rect class="box" x="1080" y="1030" width="220" height="120"/><rect class="header-model" x="1080" y="1030" width="220" height="32"/>
+  <text class="class" x="1095" y="1051">OrderItem</text><text class="item" x="1095" y="1080">order_item_id PK</text><text class="item" x="1095" y="1100">order_id, item_id FK</text>
+
+  <rect class="box" x="1330" y="1030" width="220" height="120"/><rect class="header-model" x="1330" y="1030" width="220" height="32"/>
+  <text class="class" x="1345" y="1051">MenuItem</text><text class="item" x="1345" y="1080">item_id PK</text><text class="item" x="1345" y="1100">branch_id FK</text>
+
+  <rect class="box" x="1580" y="1030" width="220" height="120"/><rect class="header-model" x="1580" y="1030" width="220" height="32"/>
+  <text class="class" x="1595" y="1051">Payment</text><text class="item" x="1595" y="1080">payment_id PK</text><text class="item" x="1595" y="1100">order_id FK</text>
+
+  <rect class="box" x="1830" y="1030" width="220" height="120"/><rect class="header-model" x="1830" y="1030" width="220" height="32"/>
+  <text class="class" x="1845" y="1051">Review</text><text class="item" x="1845" y="1080">review_id PK</text><text class="item" x="1845" y="1100">order_id, user_id FK</text>
+
+  <rect class="box" x="2080" y="1030" width="220" height="120"/><rect class="header-model" x="2080" y="1030" width="220" height="32"/>
+  <text class="class" x="2095" y="1051">Employee</text><text class="item" x="2095" y="1080">employee_id PK</text><text class="item" x="2095" y="1100">user_id, branch_id FK</text>
+
+  <rect class="box" x="2330" y="1030" width="220" height="120"/><rect class="header-model" x="2330" y="1030" width="220" height="32"/>
+  <text class="class" x="2345" y="1051">OperationLog</text><text class="item" x="2345" y="1080">log_id PK</text><text class="item" x="2345" y="1100">user_id FK(nullable)</text>
+
+  <!-- Controller -> Service dependencies -->
+  <path class="line-dep" marker-end="url(#arrow)" d="M260 320 L240 605"/><text class="label" x="205" y="470">uses</text>
+  <path class="line-dep" marker-end="url(#arrow)" d="M680 350 L620 605"/><text class="label" x="635" y="480">uses</text>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1130 370 L1030 605"/><text class="label" x="1060" y="500">uses</text>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1200 370 L1440 605"/><text class="label" x="1280" y="500">uses</text>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1200 370 L1830 605"/><text class="label" x="1500" y="500">uses</text>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1600 340 L2190 605"/><text class="label" x="1860" y="500">uses</text>
+  <path class="line-dep" marker-end="url(#arrow)" d="M2010 320 L570 800"/><text class="label" x="1270" y="620">uses</text>
+  <path class="line-dep" marker-end="url(#arrow)" d="M2370 320 L1440 605"/><text class="label" x="1900" y="500">uses</text>
+  <path class="line-dep" marker-end="url(#arrow)" d="M2370 320 L1830 605"/><text class="label" x="2080" y="500">uses</text>
+
+  <!-- Service -> Model dependencies -->
+  <path class="line-dep" marker-end="url(#arrow)" d="M620 785 L940 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M620 785 L690 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1030 805 L940 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1030 805 L1190 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1030 805 L690 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1030 805 L1440 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1440 825 L1690 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1440 825 L940 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1440 825 L690 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1830 775 L940 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1830 775 L1190 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M1830 775 L1440 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M2190 795 L940 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M2190 795 L1190 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M2190 795 L1440 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M240 920 L440 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M240 920 L190 1030"/>
+  <path class="line-dep" marker-end="url(#arrow)" d="M570 920 L1440 1030"/>
+
+  <!-- Entity relationships -->
+  <path class="line-rel" marker-end="url(#arrow)" d="M300 1090 L330 1090"/><text class="label" x="305" y="1080">N:1</text>
+  <path class="line-rel" marker-end="url(#arrow)" d="M800 1090 L830 1090"/><text class="label" x="803" y="1080">1:N</text>
+  <path class="line-rel" marker-end="url(#arrow)" d="M1050 1090 L1080 1090"/><text class="label" x="1053" y="1080">1:N</text>
+  <path class="line-rel" marker-end="url(#arrow)" d="M1300 1090 L1330 1090"/><text class="label" x="1302" y="1080">N:1</text>
+  <path class="line-rel" marker-end="url(#arrow)" d="M1550 1090 L1580 1090"/><text class="label" x="1552" y="1080">1:1</text>
+  <path class="line-rel" marker-end="url(#arrow)" d="M1800 1090 L1830 1090"/><text class="label" x="1802" y="1080">1:1</text>
+  <path class="line-rel" marker-end="url(#arrow)" d="M2300 1090 L2330 1090"/><text class="label" x="2302" y="1080">1:N</text>
+  <path class="line-rel" marker-end="url(#arrow)" d="M550 1090 L580 1090"/><text class="label" x="552" y="1080">1:N</text>
+  <path class="line-rel" marker-end="url(#arrow)" d="M1050 1130 L1830 1130"/><text class="label" x="1390" y="1120">Order 1 - 1 Review</text>
+  <path class="line-rel" marker-end="url(#arrow)" d="M190 1150 L2080 1150"/><text class="label" x="1080" y="1140">User 1 - 1 Employee (association)</text>
+
+  <text class="subtitle" x="40" y="1570">Legend: dashed arrow = dependency (uses), solid arrow = entity relation</text>
+</svg>

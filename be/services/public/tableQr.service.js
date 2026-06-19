@@ -1,8 +1,8 @@
-const { Table, Reservation } = require("../../models");
+const { Table, Order } = require("../../models");
 const billService = require("../bill.service");
 const { TABLE_STATUS, isBookableTableStatus } = require("../../utils/tableStatus");
-
-const { ACTIVE_RESERVATION_STATUSES, RESERVATION_STATUS } = require("../../utils/reservationStatus");
+const { ACTIVE_SESSION_STATUSES, RESERVATION_STATUS } = require("../../utils/reservationStatus");
+const { Op } = require("sequelize");
 
 async function getTableByToken(token) {
   if (!token) return null;
@@ -20,8 +20,7 @@ async function getBillByToken(token) {
 }
 
 /**
- * Tạo một "phiên bàn" bằng Reservation ngay tại thời điểm check-in.
- * Giữ tương thích với code hiện tại: `POST /api/orders` cần `reservation_id`.
+ * Tạo phiên bàn (Order) khi khách check-in qua QR.
  */
 async function checkinByToken({ token, userId, numberOfGuests }) {
   const table = await Table.findOne({
@@ -33,32 +32,36 @@ async function checkinByToken({ token, userId, numberOfGuests }) {
   const guests = Number(numberOfGuests ?? 1);
   if (!Number.isFinite(guests) || guests < 1) throw new Error("INVALID_GUESTS");
 
-  // Nếu bàn đang phục vụ -> không tạo reservation mới để tránh trùng phiên
-  // Cho phép check-in lại nếu đã có reservation active (return lại reservation đó)
-  const existing = await Reservation.findOne({
+  const existing = await Order.findOne({
     where: {
       table_id: table.table_id,
-      status: ACTIVE_RESERVATION_STATUSES,
+      status: { [Op.in]: ACTIVE_SESSION_STATUSES },
     },
     order: [["created_at", "DESC"]],
   });
 
   if (existing) {
-    return { reservation: existing.toJSON(), reused: true };
+    return {
+      order: existing.toJSON(),
+      reservation: existing.toJSON(),
+      order_id: existing.order_id,
+      reservation_id: existing.order_id,
+      reused: true,
+    };
   }
 
-  // Nếu bàn trống, tạo phiên mới
-  const reservation = await Reservation.create({
+  const order = await Order.create({
     user_id: userId,
     branch_id: table.branch_id,
     table_id: table.table_id,
-    reservation_time: new Date(),
+    arrival_time: new Date(),
     number_of_guests: guests,
     status: RESERVATION_STATUS.PRE_ORDERED,
+    order_type: "dine_in",
+    payment_status: "unpaid",
     created_at: new Date(),
   });
 
-  // Chuyển trạng thái bàn sang đang phục vụ
   if (isBookableTableStatus(table.status)) {
     await table.update({ status: TABLE_STATUS.OCCUPIED });
   } else if (table.status === TABLE_STATUS.CLEANING) {
@@ -67,7 +70,13 @@ async function checkinByToken({ token, userId, numberOfGuests }) {
     throw err;
   }
 
-  return { reservation: reservation.toJSON(), reused: false };
+  return {
+    order: order.toJSON(),
+    reservation: order.toJSON(),
+    order_id: order.order_id,
+    reservation_id: order.order_id,
+    reused: false,
+  };
 }
 
 module.exports = {
@@ -75,4 +84,3 @@ module.exports = {
   getBillByToken,
   checkinByToken,
 };
-

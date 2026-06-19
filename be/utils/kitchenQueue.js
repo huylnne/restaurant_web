@@ -1,27 +1,28 @@
-const { RESERVATION_STATUS } = require("./reservationStatus");
+const { ORDER_STATUS } = require("./orderStatus");
 
-/** Trước giờ đặt bàn bao nhiêu phút thì coi là "sắp phục vụ" (nhắc bếp). */
+/** Trước giờ đến bao nhiêu phút thì coi là "sắp phục vụ" (nhắc bếp). */
 const SOON_SERVE_MINUTES = 15;
 /** Cho phép làm món trễ giờ đặt một chút (khách trễ). */
 const OVERDUE_GRACE_MINUTES = 30;
 
 const AT_TABLE_STATUSES = new Set([
-  RESERVATION_STATUS.PRE_ORDERED,
-  RESERVATION_STATUS.WAITING_PAYMENT,
+  ORDER_STATUS.PRE_ORDERED,
+  ORDER_STATUS.IN_PROGRESS,
+  ORDER_STATUS.WAITING_PAYMENT,
 ]);
 
 /**
  * Ngữ cảnh phục vụ cho bếp: đặt trước theo giờ bàn vs đang phục vụ tại bàn.
  */
-function resolveKitchenServeContext(order, reservation) {
+function resolveKitchenServeContext(order) {
   const now = Date.now();
-  const resStatus = String(reservation?.status || "").toLowerCase();
-  const resTimeMs = reservation?.reservation_time
-    ? new Date(reservation.reservation_time).getTime()
+  const orderStatus = String(order?.status || "").toLowerCase();
+  const arrivalMs = order?.arrival_time
+    ? new Date(order.arrival_time).getTime()
     : null;
   const orderAtMs = order?.created_at ? new Date(order.created_at).getTime() : now;
 
-  if (AT_TABLE_STATUSES.has(resStatus)) {
+  if (AT_TABLE_STATUSES.has(orderStatus)) {
     return {
       serve_mode: "active",
       serve_label: "Đang phục vụ",
@@ -32,19 +33,19 @@ function resolveKitchenServeContext(order, reservation) {
     };
   }
 
-  if (reservation && resTimeMs) {
-    const minutesUntil = Math.round((resTimeMs - now) / 60000);
+  if (order?.order_type === "reservation" && arrivalMs) {
+    const minutesUntil = Math.round((arrivalMs - now) / 60000);
     return {
       serve_mode: "scheduled",
       serve_label: "Giờ phục vụ",
-      serve_at: resTimeMs,
-      serve_at_iso: new Date(resTimeMs).toISOString(),
-      sort_key: resTimeMs,
+      serve_at: arrivalMs,
+      serve_at_iso: new Date(arrivalMs).toISOString(),
+      sort_key: arrivalMs,
       minutes_until_serve: minutesUntil,
       is_soon: minutesUntil <= SOON_SERVE_MINUTES && minutesUntil >= -OVERDUE_GRACE_MINUTES,
-      reservation_time: reservation.reservation_time,
-      reservation_status: resStatus,
-      number_of_guests: reservation.number_of_guests ?? null,
+      arrival_time: order.arrival_time,
+      order_status: orderStatus,
+      number_of_guests: order.number_of_guests ?? null,
     };
   }
 
@@ -60,8 +61,8 @@ function resolveKitchenServeContext(order, reservation) {
 
 function tableGroupKey(row) {
   if (row.table_id != null) return `t:${row.table_id}`;
-  if (row.reservation_id) return `r:${row.reservation_id}`;
-  return `o:${row.order_id}`;
+  if (row.order_id) return `o:${row.order_id}`;
+  return `x:${row.order_item_id ?? Math.random()}`;
 }
 
 /**
@@ -73,13 +74,14 @@ function groupKitchenItemsByTable(itemRows) {
   for (const row of itemRows) {
     const key = tableGroupKey(row);
     if (!map.has(key)) {
-      const serve = row.serve_context || resolveKitchenServeContext(row.Order, row.Order?.Reservation);
+      const order = row.Order ?? null;
+      const serve = row.serve_context || resolveKitchenServeContext(order);
       map.set(key, {
         table_id: row.table_id ?? null,
         table_number: row.table_number ?? null,
-        reservation_id: row.Order?.reservation_id ?? row.reservation_id ?? null,
-        booking_group_id: row.Order?.Reservation?.booking_group_id ?? null,
-        number_of_guests: row.Order?.Reservation?.number_of_guests ?? null,
+        order_id: order?.order_id ?? row.order_id ?? null,
+        booking_group_id: order?.booking_group_id ?? null,
+        number_of_guests: order?.number_of_guests ?? null,
         serve_mode: serve.serve_mode,
         serve_label: serve.serve_label,
         serve_at: serve.serve_at_iso,

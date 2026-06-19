@@ -86,7 +86,7 @@ exports.createReview = async (req, res) => {
     const review = await userService.createReservationReview(req.userId, req.body);
     req.audit = {
       entityId: review.review_id,
-      description: `Đánh giá reservation #${review.reservation_id}`,
+      description: `Đánh giá order #${review.order_id}`,
       metadata: { rating: review.rating },
     };
     return res.status(201).json({
@@ -95,10 +95,12 @@ exports.createReview = async (req, res) => {
     });
   } catch (err) {
     const map = {
+      ORDER_ID_INVALID: 400,
       RESERVATION_ID_INVALID: 400,
       RATING_INVALID: 400,
       COMMENT_TOO_SHORT: 400,
       COMMENT_TOO_LONG: 400,
+      ORDER_NOT_FOUND: 404,
       RESERVATION_NOT_FOUND: 404,
       REVIEW_ALREADY_EXISTS: 409,
       REVIEW_NOT_ALLOWED: 400,

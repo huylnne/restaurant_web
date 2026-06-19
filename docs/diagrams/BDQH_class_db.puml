@@ -1,0 +1,145 @@
+@startuml BDQH_class_db
+title Class Diagram He Thong Quan Ly Nha Hang (Theo DB thuc te)
+left to right direction
+skinparam shadowing false
+skinparam linetype ortho
+skinparam classAttributeIconSize 0
+skinparam defaultFontName Arial
+skinparam defaultFontSize 20
+skinparam classFontSize 24
+skinparam ArrowFontSize 17
+skinparam ClassBackgroundColor #FFF2A8
+skinparam ClassHeaderBackgroundColor #ECD85A
+skinparam ClassBorderColor #000000
+skinparam ArrowColor #000000
+skinparam ArrowThickness 2
+skinparam packageStyle rectangle
+scale 2
+
+class Branch {
+  +branch_id: int
+  +name: string
+  +address: text
+  +phone: string
+  +open_time: string
+  +close_time: string
+}
+
+class User {
+  +user_id: int
+  +branch_id: int?
+  +username: string
+  +full_name: string
+  +phone: string?
+  +role: enum
+  +is_active: boolean
+}
+
+class Employee {
+  +employee_id: int
+  +user_id: int
+  +branch_id: int
+  +position: string
+  +salary: decimal?
+  +status: enum
+}
+
+class Table {
+  +table_id: int
+  +branch_id: int
+  +table_number: int
+  +capacity: int
+  +status: string
+  +qr_token: string?
+}
+
+class MenuItem {
+  +item_id: int
+  +branch_id: int
+  +name: string
+  +price: decimal
+  +sale_price: decimal?
+  +category: string
+  +is_available: boolean
+}
+
+class Order {
+  +order_id: int
+  +user_id: int?
+  +branch_id: int?
+  +table_id: int?
+  +arrival_time: datetime?
+  +number_of_guests: int?
+  +status: string
+  +total_amount: decimal?
+  +order_type: string
+  +payment_status: string
+}
+
+class OrderItem {
+  +order_item_id: int
+  +order_id: int
+  +item_id: int
+  +quantity: int
+  +price: decimal
+  +note: string?
+  +status: enum
+}
+
+class Payment {
+  +payment_id: int
+  +order_id: int (UNIQUE)
+  +amount: decimal
+  +method: string
+  +status: string
+  +transaction_ref: string?
+  +paid_at: datetime?
+}
+
+class Review {
+  +review_id: int
+  +order_id: int (UNIQUE)
+  +user_id: int
+  +rating: int
+  +comment: text
+  +created_at: datetime
+}
+
+class OperationLog {
+  +log_id: int
+  +user_id: int?
+  +branch_id: int?
+  +action: string
+  +module: string
+  +entity_type: string?
+  +entity_id: int?
+  +created_at: datetime
+}
+
+' Bo cuc de tranh de duong/chu
+Branch -[hidden]- Employee
+Employee -[hidden]- User
+Table -[hidden]- Order
+Order -[hidden]- Payment
+MenuItem -[hidden]- OrderItem
+OrderItem -[hidden]- Review
+OperationLog -[hidden]- Order
+
+Branch "1" --> "0..*" User : has
+Branch "1" --> "0..*" Table : has
+Branch "1" --> "0..*" MenuItem : offers
+Branch "1" --> "0..*" Employee : employs
+Branch "1" --> "0..*" Order : has
+
+User "1" --> "0..*" Order : creates
+User "1" --> "0..1" Employee : profile
+User "1" --> "0..*" Review : writes
+User "1" --> "0..*" OperationLog : performs
+
+Table "1" --> "0..*" Order : assigned_to
+Order "1" --> "1..*" OrderItem : contains
+MenuItem "1" --> "0..*" OrderItem : selected_as
+Order "1" --> "0..1" Payment : paid_by
+Order "1" --> "0..1" Review : reviewed_by
+
+@enduml

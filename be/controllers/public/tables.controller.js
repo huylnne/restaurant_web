@@ -32,9 +32,9 @@ exports.checkinByToken = async (req, res) => {
       numberOfGuests: number_of_guests,
     });
     req.audit = {
-      entityId: data?.reservation_id ?? data?.reservation?.reservation_id,
+      entityId: data?.order_id ?? data?.order?.order_id,
       description: `Check-in QR bàn`,
-      metadata: { table_id: data?.table_id },
+      metadata: { table_id: data?.order?.table_id ?? data?.table_id },
     };
     res.status(201).json(data);
   } catch (e) {

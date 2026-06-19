@@ -1,30 +1,20 @@
-const { Sequelize, Op } = require("sequelize");
+const { Sequelize } = require("sequelize");
 const db = require("../../models/db");
-const {
-  Order,
-  OrderItem,
-  MenuItem,
-  Reservation,
-  Table,
-} = require("../../models");
 const tableSummaryService = require("./tableSummary.service");
 const { completedOrderStatusSqlIn } = require("../../utils/orderStatus");
 
 const dashboardService = {
-  //  1. Tổng quan
   async getSummary(branchId = 1) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
-    // ✅ Hôm qua = ngày liền trước (bất kể tuần nào)
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayEnd = new Date(yesterday);
     yesterdayEnd.setHours(23, 59, 59, 999);
 
-    // Doanh thu hôm nay
     const todayRevenueQuery = `
       SELECT COALESCE(SUM(mi.price * oi.quantity), 0) AS total
       FROM order_items oi
@@ -33,7 +23,7 @@ const dashboardService = {
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :today
         AND o.created_at < :tomorrow
-        AND mi.branch_id = :branchId
+        AND o.branch_id = :branchId
     `;
     const [todayRevenueResult] = await db.sequelize.query(todayRevenueQuery, {
       replacements: { today, tomorrow, branchId },
@@ -41,7 +31,6 @@ const dashboardService = {
     });
     const todayRevenue = parseFloat(todayRevenueResult.total) || 0;
 
-    // Doanh thu hôm qua
     const yesterdayRevenueQuery = `
       SELECT COALESCE(SUM(mi.price * oi.quantity), 0) AS total
       FROM order_items oi
@@ -50,7 +39,7 @@ const dashboardService = {
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :yesterday
         AND o.created_at <= :yesterdayEnd
-        AND mi.branch_id = :branchId
+        AND o.branch_id = :branchId
     `;
     const [yesterdayRevenueResult] = await db.sequelize.query(
       yesterdayRevenueQuery,
@@ -67,7 +56,7 @@ const dashboardService = {
        WHERE o.status IN (${completedOrderStatusSqlIn()})
          AND o.created_at >= :today
          AND o.created_at < :tomorrow
-         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
+         AND o.branch_id = :branchId`,
       { replacements: { today, tomorrow, branchId }, type: Sequelize.QueryTypes.SELECT }
     );
     const totalOrders = parseInt(todayOrdersResult.total, 10) || 0;
@@ -78,36 +67,35 @@ const dashboardService = {
        WHERE o.status IN (${completedOrderStatusSqlIn()})
          AND o.created_at >= :yesterday
          AND o.created_at <= :yesterdayEnd
-         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
+         AND o.branch_id = :branchId`,
       { replacements: { yesterday, yesterdayEnd, branchId }, type: Sequelize.QueryTypes.SELECT }
     );
     const yesterdayOrders = parseInt(yesterdayOrdersResult.total, 10) || 0;
 
     const [todayCustomersResult] = await db.sequelize.query(
-      `SELECT COUNT(DISTINCT o.reservation_id)::int AS total
+      `SELECT COUNT(DISTINCT o.user_id)::int AS total
        FROM orders o
        WHERE o.status IN (${completedOrderStatusSqlIn()})
          AND o.created_at >= :today
          AND o.created_at < :tomorrow
-         AND o.reservation_id IS NOT NULL
-         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
+         AND o.user_id IS NOT NULL
+         AND o.branch_id = :branchId`,
       { replacements: { today, tomorrow, branchId }, type: Sequelize.QueryTypes.SELECT }
     );
     const totalCustomers = parseInt(todayCustomersResult.total, 10) || 0;
 
     const [yesterdayCustomersResult] = await db.sequelize.query(
-      `SELECT COUNT(DISTINCT o.reservation_id)::int AS total
+      `SELECT COUNT(DISTINCT o.user_id)::int AS total
        FROM orders o
        WHERE o.status IN (${completedOrderStatusSqlIn()})
          AND o.created_at >= :yesterday
          AND o.created_at <= :yesterdayEnd
-         AND o.reservation_id IS NOT NULL
-         AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)`,
+         AND o.user_id IS NOT NULL
+         AND o.branch_id = :branchId`,
       { replacements: { yesterday, yesterdayEnd, branchId }, type: Sequelize.QueryTypes.SELECT }
     );
     const yesterdayCustomers = parseInt(yesterdayCustomersResult.total, 10) || 0;
 
-    // Tổng món hôm nay
     const totalItemsQuery = `
       SELECT COALESCE(SUM(quantity), 0) AS total
       FROM order_items oi
@@ -115,7 +103,7 @@ const dashboardService = {
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :today
         AND o.created_at < :tomorrow
-        AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)
+        AND o.branch_id = :branchId
     `;
     const [totalItemsResult] = await db.sequelize.query(totalItemsQuery, {
       replacements: { today, tomorrow, branchId },
@@ -123,7 +111,6 @@ const dashboardService = {
     });
     const totalItems = parseInt(totalItemsResult.total) || 0;
 
-    // Tổng món hôm qua
     const yesterdayItemsQuery = `
       SELECT COALESCE(SUM(quantity), 0) AS total
       FROM order_items oi
@@ -131,7 +118,7 @@ const dashboardService = {
       WHERE o.status IN (${completedOrderStatusSqlIn()})
         AND o.created_at >= :yesterday
         AND o.created_at <= :yesterdayEnd
-        AND o.table_id IN (SELECT table_id FROM tables WHERE branch_id = :branchId)
+        AND o.branch_id = :branchId
     `;
     const [yesterdayItemsResult] = await db.sequelize.query(
       yesterdayItemsQuery,
@@ -154,65 +141,68 @@ const dashboardService = {
     };
   },
 
-  //  2. Doanh thu theo tuần (T2-CN)
   async getWeeklyRevenue(branchId = 1) {
-    // ✅ Tính ngày đầu tuần (Thứ Hai) và cuối tuần (Chủ Nhật)
-    const today = new Date();
-    const dayOfWeek = today.getDay(); // 0 = CN, 1 = T2, ..., 6 = T7
+    const endDate = new Date();
+    endDate.setHours(23, 59, 59, 999);
 
-    // Tính ngày Thứ Hai của tuần hiện tại
-    const startOfWeek = new Date(today);
-    const diff = dayOfWeek === 0 ? -6 : 1 - dayOfWeek; // Nếu hôm nay là CN, lùi 6 ngày
-    startOfWeek.setDate(today.getDate() + diff);
-    startOfWeek.setHours(0, 0, 0, 0);
-
-    // Tính ngày Chủ Nhật của tuần hiện tại
-    const endOfWeek = new Date(startOfWeek);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
+    const startDate = new Date(endDate);
+    startDate.setDate(startDate.getDate() - 6);
+    startDate.setHours(0, 0, 0, 0);
 
     const query = `
       SELECT 
-        EXTRACT(DOW FROM o.created_at) AS day_of_week,
+        DATE(o.created_at) AS order_date,
         COALESCE(SUM(mi.price * oi.quantity), 0) AS revenue
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
       WHERE o.status IN (${completedOrderStatusSqlIn()})
-        AND o.created_at >= :startOfWeek
-        AND o.created_at <= :endOfWeek
+        AND o.created_at >= :startDate
+        AND o.created_at <= :endDate
         AND mi.branch_id = :branchId
-      GROUP BY day_of_week
-      ORDER BY day_of_week
+      GROUP BY order_date
+      ORDER BY order_date
     `;
 
     const results = await db.sequelize.query(query, {
       type: Sequelize.QueryTypes.SELECT,
       replacements: {
-        startOfWeek: startOfWeek.toISOString(),
-        endOfWeek: endOfWeek.toISOString(),
+        startDate: startDate.toISOString(),
+        endDate: endDate.toISOString(),
         branchId,
       },
     });
 
-    // Map 0=CN, 1=T2, 2=T3, ..., 6=T7
     const daysMap = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+    const revenueByDate = new Map(
+      results.map((row) => {
+        const dateKey =
+          row.order_date instanceof Date
+            ? row.order_date.toISOString().slice(0, 10)
+            : String(row.order_date).slice(0, 10);
+        return [dateKey, parseFloat(row.revenue)];
+      })
+    );
 
-    // ✅ Sắp xếp lại theo thứ tự T2 -> CN
-    const daysOrder = ["T2", "T3", "T4", "T5", "T6", "T7", "CN"];
-    const weeklyData = daysOrder.map((day) => {
-      const dayIndex = daysMap.indexOf(day);
-      const found = results.find((r) => parseInt(r.day_of_week) === dayIndex);
-      return {
-        day,
-        revenue: found ? parseFloat(found.revenue) : 0,
-      };
-    });
+    const output = [];
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(startDate);
+      day.setDate(startDate.getDate() + i);
+      const dateKey = [
+        day.getFullYear(),
+        String(day.getMonth() + 1).padStart(2, "0"),
+        String(day.getDate()).padStart(2, "0"),
+      ].join("-");
 
-    return weeklyData;
+      output.push({
+        day: `${daysMap[day.getDay()]} ${day.getDate()}/${day.getMonth() + 1}`,
+        revenue: revenueByDate.get(dateKey) || 0,
+      });
+    }
+
+    return output;
   },
 
-  // 🍽 3. Top 5 món ăn bán chạy (số món đã bán = tổng quantity, không phải số dòng order_item)
   async getTopDishes(branchId = 1) {
     const query = `
       SELECT 
@@ -243,7 +233,6 @@ const dashboardService = {
     }));
   },
 
-  //  4. Tình trạng bàn ăn – dùng chung tableSummary.service với trang Quản lý bàn
   async getTableStatus(branchId = tableSummaryService.DEFAULT_BRANCH_ID) {
     const summary = await tableSummaryService.getTableSummary(branchId);
     const {
@@ -267,16 +256,16 @@ const dashboardService = {
     };
   },
 
-  //  5. Thời gian phục vụ cao điểm
   async getPeakHours(branchId = 1) {
     const query = `
       SELECT 
-        EXTRACT(HOUR FROM r.reservation_time) AS hour,
-        COUNT(r.reservation_id) AS reservation_count
-      FROM reservations r
-      WHERE r.status = 'confirmed'
-        AND r.reservation_time >= NOW() - INTERVAL '30 days'
-        AND r.branch_id = :branchId
+        EXTRACT(HOUR FROM o.arrival_time) AS hour,
+        COUNT(o.order_id) AS reservation_count
+      FROM orders o
+      WHERE o.order_type = 'reservation'
+        AND o.status IN ('confirmed', 'completed')
+        AND o.arrival_time >= NOW() - INTERVAL '30 days'
+        AND o.branch_id = :branchId
       GROUP BY hour
       ORDER BY hour
     `;
@@ -286,9 +275,9 @@ const dashboardService = {
       replacements: { branchId },
     });
 
-    // Tìm giờ cao điểm nhất
     const maxCount = Math.max(
-      ...results.map((r) => parseInt(r.reservation_count))
+      ...results.map((r) => parseInt(r.reservation_count)),
+      1
     );
 
     return results

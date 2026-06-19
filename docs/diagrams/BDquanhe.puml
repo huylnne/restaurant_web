@@ -1,0 +1,166 @@
+@startuml BDquanhe
+' ERD đầy đủ 10 bảng — đồng bộ báo cáo & schema triển khai (không reservations)
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam classFontSize 9
+skinparam classFontStyle plain
+skinparam monochrome true
+skinparam linetype ortho
+skinparam nodesep 25
+skinparam ranksep 28
+skinparam dpi 120
+
+hide circle
+hide empty members
+
+class User {
+  user_id: int <<PK>>
+  branch_id: int <<FK>>
+  username: string
+  password_hash: string
+  full_name: string
+  phone: string
+  role: enum
+  avatar_url: text
+  is_active: boolean
+  locked: boolean
+  created_at: timestamp
+}
+
+class Branch {
+  branch_id: int <<PK>>
+  name: string
+  address: text
+  phone: string
+  open_time: string
+  close_time: string
+  image_url: text
+  latitude: numeric
+  longitude: numeric
+  is_active: boolean
+  created_at: timestamp
+  updated_at: timestamp
+}
+
+class Table {
+  table_id: int <<PK>>
+  branch_id: int <<FK>>
+  table_number: int
+  capacity: int
+  status: string
+  qr_token: string
+  created_at: timestamp
+}
+
+class MenuItem {
+  item_id: int <<PK>>
+  branch_id: int <<FK>>
+  name: string
+  description: text
+  price: numeric
+  category: string
+  is_available: boolean
+  sale_price: numeric
+  is_featured: boolean
+  image_url: text
+  created_at: timestamp
+}
+
+class Order {
+  order_id: int <<PK>>
+  user_id: int <<FK>>
+  branch_id: int <<FK>>
+  table_id: int <<FK>>
+  arrival_time: timestamp
+  number_of_guests: int
+  status: string
+  total_amount: numeric
+  note: string
+  order_type: string
+  payment_status: string
+  booking_group_id: string
+  created_at: timestamp
+}
+
+class OrderItem {
+  order_item_id: int <<PK>>
+  order_id: int <<FK>>
+  item_id: int <<FK>>
+  quantity: int
+  price: numeric
+  note: string
+  status: enum
+}
+
+class Payment {
+  payment_id: int <<PK>>
+  order_id: int <<FK>>
+  amount: numeric
+  method: string
+  status: string
+  transaction_ref: string
+  invoice_no: string
+  invoice_issued_at: timestamp
+  paid_at: timestamp
+  created_at: timestamp
+}
+
+class Review {
+  review_id: int <<PK>>
+  order_id: int <<FK>>
+  user_id: int <<FK>>
+  rating: int
+  comment: text
+  created_at: timestamp
+}
+
+class Employee {
+  employee_id: int <<PK>>
+  user_id: int <<FK>>
+  branch_id: int <<FK>>
+  position: string
+  salary: numeric
+  hire_date: timestamp
+  status: enum
+  created_at: timestamp
+  updated_at: timestamp
+}
+
+class OperationLog {
+  log_id: int <<PK>>
+  user_id: int <<FK>>
+  branch_id: int <<FK>>
+  action: string
+  module: string
+  description: text
+  entity_type: string
+  entity_id: int
+  request_body: jsonb
+  metadata: jsonb
+  created_at: timestamp
+}
+
+' --- Quan hệ chi nhánh ---
+Branch "1" -- "0..*" User
+Branch "1" -- "0..*" Table
+Branch "1" -- "0..*" MenuItem
+Branch "1" -- "0..*" Order
+Branch "1" -- "0..*" Employee
+Branch "1" -- "0..*" OperationLog
+
+' --- Quan hệ người dùng ---
+User "1" -- "0..*" Order
+User "1" -- "0..*" Review
+User "1" -- "0..1" Employee
+User "1" -- "0..*" OperationLog
+
+' --- Quan hệ bàn & đơn ---
+Table "1" -- "0..*" Order
+
+' --- Quan hệ đơn hàng ---
+Order "1" -- "0..*" OrderItem
+Order "1" -- "0..1" Payment
+Order "1" -- "0..1" Review
+MenuItem "1" -- "0..*" OrderItem
+
+@enduml

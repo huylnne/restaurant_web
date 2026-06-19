@@ -48,4 +48,4 @@ const validateCreateReservationBody = (req, res, next) => {
   next();
 };
 
-module.exports = { validateCreateReservationBody };
+module.exports = { validateCreateReservationBody, MAX_GUESTS };

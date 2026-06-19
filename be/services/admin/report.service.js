@@ -1,4 +1,4 @@
-const { Reservation } = require('../../models');
+const { Order } = require('../../models');
 const { Sequelize, Op } = require('sequelize');
 const db = require('../../models/db');
 const tableSummaryService = require('./tableSummary.service');
@@ -40,9 +40,7 @@ const reportService = {
         COUNT(*) FILTER (WHERE o.status IN (${completedOrderStatusSqlIn()})) AS total_completed_orders,
         COUNT(*) FILTER (WHERE o.status IN (${inProgressOrderStatusSqlIn()})) AS total_in_progress_orders
       FROM orders o
-      LEFT JOIN reservations r ON o.reservation_id = r.reservation_id
-      LEFT JOIN tables t ON o.table_id = t.table_id
-      WHERE COALESCE(r.branch_id, t.branch_id) = $1
+      WHERE o.branch_id = $1
       ${inclusiveDateClause('o.created_at', orderCountParams, startDate, endDate)}
     `;
 
@@ -54,20 +52,22 @@ const reportService = {
     const totalOrders = parseInt(orderCountResult.total_completed_orders, 10) || 0;
     const pendingOrders = parseInt(orderCountResult.total_in_progress_orders, 10) || 0;
 
-    const totalReservations = await Reservation.count({
+    const totalReservations = await Order.count({
       where: {
         branch_id: branchId,
+        order_type: 'reservation',
         ...whereClause,
       },
     });
 
     const customerParams = [branchId];
     let customerQuery = `
-      SELECT COUNT(DISTINCT r.user_id) as total
-      FROM reservations r
-      WHERE r.branch_id = $1
+      SELECT COUNT(DISTINCT o.user_id) as total
+      FROM orders o
+      WHERE o.branch_id = $1
+        AND o.user_id IS NOT NULL
     `;
-    customerQuery += inclusiveDateClause('r.created_at', customerParams, startDate, endDate);
+    customerQuery += inclusiveDateClause('o.created_at', customerParams, startDate, endDate);
 
     const [customerResult] = await db.sequelize.query(customerQuery, {
       bind: customerParams,
@@ -167,7 +167,6 @@ const reportService = {
     });
   },
 
-  /** Gộp theo giờ (0–23) trong khoảng đã chọn; mặc định chỉ hôm nay */
   async getOrdersByHour(branchId = 1, startDate, endDate) {
     const params = [branchId];
     let dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
@@ -209,12 +208,11 @@ const reportService = {
         COUNT(DISTINCT o.order_id) as total_orders,
         COALESCE(SUM(oi.quantity * mi.price), 0) as total_spent
       FROM users u
-      JOIN reservations r ON u.user_id = r.user_id
-      JOIN orders o ON r.reservation_id = o.reservation_id
+      JOIN orders o ON u.user_id = o.user_id
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
       WHERE o.status IN (${completedOrderStatusSqlIn()})
-        AND r.branch_id = $1
+        AND o.branch_id = $1
         AND mi.branch_id = $1
         ${dateFilter}
       GROUP BY u.user_id, u.full_name, u.phone
