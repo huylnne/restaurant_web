@@ -85,4 +85,21 @@ defineEmits(["update:currentPage", "prev", "next"]);
   min-width: 120px;
   text-align: center;
 }
+
+@media (max-width: 480px) {
+  .pagination-bar {
+    gap: var(--hl-space-sm);
+  }
+
+  .pagination-bar__btn {
+    flex: 1 1 120px;
+    justify-content: center;
+    padding: var(--hl-space-sm) var(--hl-space-md);
+  }
+
+  .pagination-bar__info {
+    order: -1;
+    flex: 1 1 100%;
+  }
+}
 </style>

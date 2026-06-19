@@ -137,6 +137,25 @@
   }
 }
 
+@media (max-width: 768px) {
+  .admin-toolbar > *,
+  .admin-reports .filter-section > *,
+  .admin-tables .header-actions > * {
+    flex: 1 1 100%;
+    width: 100%;
+  }
+
+  .admin-reports .filter-section .el-date-editor,
+  .admin-reports .filter-section .filter-branch-select {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .admin-compact-header__title {
+    white-space: normal;
+  }
+}
+
 .content-wrapper .admin-reports,
 .content-wrapper .dashboard,
 .content-wrapper .admin-tables {

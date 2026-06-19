@@ -56,3 +56,30 @@ body.admin-route-active #app {
 .el-notification {
   z-index: 30000 !important;
 }
+
+@media (max-width: 768px) {
+  .el-dialog {
+    width: calc(100vw - 32px) !important;
+    max-width: calc(100vw - 32px);
+    margin-top: 5vh !important;
+  }
+
+  .el-message-box {
+    width: calc(100vw - 32px) !important;
+    max-width: calc(100vw - 32px);
+  }
+
+  .el-pagination {
+    flex-wrap: wrap;
+    justify-content: center;
+    gap: 6px;
+    white-space: normal;
+  }
+
+  .el-select,
+  .el-date-editor.el-input,
+  .el-input-number {
+    width: 100%;
+    max-width: 100%;
+  }
+}

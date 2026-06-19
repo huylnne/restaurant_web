@@ -324,4 +324,43 @@ const submitForm = async () => {
   color: #8a6d1d;
   border: 1px solid #f0e0b8;
 }
+
+.booking-card :deep(.el-select),
+.booking-card :deep(.el-date-editor),
+.booking-card :deep(.el-input-number),
+.booking-card :deep(.el-button) {
+  width: 100%;
+}
+
+@media (max-width: 768px) {
+  .booking_grid {
+    min-height: auto;
+    padding: var(--hl-space-lg) var(--hl-space-md);
+  }
+
+  .booking-card {
+    max-width: none;
+    padding: var(--hl-space-lg);
+  }
+}
+
+@media (max-width: 480px) {
+  .booking_grid {
+    padding: var(--hl-space-md);
+  }
+
+  .booking-card {
+    padding: var(--hl-space-md);
+  }
+
+  .booking-card :deep(.el-card__body) {
+    padding: var(--hl-space-md);
+  }
+
+  .booking-branch-hint {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+}
 </style>

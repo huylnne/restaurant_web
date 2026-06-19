@@ -952,18 +952,18 @@ const handleOrderClick = () => {
   }
 
   .dish-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     width: 100%;
     margin: 0;
     gap: var(--hl-space-md);
-    overflow-x: auto;
+    overflow: visible;
     padding: 0 0 var(--hl-space-sm);
-    scroll-snap-type: x mandatory;
   }
 
   .dish-card {
-    flex: 0 0 min(82vw, 360px);
-    max-width: min(82vw, 360px);
-    scroll-snap-align: start;
+    max-width: none;
+    min-width: 0;
   }
 
   .scroll-left,
@@ -998,13 +998,15 @@ const handleOrderClick = () => {
   }
 
   .dish-card {
-    flex: 0 0 min(82vw, 320px);
-    max-width: min(82vw, 320px);
-    scroll-snap-align: start;
+    min-width: 0;
   }
 
   .dish-card img {
     height: 180px;
+  }
+
+  .dish-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 
 }

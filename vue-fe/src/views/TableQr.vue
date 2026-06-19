@@ -244,8 +244,34 @@ const genBankQr = async () => {
   object-fit: contain;
 }
 @media (max-width: 640px) {
+  .qr-page {
+    padding: var(--hl-space-md);
+  }
+
+  .card {
+    padding: var(--hl-space-md);
+  }
+
   .row {
     grid-template-columns: 1fr;
+  }
+
+  .bill-row,
+  .bill-total {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .actions .el-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .qr-image {
+    width: min(260px, 100%);
+    height: auto;
+    aspect-ratio: 1;
   }
 }
 </style>

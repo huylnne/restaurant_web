@@ -470,6 +470,12 @@ const submitOrder = async () => {
 
   .selected-order__actions .el-button,
   .submit-order-bar .el-button {
+    width: 100%;
+    margin-left: 0;
+  }
+
+  .selected-order__actions .el-button,
+  .submit-order-bar .el-button {
     flex: 1;
   }
 }

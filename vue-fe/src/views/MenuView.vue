@@ -955,8 +955,12 @@ const handleSubmit = async () => {
 }
 
 @media (max-width: 768px) {
+  .branch-selector :deep(.el-select) {
+    width: 100% !important;
+  }
+
   .dish-list {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-template-columns: 1fr;
   }
 }
 
@@ -964,11 +968,6 @@ const handleSubmit = async () => {
   .page-header {
     flex-direction: column;
     align-items: flex-start;
-  }
-
-  .dish-list {
-    grid-template-columns: 1fr;
-    gap: var(--hl-space-md);
   }
 
   .filter-bar__btn span {

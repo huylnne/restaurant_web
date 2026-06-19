@@ -611,6 +611,20 @@ h2 {
     gap: var(--hl-space-sm);
   }
 
+  .branch-select {
+    max-width: none;
+  }
+
+  .weekly-stats,
+  .table-status,
+  .top-dishes {
+    padding: var(--hl-space-md);
+  }
+
+  .weekly-stats canvas {
+    height: 320px;
+  }
+
   .value {
     font-size: 1.35rem;
   }

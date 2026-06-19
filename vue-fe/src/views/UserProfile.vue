@@ -371,6 +371,14 @@ const changePassword = async () => {
 }
 
 @media (max-width: 640px) {
+  .profile-page {
+    padding-top: var(--hl-space-md);
+  }
+
+  .container {
+    padding: 0 var(--hl-space-md);
+  }
+
   .profile-card {
     padding: 20px 16px;
   }
@@ -387,6 +395,20 @@ const changePassword = async () => {
 
   .user-name {
     font-size: 18px;
+  }
+
+  .upload-mode-group :deep(.el-radio-button__inner),
+  .btn-submit {
+    width: 100%;
+  }
+
+  .upload-mode-group :deep(.el-radio-group),
+  .upload-mode-group :deep(.el-radio-button) {
+    width: 100%;
+  }
+
+  .password-card .profile-form {
+    max-width: none;
   }
 }
 </style>
