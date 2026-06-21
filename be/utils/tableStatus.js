@@ -31,6 +31,12 @@ function isBookableTableStatus(status) {
   return normalizeTableStatus(status) === TABLE_STATUS.AVAILABLE;
 }
 
+/** Bàn có thể tiếp nhận khách (trống hoặc đã gán đặt trước) → chuyển sang đang phục vụ */
+function isCheckInableTableStatus(status) {
+  const s = normalizeTableStatus(status);
+  return s === TABLE_STATUS.AVAILABLE || s === TABLE_STATUS.PRE_ORDERED;
+}
+
 /** Kết thúc phiên (order) khi khách rời — trước khi trống hoặc khi chuyển chờ dọn */
 function shouldEndTableSession(status) {
   const s = normalizeTableStatus(status);
@@ -43,5 +49,6 @@ module.exports = {
   normalizeTableStatus,
   isValidTableStatus,
   isBookableTableStatus,
+  isCheckInableTableStatus,
   shouldEndTableSession,
 };

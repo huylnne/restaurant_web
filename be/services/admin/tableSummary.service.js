@@ -92,6 +92,28 @@ async function expireReservationsForBranch(branchId, cutoff) {
       type: Sequelize.QueryTypes.UPDATE,
     }
   );
+
+  // Phiên đang phục vụ → bàn phải là 'occupied' (sửa lệch sau tiếp nhận cũ)
+  await db.sequelize.query(
+    `UPDATE tables t
+     SET status = :occupied
+     WHERE t.branch_id = :branchId
+       AND t.status IN (:available, :preOrdered)
+       AND EXISTS (
+         SELECT 1 FROM orders o
+         WHERE o.table_id = t.table_id
+           AND o.status IN ('pre-ordered', 'in_progress', 'waiting_payment')
+       )`,
+    {
+      replacements: {
+        branchId,
+        occupied: TABLE_STATUS.OCCUPIED,
+        available: TABLE_STATUS.AVAILABLE,
+        preOrdered: TABLE_STATUS.PRE_ORDERED,
+      },
+      type: Sequelize.QueryTypes.UPDATE,
+    }
+  );
 }
 
 async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
