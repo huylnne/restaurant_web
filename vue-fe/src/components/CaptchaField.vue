@@ -113,13 +113,22 @@ defineExpose({ getPayload, isReady, reset });
 .captcha-code input {
   display: block;
   width: 100%;
+  min-height: 44px;
   margin-top: var(--hl-space-sm);
-  padding: var(--hl-space-sm) var(--hl-space-md);
+  padding: 11px 16px;
   border: 1px solid var(--hl-border);
   border-radius: var(--hl-radius-sm);
   background: var(--hl-bg-input);
   color: var(--hl-text);
+  font-size: 1rem;
+  line-height: 1.5;
   box-sizing: border-box;
+}
+
+.captcha-code input:focus {
+  outline: none;
+  border-color: var(--hl-primary);
+  box-shadow: 0 0 0 2px var(--hl-primary-bg);
 }
 
 .captcha-row {

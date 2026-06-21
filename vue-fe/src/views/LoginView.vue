@@ -115,13 +115,16 @@ const handleLogin = async () => {
 
 .login-form input {
   width: 100%;
-  padding: var(--hl-space-sm) var(--hl-space-md);
+  min-height: 44px;
+  padding: 11px 16px;
   margin: var(--hl-space-md) 0;
   border-radius: var(--hl-radius-sm);
   border: 1px solid var(--hl-border);
   background-color: var(--hl-bg-input);
   color: var(--hl-text);
   font-size: 1rem;
+  line-height: 1.5;
+  box-sizing: border-box;
 }
 
 .login-form input:focus {

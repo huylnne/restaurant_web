@@ -132,7 +132,7 @@
       </div>
     </el-card>
 
-    <el-dialog v-model="detailVisible" title="Chi tiết tài khoản" width="560px">
+    <el-dialog v-model="detailVisible" title="Chi tiết tài khoản" width="720px">
       <template v-if="detail">
         <el-descriptions :column="1" border>
           <el-descriptions-item label="ID">{{ detail.user.user_id }}</el-descriptions-item>
@@ -157,6 +157,16 @@
         <h4 class="recent-title">5 đặt bàn gần nhất</h4>
         <el-table :data="detail.recent_reservations" size="small">
           <el-table-column prop="reservation_id" label="#" width="60" />
+          <el-table-column label="Nhà hàng" min-width="130">
+            <template #default="{ row }">
+              {{ row.restaurant_name || "—" }}
+            </template>
+          </el-table-column>
+          <el-table-column label="Chi nhánh" min-width="150">
+            <template #default="{ row }">
+              {{ row.branch_display_name || row.Branch?.name || "—" }}
+            </template>
+          </el-table-column>
           <el-table-column prop="reservation_time" label="Giờ">
             <template #default="{ row }">{{ formatDate(row.reservation_time) }}</template>
           </el-table-column>

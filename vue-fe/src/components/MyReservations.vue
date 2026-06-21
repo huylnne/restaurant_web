@@ -9,7 +9,13 @@
           </template>
         </el-table-column>
 
-      <el-table-column label="Chi nhánh" min-width="240">
+      <el-table-column label="Nhà hàng" min-width="160">
+        <template #default="{ row }">
+          {{ formatRestaurantName(row) }}
+        </template>
+      </el-table-column>
+
+      <el-table-column label="Chi nhánh" min-width="200">
         <template #default="{ row }">
           <el-tooltip
             v-if="formatBranchName(row) !== '-'"
@@ -131,6 +137,9 @@
             <div class="reservation-mobile-card__time">
               {{ new Date(row.arrival_time).toLocaleString("vi-VN") }}
             </div>
+            <div class="reservation-mobile-card__restaurant">
+              {{ formatRestaurantName(row) }}
+            </div>
             <div class="reservation-mobile-card__branch">
               {{ formatBranchName(row) }}
             </div>
@@ -248,6 +257,11 @@ import { ref, computed, onMounted } from "vue";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
 import { normalizeTableStatus, getTableStatusLabel } from "@/constants/tableStatus";
+import {
+  formatRestaurantNameFromRow,
+  formatBranchNameFromRow,
+  formatBranchTooltipFromRow,
+} from "@/utils/branchDisplay";
 
 const reservations = ref([]);
 const loading = ref(true);
@@ -457,16 +471,15 @@ function formatTableNumber(row) {
 }
 
 function formatBranchName(row) {
-  const name = row?.Branch?.name;
-  if (name) return name;
-  if (row?.branch_id) return `Chi nhánh #${row.branch_id}`;
-  return "-";
+  return formatBranchNameFromRow(row);
+}
+
+function formatRestaurantName(row) {
+  return formatRestaurantNameFromRow(row);
 }
 
 function formatBranchTooltip(row) {
-  const name = formatBranchName(row);
-  const addr = row?.Branch?.address;
-  return addr ? `${name}\n${addr}` : name;
+  return formatBranchTooltipFromRow(row);
 }
 
 onMounted(fetchReservations);
@@ -627,9 +640,16 @@ onMounted(fetchReservations);
   }
 
   .reservation-mobile-card__time,
+  .reservation-mobile-card__restaurant,
   .reservation-mobile-card__branch {
     font-weight: 600;
     color: var(--hl-text);
+  }
+
+  .reservation-mobile-card__restaurant {
+    margin-top: 2px;
+    font-size: 14px;
+    color: var(--hl-primary);
   }
 
   .reservation-mobile-card__branch {

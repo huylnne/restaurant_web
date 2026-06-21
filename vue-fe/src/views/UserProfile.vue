@@ -344,13 +344,28 @@ const changePassword = async () => {
   padding-bottom: 6px;
 }
 
-.profile-form :deep(.el-input__wrapper) {
-  border-radius: var(--hl-radius-md);
-  box-shadow: 0 0 0 1px var(--hl-border);
+.profile-page :deep(.el-input) {
+  --el-input-height: 42px;
 }
 
-.profile-form :deep(.el-input__wrapper:hover),
-.profile-form :deep(.el-input__wrapper.is-focus) {
+.profile-page :deep(.el-input__wrapper) {
+  border-radius: var(--hl-radius-md);
+  box-shadow: 0 0 0 1px var(--hl-border);
+  min-height: 42px;
+  padding: 6px 12px;
+  align-items: center;
+  overflow: visible;
+}
+
+.profile-page :deep(.el-input__inner) {
+  line-height: 1.5;
+  height: auto;
+  min-height: 0;
+  padding: 0;
+}
+
+.profile-page :deep(.el-input__wrapper:hover),
+.profile-page :deep(.el-input__wrapper.is-focus) {
   box-shadow: 0 0 0 1px var(--hl-primary);
 }
 

@@ -235,19 +235,22 @@ const handleRegister = async () => {
   text-decoration: underline;
 }
 
-input {
+.register-form-container form input {
   display: block;
   width: 100%;
-  padding: var(--hl-space-sm) var(--hl-space-md);
+  min-height: 44px;
+  padding: 11px 16px;
   margin-bottom: var(--hl-space-md);
   border: 1px solid var(--hl-border);
   border-radius: var(--hl-radius-sm);
   background: var(--hl-bg-input);
   color: var(--hl-text);
   font-size: 1rem;
+  line-height: 1.5;
+  box-sizing: border-box;
 }
 
-input:focus {
+.register-form-container form input:focus {
   outline: none;
   border-color: var(--hl-primary);
   box-shadow: 0 0 0 2px var(--hl-primary-bg);
