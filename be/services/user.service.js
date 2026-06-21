@@ -2,6 +2,7 @@ const db = require("../models/db");
 const User = db.User;
 const { Order, OrderItem, MenuItem, Table, Payment, Review, Branch } = require("../models");
 const { activeOrderStatusWhere } = require("../utils/orderStatus");
+const { splitRestaurantAndBranch } = require("../utils/branchDisplay");
 const DEFAULT_AVATAR_URL =
   "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
 
@@ -48,11 +49,14 @@ exports.changePassword = async (userId, currentPassword, newPassword) => {
 
 function mapOrderForHistory(row) {
   const json = row.toJSON ? row.toJSON() : row;
+  const { restaurant_name, branch_display_name } = splitRestaurantAndBranch(json.Branch?.name);
   return {
     ...json,
     reservation_id: json.order_id,
     reservation_time: json.arrival_time,
     OrderItems: json.OrderItems || [],
+    restaurant_name,
+    branch_display_name,
   };
 }
 

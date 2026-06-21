@@ -1,5 +1,6 @@
 const { Op } = require('sequelize');
 const db = require('../../models');
+const { splitRestaurantAndBranch } = require('../../utils/branchDisplay');
 
 const STAFF_ROLES = ['admin', 'waiter', 'kitchen', 'manager'];
 
@@ -124,6 +125,12 @@ class UserAccountService {
           'created_at',
           'order_type',
         ],
+        include: [
+          {
+            model: db.Branch,
+            attributes: ['branch_id', 'name', 'address'],
+          },
+        ],
         order: [['created_at', 'DESC']],
         limit: 5,
       }),
@@ -137,10 +144,15 @@ class UserAccountService {
       },
       recent_reservations: recentReservations.map((o) => {
         const json = o.toJSON();
+        const { restaurant_name, branch_display_name } = splitRestaurantAndBranch(
+          json.Branch?.name
+        );
         return {
           ...json,
           reservation_id: json.order_id,
           reservation_time: json.arrival_time,
+          restaurant_name,
+          branch_display_name,
         };
       }),
     };
