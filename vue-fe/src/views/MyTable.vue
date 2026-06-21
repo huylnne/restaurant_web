@@ -67,31 +67,12 @@
             </router-link>
           </div>
           <div v-else class="order-items">
-            <div
-              v-for="item in orderItems"
-              :key="item.item_id"
-              class="order-item"
-            >
-              <div class="order-item__info">
-                <div class="order-item__name">
-                  {{ item.name || "Món ăn" }}
-                </div>
-                <div class="order-item__meta">
-                  x{{ item.quantity }} •
-                  {{ formatCurrency(item.unit_price || 0) }} / món
-                </div>
-              </div>
-              <div class="order-item__amount">
-                {{ formatCurrency(item.line_total || 0) }}
-              </div>
-            </div>
-
-            <div class="order-summary">
-              <div class="order-summary__row">
-                <span>Tổng cộng</span>
-                <strong>{{ formatCurrency(totalAmount) }}</strong>
-              </div>
-            </div>
+            <BillSummary
+              :items="orderItems"
+              :subtotal-before-discount="activeSession.subtotal_before_discount"
+              :discount-total="activeSession.discount_total"
+              :total-amount="totalAmount"
+            />
           </div>
         </div>
 
@@ -118,6 +99,7 @@ import {
   normalizeTableStatus,
   getTableStatusLabel,
 } from "@/constants/tableStatus";
+import BillSummary from "@/components/BillSummary.vue";
 
 const loading = ref(false);
 const error = ref("");

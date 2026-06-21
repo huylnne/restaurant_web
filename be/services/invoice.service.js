@@ -31,12 +31,18 @@ function formatDateTime(v) {
 
 function buildItemRows(items = []) {
   if (!items.length) return [["-", "", "", "0 đ"]];
-  return items.map((it) => [
-    String(it.name || "Món"),
-    String(it.quantity || 0),
-    formatMoneyVN(it.unit_price),
-    formatMoneyVN(it.line_total),
-  ]);
+  return items.map((it) => {
+    const unitPriceText =
+      it.has_discount && Number(it.original_unit_price) > Number(it.unit_price)
+        ? `${formatMoneyVN(it.unit_price)} (gốc ${formatMoneyVN(it.original_unit_price)})`
+        : formatMoneyVN(it.unit_price);
+    return [
+      String(it.name || "Món"),
+      String(it.quantity || 0),
+      unitPriceText,
+      formatMoneyVN(it.line_total),
+    ];
+  });
 }
 
 async function buildInvoicePdf({ payment, order, reservation, bill, branch, table, user, methodLabel }) {
@@ -121,7 +127,13 @@ async function buildInvoicePdf({ payment, order, reservation, bill, branch, tabl
             width: "auto",
             table: {
               body: [
-                ["Tổng cộng", formatMoneyVN(bill?.total_amount || payment?.amount)],
+                ...(Number(bill?.discount_total) > 0
+                  ? [
+                      ["Tạm tính", formatMoneyVN(bill?.subtotal_before_discount)],
+                      ["Giảm giá", `- ${formatMoneyVN(bill.discount_total)}`],
+                    ]
+                  : []),
+                [{ text: "Tổng thanh toán", bold: true }, { text: formatMoneyVN(bill?.total_amount || payment?.amount), bold: true }],
               ],
             },
             layout: "noBorders",

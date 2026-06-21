@@ -36,14 +36,13 @@
         <div v-if="billLoading" class="muted">Đang cập nhật hóa đơn...</div>
         <div v-else-if="!bill?.items?.length" class="muted">Bàn chưa có món nào.</div>
         <div v-else class="bill">
-          <div v-for="it in bill.items" :key="it.item_id" class="bill-row">
-            <span>{{ it.name }} x {{ it.quantity }}</span>
-            <strong>{{ formatCurrency(it.line_total) }}</strong>
-          </div>
-          <div class="bill-total">
-            <span>Tổng tạm tính</span>
-            <strong>{{ formatCurrency(bill.total_amount) }}</strong>
-          </div>
+          <BillSummary
+            :items="bill.items"
+            :subtotal-before-discount="bill.subtotal_before_discount"
+            :discount-total="bill.discount_total"
+            :total-amount="bill.total_amount"
+            total-label="Tổng tạm tính"
+          />
         </div>
 
         <div class="actions">
@@ -132,6 +131,7 @@ import QRCode from "qrcode";
 import { ElMessage } from "element-plus";
 import { API_ORIGIN } from "@/config/api";
 import { getTableStatusLabel } from "@/constants/tableStatus";
+import BillSummary from "@/components/BillSummary.vue";
 
 const API_BASE = API_ORIGIN;
 const DEFAULT_DISH_IMAGE =

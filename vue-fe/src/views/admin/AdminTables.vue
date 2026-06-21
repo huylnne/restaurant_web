@@ -361,20 +361,13 @@
               <p class="text-muted">Chưa có món nào để tính tiền.</p>
             </template>
             <template v-else>
-              <div
-                v-for="item in tableBill.items"
-                :key="item.item_id"
-                class="order-item-row"
-              >
-                <span>{{ item.name }} x {{ item.quantity }}</span>
-                <span>{{ formatCurrency(item.line_total) }}</span>
-              </div>
-              <div class="order-summary">
-                <div class="order-summary__row">
-                  <span>Tổng cộng</span>
-                  <strong>{{ formatCurrency(tableBill.total_amount) }}</strong>
-                </div>
-              </div>
+              <BillSummary
+                :items="tableBill.items"
+                :subtotal-before-discount="tableBill.subtotal_before_discount"
+                :discount-total="tableBill.discount_total"
+                :total-amount="tableBill.total_amount"
+                total-label="Tổng cộng"
+              />
             </template>
           </div>
         </div>
@@ -719,6 +712,7 @@ import {
   getOrderStatusLabel,
 } from "@/constants/orderStatus";
 import PaginationBar from "@/components/PaginationBar.vue";
+import BillSummary from "@/components/BillSummary.vue";
 import QRCode from "qrcode";
 import { connectBranchRealtime } from "@/utils/branchRealtime";
 import {

@@ -46,7 +46,7 @@ async function findActiveOrderByTable(tableId) {
       {
         model: OrderItem,
         required: false,
-        include: [{ model: MenuItem, attributes: ["item_id", "name", "price"] }],
+        include: [{ model: MenuItem, attributes: ["item_id", "name", "price", "sale_price"] }],
       },
     ],
     order: [["created_at", "DESC"]],
@@ -61,17 +61,23 @@ async function findActiveOrderByTable(tableId) {
 async function computeItemsTotal(orderItems) {
   const aggregated = {};
   let totalAmount = 0;
+  let subtotalBeforeDiscount = 0;
+  let discountTotal = 0;
 
   (orderItems || []).forEach((oi) => {
     const menu = oi.MenuItem;
     if (!menu) return;
-    const key = menu.item_id;
+
     const unitPrice = Number(oi.price ?? menu.price) || 0;
+    const originalUnitPrice = Number(menu.price) || unitPrice;
+    const key = `${menu.item_id}:${unitPrice}`;
+
     if (!aggregated[key]) {
       aggregated[key] = {
         item_id: menu.item_id,
         name: menu.name,
         unit_price: unitPrice,
+        original_unit_price: originalUnitPrice,
         quantity: 0,
       };
     }
@@ -79,18 +85,34 @@ async function computeItemsTotal(orderItems) {
   });
 
   const items = Object.values(aggregated).map((it) => {
-    const lineTotal = it.unit_price * it.quantity;
+    const quantity = it.quantity;
+    const lineTotal = it.unit_price * quantity;
+    const lineOriginalTotal = it.original_unit_price * quantity;
+    const lineDiscount =
+      it.original_unit_price > it.unit_price ? lineOriginalTotal - lineTotal : 0;
+
     totalAmount += lineTotal;
+    subtotalBeforeDiscount += lineOriginalTotal;
+    discountTotal += lineDiscount;
+
     return {
       item_id: it.item_id,
       name: it.name,
       unit_price: it.unit_price,
-      quantity: it.quantity,
+      original_unit_price: it.original_unit_price,
+      quantity,
       line_total: lineTotal,
+      line_discount: lineDiscount,
+      has_discount: lineDiscount > 0,
     };
   });
 
-  return { items, totalAmount };
+  return {
+    items,
+    totalAmount,
+    subtotalBeforeDiscount,
+    discountTotal,
+  };
 }
 
 async function buildBill({ order, tableId }) {
@@ -118,13 +140,14 @@ async function buildBill({ order, tableId }) {
         {
           model: OrderItem,
           required: false,
-          include: [{ model: MenuItem, attributes: ["item_id", "name", "price"] }],
+          include: [{ model: MenuItem, attributes: ["item_id", "name", "price", "sale_price"] }],
         },
       ],
     });
   }
 
-  const { items, totalAmount } = await computeItemsTotal(sessionOrder.OrderItems);
+  const { items, totalAmount, subtotalBeforeDiscount, discountTotal } =
+    await computeItemsTotal(sessionOrder.OrderItems);
 
   if (Number(sessionOrder.total_amount) !== totalAmount) {
     await sessionOrder.update({ total_amount: totalAmount });
@@ -152,6 +175,8 @@ async function buildBill({ order, tableId }) {
       status: sessionOrder.status,
     },
     items,
+    subtotal_before_discount: subtotalBeforeDiscount,
+    discount_total: discountTotal,
     total_amount: totalAmount,
   };
 }
