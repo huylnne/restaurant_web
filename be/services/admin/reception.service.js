@@ -1,19 +1,27 @@
-const { Order, Table, User, sequelize } = require("../../models");
+const { Order, Table, User, OrderItem, sequelize } = require("../../models");
 const { Op } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
 const { TABLE_STATUS, isBookableTableStatus, isCheckInableTableStatus } = require("../../utils/tableStatus");
 const {
-  CHECK_IN_RESERVATION_STATUSES,
   ACTIVE_SESSION_STATUSES,
   RESERVATION_STATUS,
+  TERMINAL_RESERVATION_STATUSES,
+  RECEPTION_LIST_STATUSES,
+  isOrderCheckedIn,
 } = require("../../utils/reservationStatus");
+const { ORDER_STATUS } = require("../../utils/orderStatus");
 
-const CHECK_IN_STATUSES = CHECK_IN_RESERVATION_STATUSES;
+const TERMINAL_STATUSES = TERMINAL_RESERVATION_STATUSES;
 
 function mapArrivalRow(o, { groupTables } = {}) {
   const data = o.toJSON();
-  const canCheckIn = CHECK_IN_STATUSES.includes(data.status);
-  const alreadyCheckedIn = ACTIVE_SESSION_STATUSES.includes(data.status);
+  const checkedIn = isOrderCheckedIn(data);
+  const canCheckIn =
+    !checkedIn && !TERMINAL_STATUSES.includes(data.status) && !!(data.table_id || data.Table);
+  const hasPreOrder =
+    !checkedIn &&
+    ((Array.isArray(data.OrderItems) && data.OrderItems.length > 0) ||
+      data.status === ORDER_STATUS.PRE_ORDERED);
   const tables = groupTables?.length
     ? groupTables
     : data.Table
@@ -36,8 +44,10 @@ function mapArrivalRow(o, { groupTables } = {}) {
     number_of_guests: data.number_of_guests,
     status: data.status,
     order_type: data.order_type,
+    checked_in_at: data.checked_in_at,
     canCheckIn,
-    alreadyCheckedIn,
+    alreadyCheckedIn: checkedIn,
+    hasPreOrder,
     multiTable: tables.length > 1,
     guest: data.User
       ? {
@@ -91,6 +101,12 @@ const arrivalIncludes = [
     model: Table,
     attributes: ["table_id", "table_number", "capacity", "status", "branch_id"],
   },
+  {
+    model: OrderItem,
+    required: false,
+    attributes: ["order_item_id"],
+    separate: true,
+  },
 ];
 
 function arrivalTimeWindow() {
@@ -110,12 +126,13 @@ async function listUpcomingArrivals(branchId) {
     where: {
       branch_id: branchId,
       order_type: "reservation",
-      status: { [Op.in]: [...CHECK_IN_STATUSES, ...ACTIVE_SESSION_STATUSES] },
+      status: { [Op.in]: RECEPTION_LIST_STATUSES },
       arrival_time: { [Op.between]: [windowStart, windowEnd] },
     },
     include: arrivalIncludes,
     order: [["arrival_time", "ASC"]],
     limit: 30,
+    subQuery: false,
   });
 
   return dedupeArrivalRows(rows);
@@ -142,7 +159,7 @@ async function searchArrivals(branchId, query) {
   const where = {
     branch_id: branchId,
     order_type: "reservation",
-    status: { [Op.in]: [...CHECK_IN_STATUSES, ...ACTIVE_SESSION_STATUSES] },
+    status: { [Op.in]: RECEPTION_LIST_STATUSES },
     [Op.or]: orConditions,
   };
   if (!searchById) {
@@ -182,7 +199,7 @@ async function confirmArrival(orderId, branchId) {
       })
     : [order];
 
-  const allCheckedIn = partyOrders.every((o) => ACTIVE_SESSION_STATUSES.includes(o.status));
+  const allCheckedIn = partyOrders.every((o) => isOrderCheckedIn(o));
   if (allCheckedIn) {
     return {
       order: order.toJSON(),
@@ -192,7 +209,9 @@ async function confirmArrival(orderId, branchId) {
     };
   }
 
-  const toCheckIn = partyOrders.filter((o) => CHECK_IN_STATUSES.includes(o.status));
+  const toCheckIn = partyOrders.filter(
+    (o) => !isOrderCheckedIn(o) && !TERMINAL_STATUSES.includes(o.status)
+  );
   if (!toCheckIn.length) {
     const err = new Error("Đặt bàn này không thể tiếp nhận (đã hủy hoặc hoàn tất)");
     err.code = "INVALID_STATUS";
@@ -228,8 +247,13 @@ async function confirmArrival(orderId, branchId) {
   }
 
   await sequelize.transaction(async (t) => {
+    const now = new Date();
     for (const sess of toCheckIn) {
-      await sess.update({ status: RESERVATION_STATUS.PRE_ORDERED }, { transaction: t });
+      const updates = { checked_in_at: now };
+      if ([ORDER_STATUS.CONFIRMED, ORDER_STATUS.PENDING].includes(sess.status)) {
+        updates.status = RESERVATION_STATUS.PRE_ORDERED;
+      }
+      await sess.update(updates, { transaction: t });
       const table = await Table.findByPk(sess.table_id, { transaction: t });
       if (table && isCheckInableTableStatus(table.status)) {
         await table.update({ status: TABLE_STATUS.OCCUPIED }, { transaction: t });
@@ -325,6 +349,7 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
         status: RESERVATION_STATUS.PRE_ORDERED,
         order_type: "walk_in",
         payment_status: "unpaid",
+        checked_in_at: now,
         created_at: now,
       },
       { transaction: t }

@@ -62,6 +62,7 @@ async function checkinByToken({ token, userId, numberOfGuests }) {
     status: RESERVATION_STATUS.PRE_ORDERED,
     order_type: "dine_in",
     payment_status: "unpaid",
+    checked_in_at: new Date(),
     created_at: new Date(),
   });
 

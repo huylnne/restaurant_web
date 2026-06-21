@@ -561,12 +561,15 @@
                   <el-tag v-if="item.multiTable" size="small" type="info" class="ml-1">Bàn liền kề</el-tag>
                 </span>
                 <span>{{ formatReceptionTime(item.arrival_time) }}</span>
-                <el-tag :type="item.canCheckIn ? 'warning' : 'success'" size="small">
-                  {{ item.canCheckIn ? "Chờ tiếp nhận" : "Đã vào bàn" }}
+                <el-tag v-if="hasReceptionPreOrder(item)" type="info" size="small">
+                  Đã đặt món trước
+                </el-tag>
+                <el-tag :type="isReceptionCheckedIn(item) ? 'success' : 'warning'" size="small">
+                  {{ isReceptionCheckedIn(item) ? "Đã vào bàn" : "Chờ tiếp nhận" }}
                 </el-tag>
               </div>
               <el-button
-                v-if="item.canCheckIn"
+                v-if="canConfirmReception(item)"
                 type="primary"
                 size="small"
                 :loading="receptionConfirmLoading === item.order_id"
@@ -575,7 +578,7 @@
                 Xác nhận tiếp nhận
               </el-button>
               <el-button
-                v-else
+                v-else-if="isReceptionCheckedIn(item)"
                 size="small"
                 @click="openTableAfterReception(item.table)"
               >
@@ -1457,6 +1460,23 @@ const formatReceptionTables = (item) => {
     .join(", ");
 };
 
+/** Chỉ coi là "đã vào bàn" khi backend ghi nhận checked_in_at (NV đã xác nhận). */
+const isReceptionCheckedIn = (item) => Boolean(item?.checked_in_at);
+
+const canConfirmReception = (item) => {
+  if (isReceptionCheckedIn(item)) return false;
+  const status = String(item?.status || "").toLowerCase();
+  if (status === "completed" || status === "cancelled") return false;
+  const tables = item?.tables?.length ? item.tables : item?.table ? [item.table] : [];
+  return tables.length > 0 || Boolean(item?.table_id);
+};
+
+const hasReceptionPreOrder = (item) =>
+  !isReceptionCheckedIn(item) &&
+  (Boolean(item?.hasPreOrder) ||
+    String(item?.status || "").toLowerCase() === "pre-ordered" ||
+    (Array.isArray(item?.OrderItems) && item.OrderItems.length > 0));
+
 const searchReception = async () => {
   const q = receptionSearchQuery.value.trim();
   if (!q) {
@@ -1489,9 +1509,13 @@ const confirmReception = async (item) => {
       { headers: authHeaders() }
     );
     ElMessage.success(res.data?.message || "Tiếp nhận thành công");
-    showReceptionDialog.value = false;
     await fetchTables();
     await fetchSummary();
+    if (receptionSearchQuery.value.trim()) {
+      await searchReception();
+    } else {
+      await loadUpcomingArrivals();
+    }
     const tableNum = res.data?.table?.table_number ?? item.table?.table_number;
     if (tableNum != null) {
       const found = tables.value.find((t) => t.table_number === tableNum);

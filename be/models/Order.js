@@ -126,6 +126,16 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      checked_in_at: {
+
+        type: DataTypes.DATE,
+
+        allowNull: true,
+
+        comment: 'Thời điểm nhân viên xác nhận tiếp nhận khách vào bàn',
+
+      },
+
       created_at: {
 
         type: DataTypes.DATE,

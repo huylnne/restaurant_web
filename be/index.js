@@ -62,6 +62,31 @@ async function initDatabase() {
   await db.sequelize
     .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS booking_group_id VARCHAR(36);', { raw: true })
     .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMP;', { raw: true })
+    .catch(() => {});
+  // Walk-in / QR / phiên tại bàn đã active → coi như đã tiếp nhận
+  await db.sequelize
+    .query(
+      `UPDATE orders
+       SET checked_in_at = COALESCE(checked_in_at, arrival_time, created_at)
+       WHERE checked_in_at IS NULL
+         AND order_type IN ('walk_in', 'dine_in')
+         AND status IN ('pre-ordered', 'in_progress', 'waiting_payment');`,
+      { raw: true }
+    )
+    .catch(() => {});
+  // Đặt bàn chưa tiếp nhận không được ở pre-ordered (tránh hiển thị nhầm "đã vào bàn")
+  await db.sequelize
+    .query(
+      `UPDATE orders
+       SET status = 'confirmed'
+       WHERE order_type = 'reservation'
+         AND checked_in_at IS NULL
+         AND status = 'pre-ordered';`,
+      { raw: true }
+    )
+    .catch(() => {});
 
   // Migrate reservations → orders (nếu bảng cũ còn)
   await db.sequelize
@@ -157,11 +182,21 @@ async function initDatabase() {
     .catch(() => {});
   await db.sequelize.query('DROP TABLE IF EXISTS reservations CASCADE;', { raw: true }).catch(() => {});
 
-  // Chuẩn hóa orders.status legacy
+  // Chuẩn hóa orders.status legacy (không đụng đặt bàn chưa tiếp nhận)
   await db.sequelize
     .query(
       `UPDATE orders SET status = 'pre-ordered'
-       WHERE status IN ('open', 'PENDING', 'pending', 'preorder');`,
+       WHERE status IN ('open', 'preorder')
+          OR (status IN ('PENDING', 'pending') AND order_type != 'reservation');`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders SET status = 'confirmed'
+       WHERE order_type = 'reservation'
+         AND checked_in_at IS NULL
+         AND status IN ('pending', 'PENDING', 'pre-ordered');`,
       { raw: true }
     )
     .catch(() => {});

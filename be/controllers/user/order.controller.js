@@ -2,7 +2,6 @@ const db = require("../../models/db");
 const Order = db.Order;
 const OrderItem = db.OrderItem;
 const realtimeHub = require("../../realtimeHub");
-const { ORDER_STATUS } = require("../../utils/orderStatus");
 const { buildOrderItemPayloads } = require("../../utils/orderItemFactory");
 
 const createOrder = async (req, res) => {
@@ -36,13 +35,7 @@ const createOrder = async (req, res) => {
       await sessionOrder.update({ note: orderNote });
     }
 
-    if (
-      [ORDER_STATUS.CONFIRMED, ORDER_STATUS.PRE_ORDERED, ORDER_STATUS.PENDING].includes(
-        sessionOrder.status
-      )
-    ) {
-      await sessionOrder.update({ status: ORDER_STATUS.PRE_ORDERED });
-    }
+    // Giữ status confirmed/pending — tiếp nhận khách do nhân viên xác nhận (checked_in_at).
 
     try {
       if (sessionOrder.branch_id) {
