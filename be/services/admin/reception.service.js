@@ -184,18 +184,6 @@ async function confirmArrival(orderId, branchId) {
 
   const allCheckedIn = partyOrders.every((o) => ACTIVE_SESSION_STATUSES.includes(o.status));
   if (allCheckedIn) {
-    await sequelize.transaction(async (t) => {
-      for (const sess of partyOrders) {
-        if (!sess.table_id) continue;
-        const table = await Table.findByPk(sess.table_id, { transaction: t });
-        if (table && isCheckInableTableStatus(table.status)) {
-          await table.update({ status: TABLE_STATUS.OCCUPIED }, { transaction: t });
-        }
-      }
-    });
-    await order.reload({
-      include: [{ model: Table }, { model: User, attributes: ["full_name", "phone"] }],
-    });
     return {
       order: order.toJSON(),
       reservation: order.toJSON(),
