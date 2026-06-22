@@ -5,6 +5,7 @@ const { ACTIVE_SESSION_STATUSES, RESERVATION_STATUS } = require("../../utils/res
 const { ORDER_STATUS } = require("../../utils/orderStatus");
 const { Op } = require("sequelize");
 const { buildOrderItemPayloads } = require("../../utils/orderItemFactory");
+const { findActiveOrderByTableId } = require("../../utils/orderTableLinks");
 const realtimeHub = require("../../realtimeHub");
 
 async function getTableByToken(token) {
@@ -35,13 +36,7 @@ async function checkinByToken({ token, userId, numberOfGuests }) {
   const guests = Number(numberOfGuests ?? 1);
   if (!Number.isFinite(guests) || guests < 1) throw new Error("INVALID_GUESTS");
 
-  const existing = await Order.findOne({
-    where: {
-      table_id: table.table_id,
-      status: { [Op.in]: ACTIVE_SESSION_STATUSES },
-    },
-    order: [["created_at", "DESC"]],
-  });
+  const existing = await findActiveOrderByTableId(table.table_id);
 
   if (existing) {
     return {

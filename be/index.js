@@ -247,6 +247,23 @@ async function initDatabase() {
     )
     .catch(() => {});
   await db.sequelize
+    .query(
+      `CREATE TABLE IF NOT EXISTS order_tables (
+         order_id INTEGER NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+         table_id INTEGER NOT NULL REFERENCES tables(table_id) ON DELETE CASCADE,
+         is_primary BOOLEAN NOT NULL DEFAULT false,
+         PRIMARY KEY (order_id, table_id)
+       );`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      'CREATE INDEX IF NOT EXISTS order_tables_table_id_idx ON order_tables(table_id);',
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
     .query('ALTER TABLE users ADD COLUMN IF NOT EXISTS locked BOOLEAN DEFAULT false;', { raw: true })
     .catch(() => {});
   await db.sequelize

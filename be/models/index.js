@@ -62,6 +62,11 @@ db.Table.hasMany(db.Order, { foreignKey: 'table_id', as: 'TableOrders' });
 
 db.Order.belongsTo(db.Table, { foreignKey: 'table_id' });
 
+db.Order.hasMany(db.OrderTable, { foreignKey: 'order_id' });
+db.OrderTable.belongsTo(db.Order, { foreignKey: 'order_id' });
+db.OrderTable.belongsTo(db.Table, { foreignKey: 'table_id' });
+db.Table.hasMany(db.OrderTable, { foreignKey: 'table_id' });
+
 
 
 db.User.hasMany(db.Review, { foreignKey: 'user_id' });

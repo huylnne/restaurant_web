@@ -2,6 +2,7 @@ const axios = require("axios");
 const { Payment, Order, Table, sequelize } = require("../models");
 const { QueryTypes, Op } = require("sequelize");
 const billService = require("./bill.service");
+const { getTableIdsForOrder } = require("../utils/orderTableLinks");
 const momo = require("../utils/momo");
 const { generateVietQR } = require("vietqr-ts");
 const { TABLE_STATUS } = require("../utils/tableStatus");
@@ -101,7 +102,9 @@ function resolveSessionOrderId({ orderId, reservationId }) {
 }
 
 async function getActiveOrderByTableId(tableId) {
-  return billService.findActiveOrderByTable(tableId);
+  const order = await billService.findActiveOrderByTable(tableId);
+  if (!order) return null;
+  return billService.resolvePrimaryBillingOrder(order);
 }
 
 async function getAmountByOrder(sessionOrderId) {
@@ -261,18 +264,27 @@ async function onPaymentSucceededByOrder(sessionOrderId) {
   const order = await Order.findByPk(sessionOrderId);
   if (!order) return;
 
+  let orderIds = [order.order_id];
+  let tableIds = await getTableIdsForOrder(order.order_id);
+
+  if (order.booking_group_id) {
+    const groupOrders = await billService.findGroupSessionOrders(order);
+    orderIds = groupOrders.map((o) => o.order_id);
+    tableIds = [...new Set(groupOrders.map((o) => o.table_id).filter(Boolean))];
+  }
+
   await Order.update(
     {
       status: ORDER_STATUS.COMPLETED,
       payment_status: "succeeded",
     },
-    { where: { order_id: sessionOrderId } }
+    { where: { order_id: { [Op.in]: orderIds } } }
   );
 
-  if (order.table_id) {
+  if (tableIds.length) {
     await Table.update(
       { status: TABLE_STATUS.CLEANING },
-      { where: { table_id: order.table_id } }
+      { where: { table_id: { [Op.in]: tableIds } } }
     );
   }
 }

@@ -1,7 +1,10 @@
 const db = require("../../models");
 const Order = db.Order;
 const Table = db.Table;
+const OrderTable = db.OrderTable;
+const { Op } = require("sequelize");
 const reservationService = require("../../services/reservation.service");
+const { getTableIdsForOrder } = require("../../utils/orderTableLinks");
 const {
   CANCELABLE_RESERVATION_STATUSES,
   ACTIVE_RESERVATION_STATUSES,
@@ -94,17 +97,11 @@ const getAvailableTables = async (req, res) => {
     const picked = await reservationService.pickAvailableTable(branch_id, guestCount, reservation_time);
     if (picked.tables?.length) {
       const multi = picked.tables.length > 1;
-      const tableNums = picked.tables
-        .map((t) => t.table_number)
-        .filter((n) => n != null)
-        .join(", ");
       return res.json({
         available: true,
         multiTable: multi,
         tableCount: picked.tables.length,
-        message: multi
-          ? `Còn ${picked.tables.length} bàn liền kề (B${tableNums}) cho ${guestCount} khách. Bạn có thể gửi yêu cầu đặt bàn.`
-          : "Còn bàn phù hợp. Bạn có thể gửi yêu cầu đặt bàn.",
+        message: "Còn bàn phù hợp. Bạn có thể gửi yêu cầu đặt bàn.",
       });
     }
     return res.json({ available: false, message: picked.message });
@@ -125,13 +122,40 @@ const getUserReservations = async (req, res) => {
           model: Table,
           attributes: ["table_number", "capacity"],
         },
+        {
+          model: OrderTable,
+          required: false,
+          include: [
+            {
+              model: Table,
+              attributes: ["table_id", "table_number", "capacity"],
+            },
+          ],
+        },
       ],
       order: [["arrival_time", "DESC"]],
     });
 
+    const mapped = orders.map((order) => {
+      const json = mapOrderResponse(order);
+      const linkedTables = (order.OrderTables || [])
+        .map((link) => link.Table)
+        .filter(Boolean)
+        .map((t) => ({
+          table_id: t.table_id,
+          table_number: t.table_number,
+          capacity: t.capacity,
+        }));
+      if (linkedTables.length) {
+        json.tables = linkedTables;
+        json.multiTable = linkedTables.length > 1;
+      }
+      return json;
+    });
+
     res.json({
-      orders: orders.map(mapOrderResponse),
-      reservations: orders.map(mapOrderResponse),
+      orders: mapped,
+      reservations: mapped,
     });
   } catch (err) {
     console.error("Lỗi lấy lịch sử đặt bàn:", err);
@@ -161,8 +185,13 @@ const cancelReservation = async (req, res) => {
     }
 
     const cancelled = await reservationService.cancelReservationGroup(order);
-    const tableIds = [...new Set(cancelled.map((r) => r.table_id).filter(Boolean))];
-    for (const tableId of tableIds) {
+    const tableIdSet = new Set();
+    for (const row of cancelled) {
+      const ids = await getTableIdsForOrder(row.order_id);
+      ids.forEach((id) => tableIdSet.add(id));
+      if (row.table_id) tableIdSet.add(row.table_id);
+    }
+    for (const tableId of tableIdSet) {
       const table = await Table.findByPk(tableId);
       if (table && ["pre-ordered", "reserved"].includes(table.status)) {
         table.status = "available";
@@ -209,8 +238,20 @@ const requestBill = async (req, res) => {
       return res.status(400).json({ message: "Đơn này không thể yêu cầu thanh toán" });
     }
 
-    order.status = ORDER_STATUS.WAITING_PAYMENT;
-    await order.save();
+    const groupOrders = order.booking_group_id
+      ? await Order.findAll({
+          where: {
+            booking_group_id: order.booking_group_id,
+            user_id: userId,
+            status: { [Op.in]: ACTIVE_RESERVATION_STATUSES },
+          },
+        })
+      : [order];
+
+    for (const row of groupOrders) {
+      row.status = ORDER_STATUS.WAITING_PAYMENT;
+      await row.save();
+    }
 
     req.audit = { entityId: order.order_id };
     return res.json({

@@ -45,18 +45,33 @@ async function expireReservationsForBranch(branchId, cutoff) {
     }
   );
 
+  const reservedTableSubquery = `
+    SELECT o.table_id AS table_id
+    FROM orders o
+    JOIN tables tb ON tb.table_id = o.table_id
+    WHERE o.order_type = 'reservation'
+      AND o.status IN ('confirmed', 'pre-ordered')
+      AND o.arrival_time > :now
+      AND o.arrival_time <= :preOrderTrigger
+      AND tb.branch_id = :branchId
+    UNION
+    SELECT ot.table_id AS table_id
+    FROM order_tables ot
+    JOIN orders o ON o.order_id = ot.order_id
+    JOIN tables tb ON tb.table_id = ot.table_id
+    WHERE o.order_type = 'reservation'
+      AND o.status IN ('confirmed', 'pre-ordered')
+      AND o.arrival_time > :now
+      AND o.arrival_time <= :preOrderTrigger
+      AND tb.branch_id = :branchId
+  `;
+
   await db.sequelize.query(
     `UPDATE tables t
      SET status = :available
      WHERE t.branch_id = :branchId
        AND t.status = :preOrdered
-       AND t.table_id NOT IN (
-         SELECT table_id FROM orders
-         WHERE order_type = 'reservation'
-           AND status IN ('confirmed', 'pre-ordered')
-           AND arrival_time > :now
-           AND arrival_time <= :preOrderTrigger
-       )`,
+       AND t.table_id NOT IN (${reservedTableSubquery})`,
     {
       replacements: {
         branchId,
@@ -74,13 +89,7 @@ async function expireReservationsForBranch(branchId, cutoff) {
      SET status = :preOrdered
      WHERE t.branch_id = :branchId
        AND t.status = :available
-       AND t.table_id IN (
-         SELECT table_id FROM orders
-         WHERE order_type = 'reservation'
-           AND status = 'confirmed'
-           AND arrival_time <= :preOrderTrigger
-           AND arrival_time > :now
-       )`,
+       AND t.table_id IN (${reservedTableSubquery})`,
     {
       replacements: {
         branchId,
@@ -113,12 +122,22 @@ async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
          t.status = 'pre-ordered'
          OR (
            t.status = 'available'
-           AND EXISTS (
-             SELECT 1 FROM orders o
-             WHERE o.table_id = t.table_id
-               AND o.order_type = 'reservation'
-               AND o.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
-               AND o.arrival_time > :now
+           AND (
+             EXISTS (
+               SELECT 1 FROM orders o
+               WHERE o.table_id = t.table_id
+                 AND o.order_type = 'reservation'
+                 AND o.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
+                 AND o.arrival_time > :now
+             )
+             OR EXISTS (
+               SELECT 1 FROM order_tables ot
+               JOIN orders o ON o.order_id = ot.order_id
+               WHERE ot.table_id = t.table_id
+                 AND o.order_type = 'reservation'
+                 AND o.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
+                 AND o.arrival_time > :now
+             )
            )
          )
        )`,
@@ -132,6 +151,14 @@ async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
        AND NOT EXISTS (
          SELECT 1 FROM orders o
          WHERE o.table_id = t.table_id
+           AND o.order_type = 'reservation'
+           AND o.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
+           AND o.arrival_time > :now
+       )
+       AND NOT EXISTS (
+         SELECT 1 FROM order_tables ot
+         JOIN orders o ON o.order_id = ot.order_id
+         WHERE ot.table_id = t.table_id
            AND o.order_type = 'reservation'
            AND o.status IN ('confirmed', 'pre-ordered', 'waiting_payment')
            AND o.arrival_time > :now

@@ -4,6 +4,7 @@ const {
   User,
   OrderItem,
   MenuItem,
+  OrderTable,
 } = require("../../models");
 const { Sequelize } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
@@ -78,10 +79,57 @@ const tableService = {
         .map((t) => this.ensureQrToken(t).catch(() => null))
     );
 
+    const linkedRows = await OrderTable.findAll({
+      include: [
+        {
+          model: Order,
+          required: true,
+          where: { branch_id: branchId, status: ACTIVE_ORDER_STATUSES },
+          include: [
+            {
+              model: User,
+              required: false,
+              attributes: ["user_id", "full_name", "phone"],
+            },
+            {
+              model: OrderItem,
+              required: false,
+              include: [
+                {
+                  model: MenuItem,
+                  required: false,
+                  attributes: ["price"],
+                },
+              ],
+            },
+          ],
+        },
+      ],
+    });
+
+    const linkedOrdersByTable = new Map();
+    for (const link of linkedRows) {
+      const orderJson = link.Order?.toJSON?.() ?? link.Order;
+      if (!orderJson) continue;
+      const tid = link.table_id;
+      if (!linkedOrdersByTable.has(tid)) linkedOrdersByTable.set(tid, []);
+      const list = linkedOrdersByTable.get(tid);
+      if (!list.some((o) => o.order_id === orderJson.order_id)) {
+        list.push(orderJson);
+      }
+    }
+
     return tables.map((table) => {
       const tableData = table.toJSON();
       const now = new Date();
-      const activeOrders = tableData.TableOrders || [];
+      const directOrders = tableData.TableOrders || [];
+      const linkedOrders = linkedOrdersByTable.get(tableData.table_id) || [];
+      const activeOrders = [...directOrders];
+      for (const linked of linkedOrders) {
+        if (!activeOrders.some((o) => o.order_id === linked.order_id)) {
+          activeOrders.push(linked);
+        }
+      }
 
       const activeReservation =
         tableData.status !== TABLE_STATUS.AVAILABLE &&

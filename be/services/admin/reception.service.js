@@ -1,4 +1,4 @@
-const { Order, Table, User, OrderItem, sequelize } = require("../../models");
+const { Order, Table, User, OrderItem, OrderTable, sequelize } = require("../../models");
 const { Op } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
 const { TABLE_STATUS, isBookableTableStatus, isCheckInableTableStatus } = require("../../utils/tableStatus");
@@ -10,6 +10,7 @@ const {
   isOrderCheckedIn,
 } = require("../../utils/reservationStatus");
 const { ORDER_STATUS } = require("../../utils/orderStatus");
+const { getTablesForOrder } = require("../../utils/orderTableLinks");
 
 const TERMINAL_STATUSES = TERMINAL_RESERVATION_STATUSES;
 
@@ -24,7 +25,14 @@ function mapArrivalRow(o, { groupTables } = {}) {
       data.status === ORDER_STATUS.PRE_ORDERED);
   const tables = groupTables?.length
     ? groupTables
-    : data.Table
+    : data.OrderTables?.length
+      ? data.OrderTables.map((link) => link.Table).filter(Boolean).map((t) => ({
+          table_id: t.table_id,
+          table_number: t.table_number,
+          capacity: t.capacity,
+          status: t.status,
+        }))
+      : data.Table
       ? [
           {
             table_id: data.Table.table_id,
@@ -106,6 +114,16 @@ const arrivalIncludes = [
     required: false,
     attributes: ["order_item_id"],
     separate: true,
+  },
+  {
+    model: OrderTable,
+    required: false,
+    include: [
+      {
+        model: Table,
+        attributes: ["table_id", "table_number", "capacity", "status", "branch_id"],
+      },
+    ],
   },
 ];
 
@@ -191,13 +209,15 @@ async function confirmArrival(orderId, branchId) {
     throw err;
   }
 
+  const linkedTables = await getTablesForOrder(order.order_id);
   const groupId = order.booking_group_id;
-  const partyOrders = groupId
-    ? await Order.findAll({
-        where: { booking_group_id: groupId, branch_id: branchId, order_type: "reservation" },
-        include: [{ model: Table }],
-      })
-    : [order];
+  const partyOrders =
+    !linkedTables.length && groupId
+      ? await Order.findAll({
+          where: { booking_group_id: groupId, branch_id: branchId, order_type: "reservation" },
+          include: [{ model: Table }],
+        })
+      : [order];
 
   const allCheckedIn = partyOrders.every((o) => isOrderCheckedIn(o));
   if (allCheckedIn) {
@@ -218,13 +238,16 @@ async function confirmArrival(orderId, branchId) {
     throw err;
   }
 
-  for (const sess of toCheckIn) {
-    if (!sess.table_id) {
-      const err = new Error("Đặt bàn chưa gán bàn");
-      err.code = "NO_TABLE";
-      throw err;
-    }
-    const table = await Table.findByPk(sess.table_id);
+  const tablesToValidate =
+    linkedTables.length > 1 ? linkedTables : toCheckIn.map((sess) => sess.Table).filter(Boolean);
+
+  for (const tableRow of tablesToValidate) {
+    const table =
+      tableRow.table_id && !tableRow.branch_id
+        ? await Table.findByPk(tableRow.table_id)
+        : tableRow.table_id
+          ? tableRow
+          : null;
     if (!table || table.branch_id !== branchId) {
       const err = new Error("Bàn không hợp lệ");
       err.code = "NO_TABLE";
@@ -234,7 +257,7 @@ async function confirmArrival(orderId, branchId) {
       const activeOnTable = await Order.findOne({
         where: {
           table_id: table.table_id,
-          order_id: { [Op.ne]: sess.order_id },
+          order_id: { [Op.notIn]: toCheckIn.map((o) => o.order_id) },
           status: { [Op.in]: ACTIVE_SESSION_STATUSES },
         },
       });
@@ -254,7 +277,15 @@ async function confirmArrival(orderId, branchId) {
         updates.status = RESERVATION_STATUS.PRE_ORDERED;
       }
       await sess.update(updates, { transaction: t });
-      const table = await Table.findByPk(sess.table_id, { transaction: t });
+    }
+
+    const tableIds =
+      linkedTables.length > 1
+        ? linkedTables.map((tbl) => tbl.table_id)
+        : toCheckIn.map((sess) => sess.table_id).filter(Boolean);
+
+    for (const tableId of tableIds) {
+      const table = await Table.findByPk(tableId, { transaction: t });
       if (table && isCheckInableTableStatus(table.status)) {
         await table.update({ status: TABLE_STATUS.OCCUPIED }, { transaction: t });
       }
@@ -269,7 +300,7 @@ async function confirmArrival(orderId, branchId) {
     order: order.toJSON(),
     reservation: order.toJSON(),
     table: order.Table?.toJSON?.() ?? order.Table,
-    checkedInCount: toCheckIn.length,
+    checkedInCount: linkedTables.length > 1 ? linkedTables.length : toCheckIn.length,
     alreadyCheckedIn: false,
   };
 }

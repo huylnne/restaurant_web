@@ -1,6 +1,51 @@
 const { Order, OrderItem, MenuItem, Table } = require("../models");
 const { Op } = require("sequelize");
 const { activeOrderStatusWhere } = require("../utils/orderStatus");
+const {
+  findActiveOrderByTableId,
+  getTablesForOrder,
+  orderHasMultipleTables,
+} = require("../utils/orderTableLinks");
+
+const orderItemInclude = {
+  model: OrderItem,
+  required: false,
+  include: [{ model: MenuItem, attributes: ["item_id", "name", "price", "sale_price"] }],
+};
+
+async function resolvePrimaryBillingOrder(orderOrId) {
+  const order =
+    typeof orderOrId === "object" && orderOrId?.order_id
+      ? orderOrId
+      : await Order.findByPk(orderOrId, {
+          attributes: ["order_id", "table_id", "booking_group_id"],
+        });
+  if (!order) return null;
+  if (!order.booking_group_id) return order;
+
+  const groupOrders = await findGroupSessionOrders(order);
+  return groupOrders[0] || order;
+}
+
+async function findGroupSessionOrders(sessionOrder) {
+  const groupId = sessionOrder?.booking_group_id;
+  if (!groupId) return [sessionOrder];
+
+  const groupOrders = await Order.findAll({
+    where: {
+      booking_group_id: groupId,
+      status: activeOrderStatusWhere(),
+    },
+    include: [orderItemInclude],
+    order: [["order_id", "ASC"]],
+  });
+
+  return groupOrders.length ? groupOrders : [sessionOrder];
+}
+
+function collectOrderItems(orders) {
+  return (orders || []).flatMap((o) => o.OrderItems || []);
+}
 
 async function findActiveOrderByUser(userId) {
   const orders = await Order.findAll({
@@ -14,16 +59,7 @@ async function findActiveOrderByUser(userId) {
         required: false,
         attributes: ["table_id", "status", "table_number", "capacity"],
       },
-      {
-        model: OrderItem,
-        required: false,
-        include: [
-          {
-            model: MenuItem,
-            attributes: ["item_id", "name", "price"],
-          },
-        ],
-      },
+      orderItemInclude,
     ],
     order: [["arrival_time", "DESC"]],
   });
@@ -37,25 +73,7 @@ async function findActiveOrderByUser(userId) {
 }
 
 async function findActiveOrderByTable(tableId) {
-  const orders = await Order.findAll({
-    where: {
-      table_id: tableId,
-      status: activeOrderStatusWhere(),
-    },
-    include: [
-      {
-        model: OrderItem,
-        required: false,
-        include: [{ model: MenuItem, attributes: ["item_id", "name", "price", "sale_price"] }],
-      },
-    ],
-    order: [["created_at", "DESC"]],
-  });
-
-  if (!orders.length) return null;
-
-  const orderWithItems = orders.find((order) => (order.OrderItems || []).length > 0);
-  return orderWithItems || orders[0];
+  return findActiveOrderByTableId(tableId, { itemInclude: orderItemInclude });
 }
 
 async function computeItemsTotal(orderItems) {
@@ -136,22 +154,44 @@ async function buildBill({ order, tableId }) {
 
   if (!sessionOrder.OrderItems) {
     sessionOrder = await Order.findByPk(sessionOrder.order_id, {
-      include: [
-        {
-          model: OrderItem,
-          required: false,
-          include: [{ model: MenuItem, attributes: ["item_id", "name", "price", "sale_price"] }],
-        },
-      ],
+      include: [orderItemInclude],
     });
   }
 
-  const { items, totalAmount, subtotalBeforeDiscount, discountTotal } =
-    await computeItemsTotal(sessionOrder.OrderItems);
+  const groupOrders = await findGroupSessionOrders(sessionOrder);
+  const primaryOrder = groupOrders[0] || sessionOrder;
+  const linkedTables = await getTablesForOrder(primaryOrder.order_id);
+  const groupTables =
+    linkedTables.length > 1
+      ? linkedTables
+      : groupOrders.length > 1
+        ? await Table.findAll({
+            where: {
+              table_id: {
+                [Op.in]: [...new Set(groupOrders.map((o) => o.table_id).filter(Boolean))],
+              },
+            },
+            attributes: ["table_id", "table_number", "capacity", "status"],
+            order: [["table_number", "ASC"]],
+          })
+        : linkedTables.length
+          ? linkedTables
+          : [table];
 
-  if (Number(sessionOrder.total_amount) !== totalAmount) {
-    await sessionOrder.update({ total_amount: totalAmount });
+  const allItems =
+    groupOrders.length > 1 ? collectOrderItems(groupOrders) : sessionOrder.OrderItems || [];
+  const { items, totalAmount, subtotalBeforeDiscount, discountTotal } =
+    await computeItemsTotal(allItems);
+
+  const ordersToSync = groupOrders.length > 1 ? groupOrders : [sessionOrder];
+  for (const groupOrder of ordersToSync) {
+    if (Number(groupOrder.total_amount) !== totalAmount) {
+      await groupOrder.update({ total_amount: totalAmount });
+    }
   }
+
+  const multiTable =
+    groupOrders.length > 1 || (await orderHasMultipleTables(primaryOrder.order_id));
 
   return {
     table: {
@@ -160,19 +200,27 @@ async function buildBill({ order, tableId }) {
       capacity: table.capacity,
       status: table.status,
     },
+    tables: groupTables.map((t) => ({
+      table_id: t.table_id,
+      table_number: t.table_number,
+      capacity: t.capacity,
+      status: t.status,
+    })),
+    booking_group_id: primaryOrder.booking_group_id || null,
+    multiTable,
     order: {
-      order_id: sessionOrder.order_id,
-      arrival_time: sessionOrder.arrival_time,
-      number_of_guests: sessionOrder.number_of_guests,
-      status: sessionOrder.status,
-      order_type: sessionOrder.order_type,
-      payment_status: sessionOrder.payment_status,
+      order_id: primaryOrder.order_id,
+      arrival_time: primaryOrder.arrival_time,
+      number_of_guests: primaryOrder.number_of_guests,
+      status: primaryOrder.status,
+      order_type: primaryOrder.order_type,
+      payment_status: primaryOrder.payment_status,
     },
     reservation: {
-      reservation_id: sessionOrder.order_id,
-      reservation_time: sessionOrder.arrival_time,
-      number_of_guests: sessionOrder.number_of_guests,
-      status: sessionOrder.status,
+      reservation_id: primaryOrder.order_id,
+      reservation_time: primaryOrder.arrival_time,
+      number_of_guests: primaryOrder.number_of_guests,
+      status: primaryOrder.status,
     },
     items,
     subtotal_before_discount: subtotalBeforeDiscount,
@@ -196,4 +244,6 @@ module.exports = {
   getBillByTable,
   findActiveOrderByTable,
   findActiveOrderByUser,
+  findGroupSessionOrders,
+  resolvePrimaryBillingOrder,
 };

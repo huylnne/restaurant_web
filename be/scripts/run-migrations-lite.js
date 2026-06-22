@@ -30,6 +30,16 @@ async function run() {
 
   await q('ALTER TABLE orders ADD COLUMN IF NOT EXISTS booking_group_id VARCHAR(36);');
 
+  await q(
+    `CREATE TABLE IF NOT EXISTS order_tables (
+       order_id INTEGER NOT NULL REFERENCES orders(order_id) ON DELETE CASCADE,
+       table_id INTEGER NOT NULL REFERENCES tables(table_id) ON DELETE CASCADE,
+       is_primary BOOLEAN NOT NULL DEFAULT false,
+       PRIMARY KEY (order_id, table_id)
+     );`
+  );
+  await q('CREATE INDEX IF NOT EXISTS order_tables_table_id_idx ON order_tables(table_id);');
+
   await q('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS price DECIMAL(10, 2);');
 
   await q('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS note VARCHAR(200);');

@@ -15,25 +15,12 @@ const { Op } = require('sequelize');
 const { OrderItem, MenuItem, Order, Table } = db;
 
 const { ACTIVE_SESSION_STATUSES } = require('../../utils/reservationStatus');
+const { findActiveOrderByTableId } = require('../../utils/orderTableLinks');
 
 
 
 async function getActiveSessionOrder(tableId) {
-
-  return Order.findOne({
-
-    where: {
-
-      table_id: tableId,
-
-      status: { [Op.in]: ACTIVE_SESSION_STATUSES },
-
-    },
-
-    order: [['created_at', 'DESC']],
-
-  });
-
+  return findActiveOrderByTableId(tableId);
 }
 
 

@@ -21,6 +21,7 @@ const { ACTIVE_SESSION_STATUSES } = require('../../utils/reservationStatus');
 const { buildActiveOrdersByTableWhere } = require('../../utils/orderQueries');
 
 const { buildOrderItemPayloads } = require('../../utils/orderItemFactory');
+const { findActiveOrderByTableId } = require('../../utils/orderTableLinks');
 
 
 
@@ -28,21 +29,7 @@ const waiterService = {
 
   async findOrCreateSessionOrder({ table_id, branch_id, user_id, transaction }) {
 
-    const existing = await Order.findOne({
-
-      where: {
-
-        table_id,
-
-        status: { [Op.in]: ACTIVE_SESSION_STATUSES },
-
-      },
-
-      order: [['created_at', 'DESC']],
-
-      transaction,
-
-    });
+    const existing = await findActiveOrderByTableId(table_id, { transaction });
 
     if (existing) return existing;
 
@@ -177,27 +164,23 @@ const waiterService = {
 
 
   async getOrdersByTable(table_id) {
-
-    return Order.findAll({
-
-      where: buildActiveOrdersByTableWhere(table_id),
-
-      include: [
-
-        {
-
-          model: OrderItem,
-
-          include: [{ model: MenuItem }],
-
-        },
-
-      ],
-
-      order: [['created_at', 'DESC']],
-
+    const active = await findActiveOrderByTableId(table_id, {
+      itemInclude: {
+        model: OrderItem,
+        include: [{ model: MenuItem }],
+      },
     });
+    if (!active) return [];
 
+    const order = await Order.findByPk(active.order_id, {
+      include: [
+        {
+          model: OrderItem,
+          include: [{ model: MenuItem }],
+        },
+      ],
+    });
+    return order ? [order] : [];
   },
 
 

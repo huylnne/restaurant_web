@@ -1,6 +1,6 @@
 const db = require("../models/db");
 const User = db.User;
-const { Order, OrderItem, MenuItem, Table, Payment, Review, Branch } = require("../models");
+const { Order, OrderItem, MenuItem, Table, Payment, Review, Branch, OrderTable } = require("../models");
 const { activeOrderStatusWhere } = require("../utils/orderStatus");
 const { splitRestaurantAndBranch } = require("../utils/branchDisplay");
 const DEFAULT_AVATAR_URL =
@@ -50,11 +50,22 @@ exports.changePassword = async (userId, currentPassword, newPassword) => {
 function mapOrderForHistory(row) {
   const json = row.toJSON ? row.toJSON() : row;
   const { restaurant_name, branch_display_name } = splitRestaurantAndBranch(json.Branch?.name);
+  const linkedTables = (json.OrderTables || [])
+    .map((link) => link.Table)
+    .filter(Boolean)
+    .map((t) => ({
+      table_id: t.table_id,
+      table_number: t.table_number,
+      capacity: t.capacity,
+      status: t.status,
+    }));
   return {
     ...json,
     reservation_id: json.order_id,
     reservation_time: json.arrival_time,
     OrderItems: json.OrderItems || [],
+    tables: linkedTables.length ? linkedTables : undefined,
+    multiTable: linkedTables.length > 1,
     restaurant_name,
     branch_display_name,
   };
@@ -87,6 +98,16 @@ exports.getReservationsWithOrders = async (userId) => {
         {
           model: Table,
           attributes: ["table_number", "capacity", "status"],
+        },
+        {
+          model: OrderTable,
+          required: false,
+          include: [
+            {
+              model: Table,
+              attributes: ["table_id", "table_number", "capacity", "status"],
+            },
+          ],
         },
         {
           model: Branch,

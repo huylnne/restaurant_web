@@ -24,6 +24,7 @@ db.Branch = require("./Branch")(sequelize, DataTypes);
 db.MenuItem = require("./MenuItem")(sequelize, DataTypes);
 db.Table = require("./Table")(sequelize, DataTypes);
 db.Order = require('./Order')(sequelize, Sequelize.DataTypes);
+db.OrderTable = require("./OrderTable")(sequelize, DataTypes);
 db.OrderItem = require('./OrderItem')(sequelize, Sequelize.DataTypes);
 db.Employee = require("./Employee")(sequelize, DataTypes);
 db.Payment = require("./Payment")(sequelize, DataTypes);

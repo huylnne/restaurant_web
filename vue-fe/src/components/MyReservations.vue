@@ -275,6 +275,15 @@ function groupReservationsForDisplay(rows) {
   const result = [];
 
   for (const row of rows) {
+    if (row.tables?.length) {
+      result.push({
+        ...row,
+        groupTables: row.tables,
+        groupOrderIds: [row.order_id],
+      });
+      continue;
+    }
+
     const gid = row.booking_group_id;
     if (!gid) {
       result.push(row);
@@ -285,9 +294,7 @@ function groupReservationsForDisplay(rows) {
 
     const group = rows.filter((r) => r.booking_group_id === gid);
     const tables = group.map((r) => r.Table).filter(Boolean);
-    const primary = group.reduce((a, b) =>
-      a.order_id < b.order_id ? a : b
-    );
+    const primary = group.reduce((a, b) => (a.order_id < b.order_id ? a : b));
     result.push({
       ...primary,
       groupTables: tables,
@@ -295,9 +302,7 @@ function groupReservationsForDisplay(rows) {
     });
   }
 
-  return result.sort(
-    (a, b) => new Date(b.arrival_time) - new Date(a.arrival_time)
-  );
+  return result.sort((a, b) => new Date(b.arrival_time) - new Date(a.arrival_time));
 }
 const reviewDialogVisible = ref(false);
 const submittingReview = ref(false);
