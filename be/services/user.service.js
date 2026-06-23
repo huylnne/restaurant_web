@@ -72,6 +72,8 @@ function mapOrderForHistory(row, billTotals = null) {
     subtotal_before_discount: billTotals?.subtotalBeforeDiscount ?? 0,
     discount_total: billTotals?.discountTotal ?? 0,
     bill_total: billTotals?.totalAmount ?? 0,
+    total_amount: billTotals?.totalAmount ?? 0,
+    items: billTotals?.items ?? [],
   };
 }
 

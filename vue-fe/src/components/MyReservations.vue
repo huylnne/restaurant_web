@@ -84,22 +84,15 @@
                 </div>
               </div>
             </template>
-            <!-- 💰 Hoá đơn tạm tính (đồng bộ với bill nhân viên) -->
-            <div class="invoice">
-              <template v-if="getRowDiscountTotal(row) > 0">
-                <div class="invoice-row invoice-row--muted">
-                  Tạm tính:
-                  {{ formatBillMoney(getRowSubtotalBeforeDiscount(row)) }}
-                </div>
-                <div class="invoice-row invoice-row--discount">
-                  Giảm giá:
-                  - {{ formatBillMoney(getRowDiscountTotal(row)) }}
-                </div>
-              </template>
-              <div class="invoice-row invoice-row--total">
-                💰 <strong>Tổng cộng:</strong>
-                {{ formatBillMoney(getRowBillTotal(row)) }}
-              </div>
+            <!-- 💰 Hoá đơn tạm tính (đồng bộ bill nhân viên, có sale) -->
+            <div v-if="getRowBill(row).items.length" class="invoice">
+              <BillSummary
+                :items="getRowBill(row).items"
+                :subtotal-before-discount="getRowBill(row).subtotal_before_discount"
+                :discount-total="getRowBill(row).discount_total"
+                :total-amount="getRowBill(row).total_amount"
+                total-label="Tổng cộng"
+              />
             </div>
           </div>
           <span v-else>-</span>
@@ -171,7 +164,7 @@
           </div>
           <div>
             <span>Tổng cộng</span>
-            <strong>{{ formatBillMoney(getRowBillTotal(row)) }}</strong>
+            <strong>{{ formatBillMoney(getRowBill(row).total_amount) }}</strong>
           </div>
         </div>
 
@@ -262,6 +255,8 @@ import {
   formatBranchNameFromRow,
   formatBranchTooltipFromRow,
 } from "@/utils/branchDisplay";
+import BillSummary from "@/components/BillSummary.vue";
+import { computeBillTotals, collectOrderItemsFromRow } from "@/utils/billTotals";
 
 const reservations = ref([]);
 const loading = ref(true);
@@ -276,17 +271,22 @@ function groupReservationsForDisplay(rows) {
 
   for (const row of rows) {
     if (row.tables?.length) {
+      const mergedOrderItems = row.OrderItems || [];
+      const bill = computeBillTotals(mergedOrderItems);
       result.push({
         ...row,
+        OrderItems: mergedOrderItems,
         groupTables: row.tables,
         groupOrderIds: [row.order_id],
+        ...bill,
       });
       continue;
     }
 
     const gid = row.booking_group_id;
     if (!gid) {
-      result.push(row);
+      const bill = computeBillTotals(row.OrderItems || []);
+      result.push({ ...row, ...bill });
       continue;
     }
     if (seen.has(gid)) continue;
@@ -296,17 +296,13 @@ function groupReservationsForDisplay(rows) {
     const tables = group.map((r) => r.Table).filter(Boolean);
     const primary = group.reduce((a, b) => (a.order_id < b.order_id ? a : b));
     const mergedOrderItems = group.flatMap((r) => r.OrderItems || []);
+    const bill = computeBillTotals(mergedOrderItems);
     result.push({
       ...primary,
       OrderItems: mergedOrderItems,
       groupTables: tables,
       groupOrderIds: group.map((r) => r.order_id),
-      subtotal_before_discount: group.reduce(
-        (s, r) => s + Number(r.subtotal_before_discount || 0),
-        0
-      ),
-      discount_total: group.reduce((s, r) => s + Number(r.discount_total || 0), 0),
-      bill_total: group.reduce((s, r) => s + Number(r.bill_total || 0), 0),
+      ...bill,
     });
   }
 
@@ -370,39 +366,16 @@ function formatBillMoney(amount) {
   return n.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
 }
 
-function getRowBillTotal(row) {
-  if (row?.bill_total != null) return Number(row.bill_total) || 0;
-  return calculateRowSubtotal(row);
-}
-
-function getRowSubtotalBeforeDiscount(row) {
-  if (row?.subtotal_before_discount != null) {
-    return Number(row.subtotal_before_discount) || 0;
+function getRowBill(row) {
+  if (Array.isArray(row?.items) && row.items.length) {
+    return {
+      items: row.items,
+      subtotal_before_discount: Number(row.subtotal_before_discount) || 0,
+      discount_total: Number(row.discount_total) || 0,
+      total_amount: Number(row.total_amount) || 0,
+    };
   }
-  return getRowBillTotal(row);
-}
-
-function getRowDiscountTotal(row) {
-  return Number(row?.discount_total) || 0;
-}
-
-function calculateItemsSubtotal(items) {
-  if (!items || !Array.isArray(items)) return 0;
-  return items.reduce((sum, item) => {
-    const menu = item.MenuItem;
-    const price = Number(item.price ?? menu?.price ?? 0);
-    const quantity = Number(item.quantity || 0);
-    return sum + price * quantity;
-  }, 0);
-}
-
-function calculateRowSubtotal(row) {
-  if (row?.OrderItems?.length) return calculateItemsSubtotal(row.OrderItems);
-  if (!row?.Orders || !Array.isArray(row.Orders)) return 0;
-  return row.Orders.reduce(
-    (sum, order) => sum + calculateItemsSubtotal(order.OrderItems),
-    0
-  );
+  return computeBillTotals(collectOrderItemsFromRow(row));
 }
 
 /** Trạng thái dùng bữa đồng bộ với bàn (admin/waiter cập nhật trạng thái bàn → user thấy ngay) */
@@ -544,27 +517,20 @@ onMounted(fetchReservations);
 .invoice {
   margin-top: var(--hl-space-xs);
   padding-top: var(--hl-space-xs);
-  font-size: 14px;
   border-top: 1px dashed var(--hl-border);
 }
 
-.invoice-row {
-  line-height: 1.5;
+.invoice :deep(.bill-summary__item) {
+  padding: 6px 0;
 }
 
-.invoice-row--muted {
-  color: var(--hl-text-muted);
+.invoice :deep(.bill-summary__item-name) {
+  font-size: 13px;
 }
 
-.invoice-row--discount {
-  color: #16a34a;
-  font-weight: 500;
-}
-
-.invoice-row--total {
-  margin-top: 2px;
-  font-weight: 600;
-  color: var(--hl-success);
+.invoice :deep(.bill-summary__totals) {
+  margin-top: 8px;
+  padding-top: 8px;
 }
 
 .review-cell {

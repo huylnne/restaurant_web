@@ -1,6 +1,7 @@
 const { Order, OrderItem, MenuItem, Table } = require("../models");
 const { Op } = require("sequelize");
 const { activeOrderStatusWhere } = require("../utils/orderStatus");
+const { resolveMenuItemUnitPrice } = require("../utils/menuItemPrice");
 const {
   findActiveOrderByTableId,
   getTablesForOrder,
@@ -86,8 +87,22 @@ async function computeItemsTotal(orderItems) {
     const menu = oi.MenuItem;
     if (!menu) return;
 
-    const unitPrice = Number(oi.price ?? menu.price) || 0;
-    const originalUnitPrice = Number(menu.price) || unitPrice;
+    const listPrice = Number(menu.price) || 0;
+    const saleUnitPrice = resolveMenuItemUnitPrice(menu);
+    const storedPrice =
+      oi.price != null && oi.price !== "" ? Number(oi.price) : null;
+
+    let unitPrice;
+    if (storedPrice != null && storedPrice > 0) {
+      unitPrice =
+        listPrice > 0 && storedPrice >= listPrice && saleUnitPrice < listPrice
+          ? saleUnitPrice
+          : storedPrice;
+    } else {
+      unitPrice = saleUnitPrice;
+    }
+
+    const originalUnitPrice = listPrice || unitPrice;
     const key = `${menu.item_id}:${unitPrice}`;
 
     if (!aggregated[key]) {
