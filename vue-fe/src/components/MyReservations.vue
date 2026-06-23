@@ -58,49 +58,28 @@
           <span v-else class="review-empty">Chưa đánh giá</span>
         </template>
       </el-table-column>
-      <el-table-column prop="note" label="Ghi chú" />
+      <el-table-column prop="note" label="Ghi chú" min-width="140" show-overflow-tooltip />
 
-      <!-- Món đã gọi -->
-      <el-table-column label="Món đã gọi">
+      <el-table-column label="Hóa đơn" width="148" fixed="right">
         <template #default="{ row }">
-          <div v-if="row.OrderItems?.length || row.Orders?.length">
-            <div v-if="row.OrderItems?.length" class="order-items">
-              <div
-                v-for="item in row.OrderItems"
-                :key="item.order_item_id"
-                class="order-item"
-              >
-                🍽️ {{ item.MenuItem?.name }} <strong>(x{{ item.quantity }})</strong>
-              </div>
+          <div v-if="hasRowBill(row)" class="bill-compact">
+            <div class="bill-compact__count">{{ getRowItemCount(row) }} món</div>
+            <div class="bill-compact__total">{{ formatBillMoney(getRowBill(row).total_amount) }}</div>
+            <div
+              v-if="getRowBill(row).discount_total > 0"
+              class="bill-compact__discount"
+            >
+              Giảm {{ formatBillMoney(getRowBill(row).discount_total) }}
             </div>
-            <template v-else>
-              <div v-for="order in row.Orders" :key="order.order_id" class="order-items">
-                <div
-                  v-for="item in order.OrderItems"
-                  :key="item.order_item_id"
-                  class="order-item"
-                >
-                  🍽️ {{ item.MenuItem?.name }} <strong>(x{{ item.quantity }})</strong>
-                </div>
-              </div>
-            </template>
-            <!-- 💰 Hoá đơn tạm tính (đồng bộ bill nhân viên, có sale) -->
-            <div v-if="getRowBill(row).items.length" class="invoice">
-              <BillSummary
-                :items="getRowBill(row).items"
-                :subtotal-before-discount="getRowBill(row).subtotal_before_discount"
-                :discount-total="getRowBill(row).discount_total"
-                :total-amount="getRowBill(row).total_amount"
-                total-label="Tổng cộng"
-              />
-            </div>
+            <router-link :to="getReservationBillRoute(row)" class="bill-compact__link">
+              Xem chi tiết
+            </router-link>
           </div>
-          <span v-else>-</span>
+          <span v-else class="bill-compact__empty">Chưa có món</span>
         </template>
       </el-table-column>
 
-      <!-- ❌ Hủy đặt bàn: chỉ khi bàn vẫn là "Đã đặt trước", chưa chuyển sang Đang phục vụ -->
-        <el-table-column label="Hành động" width="220" fixed="right">
+      <el-table-column label="Hành động" width="160" fixed="right">
           <template #default="{ row }">
             <el-button
               v-if="canCancelReservation(row)"
@@ -175,20 +154,22 @@
           Ghi chú: {{ row.note }}
         </div>
 
-        <div v-if="row.OrderItems?.length || row.Orders?.length" class="reservation-mobile-card__items">
-          <strong>Món đã gọi</strong>
-          <div v-if="row.OrderItems?.length" class="order-items">
-            <div v-for="item in row.OrderItems" :key="item.order_item_id" class="order-item">
-              {{ item.MenuItem?.name }} <strong>(x{{ item.quantity }})</strong>
-            </div>
-          </div>
-          <template v-else>
-            <div v-for="order in row.Orders" :key="order.order_id" class="order-items">
-              <div v-for="item in order.OrderItems" :key="item.order_item_id" class="order-item">
-                {{ item.MenuItem?.name }} <strong>(x{{ item.quantity }})</strong>
+        <div v-if="hasRowBill(row)" class="reservation-mobile-card__bill">
+          <div class="bill-compact bill-compact--mobile">
+            <div>
+              <span class="bill-compact__count">{{ getRowItemCount(row) }} món</span>
+              <strong class="bill-compact__total">{{ formatBillMoney(getRowBill(row).total_amount) }}</strong>
+              <div
+                v-if="getRowBill(row).discount_total > 0"
+                class="bill-compact__discount"
+              >
+                Giảm {{ formatBillMoney(getRowBill(row).discount_total) }}
               </div>
             </div>
-          </template>
+            <router-link :to="getReservationBillRoute(row)" class="bill-compact__btn">
+              Xem hóa đơn
+            </router-link>
+          </div>
         </div>
 
         <div v-if="row.Review" class="reservation-mobile-card__review">
@@ -249,14 +230,23 @@
 import { ref, computed, onMounted } from "vue";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { normalizeTableStatus, getTableStatusLabel } from "@/constants/tableStatus";
+import { normalizeTableStatus } from "@/constants/tableStatus";
 import {
   formatRestaurantNameFromRow,
   formatBranchNameFromRow,
   formatBranchTooltipFromRow,
 } from "@/utils/branchDisplay";
-import BillSummary from "@/components/BillSummary.vue";
-import { computeBillTotals, collectOrderItemsFromRow } from "@/utils/billTotals";
+import {
+  groupReservationsForDisplay,
+  getRowBill,
+  hasRowBill,
+  getRowItemCount,
+  formatBillMoney,
+  getReservationBillRoute,
+  getDiningStatusLabel,
+  formatCapacity,
+  formatTableNumber,
+} from "@/utils/reservationDisplay";
 
 const reservations = ref([]);
 const loading = ref(true);
@@ -264,50 +254,6 @@ const loading = ref(true);
 /** Gộp các bản ghi cùng booking_group_id thành một dòng hiển thị */
 const displayReservations = computed(() => groupReservationsForDisplay(reservations.value));
 
-function groupReservationsForDisplay(rows) {
-  if (!rows?.length) return [];
-  const seen = new Set();
-  const result = [];
-
-  for (const row of rows) {
-    if (row.tables?.length) {
-      const mergedOrderItems = row.OrderItems || [];
-      const bill = computeBillTotals(mergedOrderItems);
-      result.push({
-        ...row,
-        OrderItems: mergedOrderItems,
-        groupTables: row.tables,
-        groupOrderIds: [row.order_id],
-        ...bill,
-      });
-      continue;
-    }
-
-    const gid = row.booking_group_id;
-    if (!gid) {
-      const bill = computeBillTotals(row.OrderItems || []);
-      result.push({ ...row, ...bill });
-      continue;
-    }
-    if (seen.has(gid)) continue;
-    seen.add(gid);
-
-    const group = rows.filter((r) => r.booking_group_id === gid);
-    const tables = group.map((r) => r.Table).filter(Boolean);
-    const primary = group.reduce((a, b) => (a.order_id < b.order_id ? a : b));
-    const mergedOrderItems = group.flatMap((r) => r.OrderItems || []);
-    const bill = computeBillTotals(mergedOrderItems);
-    result.push({
-      ...primary,
-      OrderItems: mergedOrderItems,
-      groupTables: tables,
-      groupOrderIds: group.map((r) => r.order_id),
-      ...bill,
-    });
-  }
-
-  return result.sort((a, b) => new Date(b.arrival_time) - new Date(a.arrival_time));
-}
 const reviewDialogVisible = ref(false);
 const submittingReview = ref(false);
 const reviewForm = ref({
@@ -361,47 +307,11 @@ async function cancelReservation(id) {
   }
 }
 
-function formatBillMoney(amount) {
-  const n = Number(amount) || 0;
-  return n.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
-}
-
-function getRowBill(row) {
-  if (Array.isArray(row?.items) && row.items.length) {
-    return {
-      items: row.items,
-      subtotal_before_discount: Number(row.subtotal_before_discount) || 0,
-      discount_total: Number(row.discount_total) || 0,
-      total_amount: Number(row.total_amount) || 0,
-    };
-  }
-  return computeBillTotals(collectOrderItemsFromRow(row));
-}
-
-/** Trạng thái dùng bữa đồng bộ với bàn (admin/waiter cập nhật trạng thái bàn → user thấy ngay) */
-/** Chỉ cho hủy khi: đặt bàn đã xác nhận/pending VÀ bàn vẫn trạng thái "Đã đặt trước" (chưa chuyển Đang phục vụ) */
 function canCancelReservation(row) {
   const resStatus = (row.status || "").trim().toLowerCase();
   const tableStatus = normalizeTableStatus(row.Table?.status);
   if (!["pending", "confirmed"].includes(resStatus)) return false;
   return tableStatus === "pre-ordered";
-}
-
-function getDiningStatusLabel(row) {
-  const resStatus = (row.status || "").trim().toLowerCase();
-  const tableStatus = normalizeTableStatus(row.Table?.status);
-
-  if (resStatus === "cancelled") return "Đã hủy";
-  if (resStatus === "completed") return "Đã xong";
-  if (resStatus === "pending") return "Chờ xác nhận";
-  if (resStatus === "waiting_payment") return "Chờ thanh toán";
-
-  if (tableStatus === "occupied") return "Đang phục vụ";
-  if (tableStatus === "pre-ordered") return "Đã đặt";
-  if (tableStatus === "cleaning") return "Chờ dọn";
-  if (resStatus === "confirmed") return "Đã xác nhận";
-
-  return getTableStatusLabel(row.Table?.status) || row.status || "-";
 }
 
 function canReviewReservation(row) {
@@ -454,30 +364,6 @@ async function submitReview() {
   }
 }
 
-function formatCapacity(row) {
-  if (row?.groupTables?.length) {
-    const total = row.groupTables.reduce((s, t) => s + Number(t.capacity || 0), 0);
-    return `${total} (${row.groupTables.length} bàn)`;
-  }
-  return row?.Table?.capacity ?? "-";
-}
-
-function formatTableNumber(row) {
-  if (row?.groupTables?.length) {
-    return row.groupTables
-      .map((t) => t.table_number)
-      .filter((n) => n != null && n !== "")
-      .sort((a, b) => a - b)
-      .map((n) => `B${n}`)
-      .join(", ");
-  }
-  const tableNumber = row?.Table?.table_number;
-  if (tableNumber === null || tableNumber === undefined || tableNumber === "") {
-    return "-";
-  }
-  return `B${tableNumber}`;
-}
-
 function formatBranchName(row) {
   return formatBranchNameFromRow(row);
 }
@@ -505,32 +391,79 @@ onMounted(fetchReservations);
   display: flex;
   flex-direction: column;
   gap: var(--hl-space-xs);
-  padding: var(--hl-space-xs) 0;
 }
 
-.order-item {
+.bill-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.35;
+}
+
+.bill-compact__count {
+  font-size: 12px;
+  color: var(--hl-text-muted);
+}
+
+.bill-compact__total {
   font-size: 14px;
-  line-height: 1.4;
-  color: var(--hl-text-secondary);
+  font-weight: 700;
+  color: var(--hl-text);
 }
 
-.invoice {
-  margin-top: var(--hl-space-xs);
-  padding-top: var(--hl-space-xs);
-  border-top: 1px dashed var(--hl-border);
+.bill-compact__discount {
+  font-size: 12px;
+  color: #16a34a;
+  font-weight: 500;
 }
 
-.invoice :deep(.bill-summary__item) {
-  padding: 6px 0;
-}
-
-.invoice :deep(.bill-summary__item-name) {
+.bill-compact__link {
+  margin-top: 4px;
   font-size: 13px;
+  font-weight: 600;
+  color: var(--hl-primary);
+  text-decoration: none;
 }
 
-.invoice :deep(.bill-summary__totals) {
-  margin-top: 8px;
-  padding-top: 8px;
+.bill-compact__link:hover {
+  text-decoration: underline;
+}
+
+.bill-compact__empty {
+  font-size: 13px;
+  color: var(--hl-text-muted);
+}
+
+.bill-compact--mobile {
+  flex-direction: row;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--hl-space-sm);
+  padding: var(--hl-space-sm);
+  border-radius: var(--hl-radius-md);
+  background: var(--hl-bg-muted);
+}
+
+.bill-compact__btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 6px 12px;
+  border-radius: var(--hl-radius-md);
+  background: var(--hl-primary);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+
+.bill-compact__btn--inline {
+  flex: 1 1 120px;
+}
+
+.reservation-mobile-card__bill {
+  margin-top: var(--hl-space-md);
 }
 
 .review-cell {
@@ -579,7 +512,7 @@ onMounted(fetchReservations);
 
 .reservations-table {
   width: 100%;
-  min-width: 1080px;
+  min-width: 960px;
 }
 
 .reservations-mobile-list {

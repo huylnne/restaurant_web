@@ -20,6 +20,7 @@ const UserProfile = () => import('@/views/UserProfile.vue');
 const OrderMenu = () => import('@/views/Ordermenu.vue');
 const Booking = () => import('@/views/Booking.vue');
 const MyTable = () => import('@/views/MyTable.vue');
+const ReservationBill = () => import('@/views/ReservationBillView.vue');
 const TableQr = () => import('@/views/TableQr.vue');
 const AboutView = () => import('@/views/AboutView.vue');
 const SaleView = () => import('@/views/SaleView.vue');
@@ -55,6 +56,12 @@ const routes = [
       { path: 'order-menu', name: 'OrderMenu', component: OrderMenu },
       { path: 'dashboard', name: 'UserDashboard', component: UserDashboard, meta: { requiresAuth: true } },
       { path: 'profile', name: 'UserProfile', component: UserProfile },
+      {
+        path: 'profile/reservations/:orderId/bill',
+        name: 'ReservationBill',
+        component: ReservationBill,
+        meta: { requiresAuth: true },
+      },
       { path: 'my-table', name: 'MyTable', component: MyTable, meta: { requiresAuth: true } },
       { path: 't/:token', name: 'TableQr', component: TableQr },
       // Routes quản lý: meta.allowedRoles – kitchen chỉ được vào /admin/kitchen

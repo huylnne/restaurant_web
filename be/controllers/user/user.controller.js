@@ -50,6 +50,23 @@ exports.getReservationsWithOrders = async (req, res) => {
   }
 };
 
+//  Chi tiết hóa đơn một lượt đặt bàn
+exports.getReservationBill = async (req, res) => {
+  try {
+    const bill = await userService.getReservationBill(req.userId, req.params.orderId);
+    res.status(200).json(bill);
+  } catch (err) {
+    if (err.message === "ORDER_NOT_FOUND") {
+      return res.status(404).json({ message: "Không tìm thấy lượt đặt bàn" });
+    }
+    if (err.message === "ORDER_ID_INVALID") {
+      return res.status(400).json({ message: "Mã đơn không hợp lệ" });
+    }
+    console.error("❌ Lỗi khi lấy hóa đơn đặt bàn:", err);
+    res.status(500).json({ message: "Không thể lấy hóa đơn" });
+  }
+};
+
 //  Lấy bàn/đơn hiện tại của user (phiên đang dùng)
 exports.getCurrentTableSession = async (req, res) => {
   try {

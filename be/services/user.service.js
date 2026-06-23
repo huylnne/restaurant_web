@@ -77,6 +77,107 @@ function mapOrderForHistory(row, billTotals = null) {
   };
 }
 
+const reservationHistoryInclude = [
+  {
+    model: OrderItem,
+    required: false,
+    attributes: ["order_item_id", "item_id", "quantity", "price"],
+    include: [{ model: MenuItem, attributes: ["name", "price", "sale_price"] }],
+  },
+  {
+    model: Table,
+    attributes: ["table_number", "capacity", "status"],
+  },
+  {
+    model: OrderTable,
+    required: false,
+    include: [
+      {
+        model: Table,
+        attributes: ["table_id", "table_number", "capacity", "status"],
+      },
+    ],
+  },
+  {
+    model: Branch,
+    attributes: ["branch_id", "name", "address"],
+  },
+  {
+    model: Review,
+    attributes: ["review_id", "rating", "comment", "created_at"],
+    required: false,
+  },
+  {
+    model: Payment,
+    attributes: ["payment_id", "status", "method", "paid_at"],
+    required: false,
+  },
+];
+
+async function loadReservationOrdersForBill(userId, orderId) {
+  const sessionOrderId = Number(orderId);
+  if (!Number.isInteger(sessionOrderId) || sessionOrderId <= 0) {
+    throw new Error("ORDER_ID_INVALID");
+  }
+
+  const order = await Order.findOne({
+    where: {
+      order_id: sessionOrderId,
+      user_id: userId,
+      order_type: "reservation",
+    },
+    include: reservationHistoryInclude,
+  });
+  if (!order) return null;
+
+  const groupId = order.booking_group_id;
+  if (!groupId) return [order];
+
+  const groupOrders = await Order.findAll({
+    where: {
+      booking_group_id: groupId,
+      user_id: userId,
+      order_type: "reservation",
+    },
+    include: reservationHistoryInclude,
+    order: [["order_id", "ASC"]],
+  });
+
+  return groupOrders.length ? groupOrders : [order];
+}
+
+exports.getReservationBill = async (userId, orderId) => {
+  const orders = await loadReservationOrdersForBill(userId, orderId);
+  if (!orders?.length) {
+    throw new Error("ORDER_NOT_FOUND");
+  }
+
+  const primary = orders[0];
+  const allItems = orders.flatMap((o) => o.OrderItems || []);
+  const billTotals = await computeItemsTotal(allItems);
+  const mapped = mapOrderForHistory(primary, billTotals);
+
+  const groupTables = orders.flatMap((o) => {
+    const json = o.toJSON ? o.toJSON() : o;
+    const linked = (json.OrderTables || []).map((link) => link.Table).filter(Boolean);
+    if (linked.length) return linked;
+    return json.Table ? [json.Table] : [];
+  });
+
+  const uniqueTables = [...new Map(groupTables.map((t) => [t.table_id, t])).values()].sort(
+    (a, b) => a.table_number - b.table_number
+  );
+
+  return {
+    ...mapped,
+    OrderItems: allItems,
+    tables: uniqueTables.length ? uniqueTables : mapped.tables,
+    groupTables: uniqueTables.length > 1 ? uniqueTables : undefined,
+    groupOrderIds: orders.map((o) => o.order_id),
+    multiTable: uniqueTables.length > 1 || orders.length > 1,
+  };
+};
+
 exports.getReservationsWithOrders = async (userId) => {
   try {
     const orders = await Order.findAll({
@@ -95,42 +196,7 @@ exports.getReservationsWithOrders = async (userId) => {
         "total_amount",
         "created_at",
       ],
-      include: [
-        {
-          model: OrderItem,
-          required: false,
-          attributes: ["order_item_id", "item_id", "quantity", "price"],
-          include: [{ model: MenuItem, attributes: ["name", "price", "sale_price"] }],
-        },
-        {
-          model: Table,
-          attributes: ["table_number", "capacity", "status"],
-        },
-        {
-          model: OrderTable,
-          required: false,
-          include: [
-            {
-              model: Table,
-              attributes: ["table_id", "table_number", "capacity", "status"],
-            },
-          ],
-        },
-        {
-          model: Branch,
-          attributes: ["branch_id", "name", "address"],
-        },
-        {
-          model: Review,
-          attributes: ["review_id", "rating", "comment", "created_at"],
-          required: false,
-        },
-        {
-          model: Payment,
-          attributes: ["payment_id", "status", "method", "paid_at"],
-          required: false,
-        },
-      ],
+      include: reservationHistoryInclude,
       order: [["arrival_time", "DESC"]],
     });
 

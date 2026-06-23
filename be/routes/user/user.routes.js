@@ -30,6 +30,7 @@ router.post(
   }),
   userController.changePassword
 );
+router.get('/reservations/:orderId/bill', verifyToken, userController.getReservationBill);
 router.get('/reservations', verifyToken, userController.getReservationsWithOrders);
 router.get('/me/current-table', verifyToken, userController.getCurrentTableSession);
 router.get('/me/current-bill', verifyToken, userController.getCurrentBill);
