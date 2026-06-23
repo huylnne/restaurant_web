@@ -48,7 +48,7 @@
       <!-- Top Bar -->
       <div class="top-bar">
         <span>Chào mừng bạn đến với {{ BRAND.name }}!</span>
-        <router-link to="/branches/nearby" class="top-bar-branches">📍 Chi nhánh gần bạn</router-link>
+        <router-link to="/branches/nearby" class="top-bar-branches">Chi nhánh gần bạn</router-link>
         <div class="right-links">
           <template v-if="!isLoggedIn">
             <router-link to="/login" class="nav-link" active-class="active">

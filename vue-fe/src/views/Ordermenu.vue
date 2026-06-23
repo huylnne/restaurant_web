@@ -1,5 +1,5 @@
 <template>
-  <div>
+  <div class="order-menu-page" :class="{ 'order-menu-page--has-cart': selectedItems.length }">
     <el-card class="order-menu-card">
       <h2>Đặt món trước cho bàn đã đặt</h2>
       <p v-if="branchLabel" class="branch-banner">
@@ -49,10 +49,13 @@
           </el-card>
         </el-col>
       </el-row>
-      <section v-if="selectedItems.length" class="selected-order">
+    </el-card>
+
+    <aside v-if="selectedItems.length" class="order-cart-dock" aria-label="Món đã chọn">
+      <section class="selected-order">
         <div class="selected-order__head">
           <h3>Món đã chọn</h3>
-          <span>{{ selectedItems.length }} món</span>
+          <span>{{ selectedItems.length }} món · {{ totalSelectedQty }} phần</span>
         </div>
         <div class="selected-order__list">
           <div v-for="item in selectedItems" :key="'selected-' + item.item_id" class="selected-order__item">
@@ -69,7 +72,7 @@
           </div>
         </div>
       </section>
-      <div v-if="menu.length > 0" class="submit-order-bar">
+      <div class="submit-order-bar">
         <el-button
           type="primary"
           size="large"
@@ -79,7 +82,7 @@
           Gửi đơn món đã chọn
         </el-button>
       </div>
-    </el-card>
+    </aside>
   </div>
 </template>
 
@@ -206,6 +209,10 @@ const selectedItems = computed(() =>
     })
 );
 
+const totalSelectedQty = computed(() =>
+  selectedItems.value.reduce((sum, item) => sum + item.quantity, 0)
+);
+
 const addDishToOrder = (dish) => {
   const itemId = Number(dish?.item_id);
   if (!itemId) return;
@@ -216,7 +223,6 @@ const addDishToOrder = (dish) => {
     return;
   }
   order.value[itemId] = currentQty + 1;
-  ElMessage.success(`Đã thêm ${dish.name} vào đơn.`);
 };
 
 const decreaseDishQty = (dish) => {
@@ -257,6 +263,29 @@ const submitOrder = async () => {
 </script>
 
 <style scoped>
+.order-menu-page {
+  position: relative;
+}
+
+.order-menu-page--has-cart {
+  padding-bottom: clamp(180px, 28vh, 280px);
+}
+
+.order-cart-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  max-width: 1080px;
+  margin: 0 auto;
+  padding: var(--hl-space-sm) var(--hl-space-md) calc(var(--hl-space-sm) + env(safe-area-inset-bottom, 0px));
+  background: rgba(255, 255, 255, 0.96);
+  border-top: 1px solid #fed7aa;
+  box-shadow: 0 -8px 24px rgba(15, 23, 42, 0.12);
+  backdrop-filter: blur(12px);
+}
+
 .order-menu-highlights {
   margin-bottom: var(--hl-space-lg);
 }
@@ -300,8 +329,8 @@ const submitOrder = async () => {
 }
 
 .selected-order {
-  margin: var(--hl-space-xl) 0 var(--hl-space-lg);
-  padding: var(--hl-space-md);
+  margin: 0 0 var(--hl-space-sm);
+  padding: var(--hl-space-sm) var(--hl-space-md);
   background: #fffaf0;
   border: 1px solid #fed7aa;
   border-radius: var(--hl-radius-lg);
@@ -330,6 +359,9 @@ const submitOrder = async () => {
   display: flex;
   flex-direction: column;
   gap: var(--hl-space-sm);
+  max-height: min(28vh, 220px);
+  overflow-y: auto;
+  padding-right: 2px;
 }
 
 .selected-order__item {
@@ -434,17 +466,9 @@ const submitOrder = async () => {
 }
 
 .submit-order-bar {
-  position: sticky;
-  bottom: 12px;
-  z-index: 2;
   display: flex;
   justify-content: flex-end;
-  margin-top: var(--hl-space-lg);
-  padding: var(--hl-space-sm);
-  background: rgba(255, 255, 255, 0.82);
-  border: 1px solid var(--hl-border-light);
-  border-radius: var(--hl-radius-lg);
-  backdrop-filter: blur(10px);
+  padding: 0 var(--hl-space-xs);
 }
 
 .menu-col {
@@ -462,6 +486,15 @@ const submitOrder = async () => {
 }
 
 @media (max-width: 640px) {
+  .order-cart-dock {
+    padding-left: 10px;
+    padding-right: 10px;
+  }
+
+  .order-menu-page--has-cart {
+    padding-bottom: clamp(200px, 34vh, 320px);
+  }
+
   .order-menu-card {
     margin: var(--hl-space-lg) 10px;
     padding: var(--hl-space-md);
