@@ -3,6 +3,7 @@ const User = db.User;
 const { Order, OrderItem, MenuItem, Table, Payment, Review, Branch, OrderTable } = require("../models");
 const { activeOrderStatusWhere } = require("../utils/orderStatus");
 const { splitRestaurantAndBranch } = require("../utils/branchDisplay");
+const { computeItemsTotal } = require("./bill.service");
 const DEFAULT_AVATAR_URL =
   "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
 
@@ -47,7 +48,7 @@ exports.changePassword = async (userId, currentPassword, newPassword) => {
   return true;
 };
 
-function mapOrderForHistory(row) {
+function mapOrderForHistory(row, billTotals = null) {
   const json = row.toJSON ? row.toJSON() : row;
   const { restaurant_name, branch_display_name } = splitRestaurantAndBranch(json.Branch?.name);
   const linkedTables = (json.OrderTables || [])
@@ -68,6 +69,9 @@ function mapOrderForHistory(row) {
     multiTable: linkedTables.length > 1,
     restaurant_name,
     branch_display_name,
+    subtotal_before_discount: billTotals?.subtotalBeforeDiscount ?? 0,
+    discount_total: billTotals?.discountTotal ?? 0,
+    bill_total: billTotals?.totalAmount ?? 0,
   };
 }
 
@@ -93,7 +97,8 @@ exports.getReservationsWithOrders = async (userId) => {
         {
           model: OrderItem,
           required: false,
-          include: [{ model: MenuItem, attributes: ["name", "price"] }],
+          attributes: ["order_item_id", "item_id", "quantity", "price"],
+          include: [{ model: MenuItem, attributes: ["name", "price", "sale_price"] }],
         },
         {
           model: Table,
@@ -127,7 +132,12 @@ exports.getReservationsWithOrders = async (userId) => {
       order: [["arrival_time", "DESC"]],
     });
 
-    return orders.map(mapOrderForHistory);
+    const mapped = [];
+    for (const order of orders) {
+      const billTotals = await computeItemsTotal(order.OrderItems || []);
+      mapped.push(mapOrderForHistory(order, billTotals));
+    }
+    return mapped;
   } catch (error) {
     console.error("Lỗi getReservationsWithOrders:", error);
     throw new Error("Không thể lấy lịch sử đặt bàn");

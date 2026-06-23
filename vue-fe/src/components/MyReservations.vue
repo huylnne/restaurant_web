@@ -84,15 +84,22 @@
                 </div>
               </div>
             </template>
-            <!-- 💰 Hoá đơn tạm tính -->
+            <!-- 💰 Hoá đơn tạm tính (đồng bộ với bill nhân viên) -->
             <div class="invoice">
-              💰 <strong>Tạm tính:</strong>
-              {{
-                calculateRowSubtotal(row).toLocaleString("vi-VN", {
-                  style: "currency",
-                  currency: "VND",
-                })
-              }}
+              <template v-if="getRowDiscountTotal(row) > 0">
+                <div class="invoice-row invoice-row--muted">
+                  Tạm tính:
+                  {{ formatBillMoney(getRowSubtotalBeforeDiscount(row)) }}
+                </div>
+                <div class="invoice-row invoice-row--discount">
+                  Giảm giá:
+                  - {{ formatBillMoney(getRowDiscountTotal(row)) }}
+                </div>
+              </template>
+              <div class="invoice-row invoice-row--total">
+                💰 <strong>Tổng cộng:</strong>
+                {{ formatBillMoney(getRowBillTotal(row)) }}
+              </div>
             </div>
           </div>
           <span v-else>-</span>
@@ -163,15 +170,8 @@
             <strong>{{ formatCapacity(row) }}</strong>
           </div>
           <div>
-            <span>Tạm tính</span>
-            <strong>
-              {{
-                calculateRowSubtotal(row).toLocaleString("vi-VN", {
-                  style: "currency",
-                  currency: "VND",
-                })
-              }}
-            </strong>
+            <span>Tổng cộng</span>
+            <strong>{{ formatBillMoney(getRowBillTotal(row)) }}</strong>
           </div>
         </div>
 
@@ -295,10 +295,18 @@ function groupReservationsForDisplay(rows) {
     const group = rows.filter((r) => r.booking_group_id === gid);
     const tables = group.map((r) => r.Table).filter(Boolean);
     const primary = group.reduce((a, b) => (a.order_id < b.order_id ? a : b));
+    const mergedOrderItems = group.flatMap((r) => r.OrderItems || []);
     result.push({
       ...primary,
+      OrderItems: mergedOrderItems,
       groupTables: tables,
       groupOrderIds: group.map((r) => r.order_id),
+      subtotal_before_discount: group.reduce(
+        (s, r) => s + Number(r.subtotal_before_discount || 0),
+        0
+      ),
+      discount_total: group.reduce((s, r) => s + Number(r.discount_total || 0), 0),
+      bill_total: group.reduce((s, r) => s + Number(r.bill_total || 0), 0),
     });
   }
 
@@ -357,10 +365,32 @@ async function cancelReservation(id) {
   }
 }
 
+function formatBillMoney(amount) {
+  const n = Number(amount) || 0;
+  return n.toLocaleString("vi-VN", { style: "currency", currency: "VND" });
+}
+
+function getRowBillTotal(row) {
+  if (row?.bill_total != null) return Number(row.bill_total) || 0;
+  return calculateRowSubtotal(row);
+}
+
+function getRowSubtotalBeforeDiscount(row) {
+  if (row?.subtotal_before_discount != null) {
+    return Number(row.subtotal_before_discount) || 0;
+  }
+  return getRowBillTotal(row);
+}
+
+function getRowDiscountTotal(row) {
+  return Number(row?.discount_total) || 0;
+}
+
 function calculateItemsSubtotal(items) {
   if (!items || !Array.isArray(items)) return 0;
   return items.reduce((sum, item) => {
-    const price = Number(item.MenuItem?.price || 0);
+    const menu = item.MenuItem;
+    const price = Number(item.price ?? menu?.price ?? 0);
     const quantity = Number(item.quantity || 0);
     return sum + price * quantity;
   }, 0);
@@ -514,10 +544,27 @@ onMounted(fetchReservations);
 .invoice {
   margin-top: var(--hl-space-xs);
   padding-top: var(--hl-space-xs);
-  font-weight: 600;
   font-size: 14px;
-  color: var(--hl-success);
   border-top: 1px dashed var(--hl-border);
+}
+
+.invoice-row {
+  line-height: 1.5;
+}
+
+.invoice-row--muted {
+  color: var(--hl-text-muted);
+}
+
+.invoice-row--discount {
+  color: #16a34a;
+  font-weight: 500;
+}
+
+.invoice-row--total {
+  margin-top: 2px;
+  font-weight: 600;
+  color: var(--hl-success);
 }
 
 .review-cell {

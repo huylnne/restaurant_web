@@ -246,4 +246,5 @@ module.exports = {
   findActiveOrderByUser,
   findGroupSessionOrders,
   resolvePrimaryBillingOrder,
+  computeItemsTotal,
 };

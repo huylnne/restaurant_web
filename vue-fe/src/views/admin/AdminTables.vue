@@ -1000,6 +1000,7 @@ const fetchTableBill = async (table_id) => {
 
 const fetchTablePayment = async (table_id) => {
   if (!table_id) return;
+  const prevStatus = paymentInfo.value?.status || "";
   paymentLoading.value = true;
   try {
     const token = localStorage.getItem("token");
@@ -1016,6 +1017,15 @@ const fetchTablePayment = async (table_id) => {
     }
     if (paymentInfo.value?.method) {
       paymentMethod.value = paymentInfo.value.method;
+    }
+    const newStatus = paymentInfo.value?.status || "";
+    if (
+      newStatus === "succeeded" &&
+      prevStatus !== "succeeded" &&
+      (showDetailDialog.value || showQrDialog.value)
+    ) {
+      closePaymentDialogs();
+      ElMessage.success("Đã xác nhận thanh toán thành công");
     }
   } catch (err) {
     paymentInfo.value = null;
@@ -1226,6 +1236,13 @@ const stopQrPaymentPolling = () => {
   }
 };
 
+const closePaymentDialogs = () => {
+  stopQrPaymentPolling();
+  showQrDialog.value = false;
+  showDetailDialog.value = false;
+  showEditDialogVisible.value = false;
+};
+
 const pollQrPaymentStatus = async () => {
   if (!qrPaymentOrderId.value) return;
   try {
@@ -1233,6 +1250,7 @@ const pollQrPaymentStatus = async () => {
     qrPaymentStatus.value = res.data?.status || "";
     if (qrPaymentStatus.value === "succeeded") {
       stopQrPaymentPolling();
+      closePaymentDialogs();
       ElMessage.success("SEPay đã xác nhận thanh toán");
       if (selectedTable.value?.table_id) {
         fetchTablePayment(selectedTable.value.table_id);
@@ -1364,6 +1382,7 @@ const finalizePayment = async () => {
     );
     paymentInfo.value = res.data?.payment || null;
     ElMessage.success("Đã xác nhận thanh toán");
+    closePaymentDialogs();
     if (selectedTable.value?.table_id) {
       fetchTableBill(selectedTable.value.table_id);
       fetchTableOrders(selectedTable.value.table_id);
