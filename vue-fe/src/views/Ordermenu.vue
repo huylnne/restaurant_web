@@ -265,6 +265,9 @@ const submitOrder = async () => {
 <style scoped>
 .order-menu-page {
   position: relative;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
 }
 
 .order-menu-page--has-cart {
@@ -277,8 +280,10 @@ const submitOrder = async () => {
   right: 0;
   bottom: 0;
   z-index: 100;
+  width: 100%;
   max-width: 1080px;
   margin: 0 auto;
+  box-sizing: border-box;
   padding: var(--hl-space-sm) var(--hl-space-md) calc(var(--hl-space-sm) + env(safe-area-inset-bottom, 0px));
   background: rgba(255, 255, 255, 0.96);
   border-top: 1px solid #fed7aa;
@@ -485,6 +490,21 @@ const submitOrder = async () => {
   margin-bottom: calc(var(--hl-space-lg) * -1);
 }
 
+@media (max-width: 768px) {
+  .order-menu-card {
+    margin: var(--hl-space-lg) var(--hl-space-sm);
+    padding: var(--hl-space-md);
+  }
+
+  .order-menu-card h2 {
+    font-size: 1.35rem;
+  }
+
+  .selected-order__list {
+    max-height: min(24vh, 180px);
+  }
+}
+
 @media (max-width: 640px) {
   .order-cart-dock {
     padding-left: 10px;
@@ -493,6 +513,15 @@ const submitOrder = async () => {
 
   .order-menu-page--has-cart {
     padding-bottom: clamp(200px, 34vh, 320px);
+  }
+
+  .selected-order__head {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .selected-order__head span {
+    font-size: 0.8rem;
   }
 
   .order-menu-card {
@@ -535,6 +564,20 @@ const submitOrder = async () => {
   .selected-order__actions .el-button,
   .submit-order-bar .el-button {
     flex: 1;
+  }
+}
+
+@media (max-width: 480px) {
+  .order-menu-page--has-cart {
+    padding-bottom: clamp(220px, 42vh, 380px);
+  }
+
+  .order-menu-card h2 {
+    font-size: 1.2rem;
+  }
+
+  .selected-order__list {
+    max-height: min(20vh, 140px);
   }
 }
 </style>

@@ -84,35 +84,15 @@ import { BRAND } from "@/config/siteContent";
 import { Location } from "@element-plus/icons-vue";
 import { useRouter } from "vue-router";
 const router = useRouter();
-import { Search } from "@element-plus/icons-vue";
-import { ShoppingCart } from "@element-plus/icons-vue";
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import axios from "axios";
-import { SwitchButton } from "@element-plus/icons-vue";
-import { ElMessage, ElMessageBox } from "element-plus";
-import { apiUrl } from "@/config/api";
+import { ElMessage } from "element-plus";
 
 const realImages = [
   "/images/homeimg1.png",
   "/images/homeimg2.png",
   "/images/homeimg3.png",
 ];
-
-const logout = async () => {
-  try {
-    await ElMessageBox.confirm("Bạn có chắc muốn đăng xuất?", "Xác nhận", {
-      confirmButtonText: "Đăng xuất",
-      cancelButtonText: "Hủy",
-      type: "warning",
-    });
-  } catch {
-    return;
-  }
-  localStorage.removeItem("token");
-  isLoggedIn.value = false;
-  user.value = null;
-  router.push("/").then(() => location.reload());
-};
 
 const images = [realImages[realImages.length - 1], ...realImages, realImages[0]];
 const currentIndex = ref(1);
@@ -168,34 +148,6 @@ onMounted(async () => {
   }
 });
 
-const user = ref(null);
-const isLoggedIn = ref(false);
-
-onMounted(async () => {
-  const token = localStorage.getItem("token");
-  if (token) {
-    try {
-      const res = await axios.get("/api/users/me", {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      user.value = res.data;
-
-      isLoggedIn.value = true;
-    } catch (err) {
-      console.error("Token lỗi hoặc hết hạn:", err);
-    }
-  }
-});
-
-const DEFAULT_AVATAR = "https://maunhi.com/wp-content/uploads/2025/04/avatar-facebook-mac-dinh-3.jpeg";
-
-const getAvatarUrl = (path) => {
-  if (!path || (typeof path === "string" && !path.trim())) return DEFAULT_AVATAR;
-  if (path.startsWith("http")) return path;
-  if (path.startsWith("/uploads")) return apiUrl(path);
-  return path;
-};
-
 const dishGrid = ref(null);
 const dishCards = ref([]);
 
@@ -210,32 +162,6 @@ const scrollByCard = (direction) => {
 
 const scrollLeft = () => scrollByCard("left");
 const scrollRight = () => scrollByCard("right");
-
-const allMenuItems = ref([]);
-const currentPage = ref(1);
-const totalPages = ref(1);
-const limit = 10;
-
-const allDishesSection = ref(null);
-const scrollToAllDishes = () => {
-  if (allDishesSection.value) {
-    allDishesSection.value.scrollIntoView({ behavior: "smooth" });
-  }
-};
-
-const nextPage = () => {
-  if (currentPage.value < totalPages.value) {
-    currentPage.value++;
-    fetchPaginatedMenu();
-  }
-};
-
-const prevPage = () => {
-  if (currentPage.value > 1) {
-    currentPage.value--;
-    fetchPaginatedMenu();
-  }
-};
 
 const handleOrderClick = (dish) => {
   const order = JSON.parse(localStorage.getItem("activeOrder") || "null");
@@ -426,21 +352,6 @@ const handleOrderClick = (dish) => {
     flex-wrap: wrap;
     gap: 10px;
   }
-}
-
-.nav-menu_icon {
-  margin-left: auto;
-  display: flex;
-  gap: 20px;
-  align-items: center;
-}
-
-.nav-menu_icon .el-icon {
-  font-size: 22px;
-}
-
-.nav-menu_icon .el-icon:hover {
-  cursor: pointer;
 }
 
 .zigzag-border {

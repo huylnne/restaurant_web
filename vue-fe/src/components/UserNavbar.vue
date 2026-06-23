@@ -87,15 +87,15 @@
         </div>
         <div class="info-items">
           <div class="info">
-            <span class="icon">🕒</span>
+            <el-icon class="info-icon"><Clock /></el-icon>
             <div><strong>OPEN:</strong><br />{{ BRAND.hoursDisplay }}</div>
           </div>
           <div class="info">
-            <span class="icon">✉️</span>
+            <el-icon class="info-icon"><Message /></el-icon>
             <div><strong>EMAIL:</strong><br />{{ BRAND.email }}</div>
           </div>
           <div class="info">
-            <span class="icon">📞</span>
+            <el-icon class="info-icon"><Phone /></el-icon>
             <div><strong>HOTLINE:</strong><br />{{ BRAND.hotline }}</div>
           </div>
         </div>
@@ -139,11 +139,6 @@
             Quản lý nhà hàng
           </router-link>
         </template>
-
-        <div class="nav-menu_icon">
-          <el-icon><Search /></el-icon>
-          <el-icon><ShoppingCart /></el-icon>
-        </div>
       </nav>
 
       <div class="zigzag-border"></div>
@@ -154,7 +149,7 @@
 <script setup>
 import { ref, onMounted, computed } from "vue";
 import { useRouter, useRoute } from "vue-router";
-import { Search, ShoppingCart, SwitchButton, Location } from "@element-plus/icons-vue";
+import { SwitchButton, Location, Clock, Message, Phone } from "@element-plus/icons-vue";
 import axios from "axios";
 import { isStaffRole as checkStaffRole, getDefaultStaffPath } from "@/utils/auth.js";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -216,7 +211,6 @@ onMounted(async () => {
       });
       user.value = res.data;
       isLoggedIn.value = true;
-      console.log("User info:", user.value);
     } catch (err) {
       console.error("Token lỗi hoặc hết hạn:", err);
       ElMessage.warning("Phiên đăng nhập hết hạn, vui lòng đăng nhập lại.");
@@ -235,13 +229,6 @@ const getAvatarUrl = (path) => {
   if (path.startsWith("http")) return path;
   if (path.startsWith("/uploads")) return apiUrl(path);
   return path;
-};
-
-const scrollToAllDishes = () => {
-  const section = document.querySelector('[ref="allDishesSection"]');
-  if (section) {
-    section.scrollIntoView({ behavior: "smooth" });
-  }
 };
 </script>
 
@@ -330,8 +317,11 @@ const scrollToAllDishes = () => {
   align-items: center;
   gap: var(--hl-space-sm);
 }
-.icon {
-  font-size: 18px;
+.info-icon {
+  font-size: 20px;
+  color: var(--hl-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 .logo-wrapper {
   width: 160px;
@@ -387,20 +377,6 @@ const scrollToAllDishes = () => {
 }
 .dropdown:hover .dropdown-content {
   display: flex;
-}
-.nav-menu_icon {
-  margin-left: auto;
-  display: flex;
-  gap: var(--hl-space-lg);
-  align-items: center;
-}
-.nav-menu_icon .el-icon {
-  font-size: 22px;
-  color: var(--hl-text-secondary);
-}
-.nav-menu_icon .el-icon:hover {
-  cursor: pointer;
-  color: var(--hl-primary);
 }
 .zigzag-border {
   position: absolute;
@@ -548,14 +524,15 @@ const scrollToAllDishes = () => {
 
   .info-items {
     width: 100%;
-    flex-direction: row;
-    gap: var(--hl-space-sm);
-    justify-content: space-between;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--hl-space-md);
   }
 
   .info {
     min-width: 0;
-    flex: 1;
+    width: 100%;
+    align-items: flex-start;
   }
 
   .info div {
@@ -579,19 +556,12 @@ const scrollToAllDishes = () => {
     flex: 0 0 auto;
     white-space: nowrap;
   }
-
-  .nav-menu_icon {
-    flex: 0 0 auto;
-    margin-left: var(--hl-space-sm);
-    justify-content: flex-start;
-    padding-top: 4px;
-  }
 }
 
 @media (max-width: 480px) {
-  .info-items {
-    flex-direction: column;
-    align-items: flex-start;
+  .top-bar-branches {
+    margin-left: 0;
+    width: 100%;
   }
 
   .nav-user-loggedin {

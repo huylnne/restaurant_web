@@ -34,15 +34,15 @@
 
           <div class="info-items">
             <div class="info">
-              <span class="icon">🕒</span>
+              <el-icon class="info-icon"><Clock /></el-icon>
               <div><strong>OPEN:</strong><br />{{ BRAND.hoursDisplay }}</div>
             </div>
             <div class="info">
-              <span class="icon">✉️</span>
+              <el-icon class="info-icon"><Message /></el-icon>
               <div><strong>EMAIL:</strong><br />{{ BRAND.email }}</div>
             </div>
             <div class="info">
-              <span class="icon">📞</span>
+              <el-icon class="info-icon"><Phone /></el-icon>
               <div><strong>HOTLINE:</strong><br />{{ BRAND.hotline }}</div>
             </div>
           </div>
@@ -69,11 +69,6 @@
           <router-link to="/contact" class="nav-link" active-class="active"
             >LIÊN HỆ</router-link
           >
-
-          <div class="nav-menu_icon">
-            <el-icon><Search /></el-icon>
-            <el-icon><ShoppingCart /></el-icon>
-          </div>
         </nav>
       </div>
 
@@ -83,7 +78,7 @@
 </template>
 
 <script setup>
-import { Search, ShoppingCart } from "@element-plus/icons-vue";
+import { Clock, Message, Phone } from "@element-plus/icons-vue";
 import { BRAND } from "@/config/siteContent";
 </script>
 
@@ -173,8 +168,11 @@ import { BRAND } from "@/config/siteContent";
   gap: var(--hl-space-sm);
 }
 
-.icon {
-  font-size: 18px;
+.info-icon {
+  font-size: 20px;
+  color: var(--hl-primary);
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 .nav-menu {
@@ -222,23 +220,6 @@ import { BRAND } from "@/config/siteContent";
   display: flex;
 }
 
-.nav-menu_icon {
-  margin-left: auto;
-  display: flex;
-  gap: var(--hl-space-lg);
-  align-items: center;
-}
-
-.nav-menu_icon .el-icon {
-  font-size: 22px;
-  color: var(--hl-text-secondary);
-}
-
-.nav-menu_icon .el-icon:hover {
-  cursor: pointer;
-  color: var(--hl-primary);
-}
-
 .zigzag-border {
   width: 100%;
   height: 12px;
@@ -272,8 +253,21 @@ import { BRAND } from "@/config/siteContent";
   }
 
   .info-items {
+    width: 100%;
     flex-direction: column;
+    align-items: flex-start;
     gap: var(--hl-space-md);
+  }
+
+  .info {
+    width: 100%;
+    align-items: flex-start;
+  }
+
+  .info div {
+    font-size: 12px;
+    line-height: 1.4;
+    word-break: break-word;
   }
 
   .nav-menu {

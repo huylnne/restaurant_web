@@ -59,8 +59,6 @@
 import HomeNearbySection from "@/components/HomeNearbySection.vue";
 import { useRouter } from "vue-router";
 const router = useRouter();
-import { Search } from "@element-plus/icons-vue";
-import { ShoppingCart } from "@element-plus/icons-vue";
 import { ref, onMounted, onBeforeUnmount } from "vue";
 import axios from "axios";
 
@@ -293,21 +291,6 @@ const scrollRight = () => scrollByCard("right");
     flex-wrap: wrap;
     gap: 10px;
   }
-}
-
-.nav-menu_icon {
-  margin-left: auto;
-  display: flex;
-  gap: 20px;
-  align-items: center;
-}
-
-.nav-menu_icon .el-icon {
-  font-size: 22px; /* hoặc 24px, tuỳ bạn */
-}
-
-.nav-menu_icon .el-icon:hover {
-  cursor: pointer;
 }
 
 .zigzag-border {
