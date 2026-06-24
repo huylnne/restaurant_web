@@ -32,6 +32,7 @@ const CANCELABLE_RESERVATION_STATUSES = [
 const TERMINAL_RESERVATION_STATUSES = [
   ORDER_STATUS.COMPLETED,
   ORDER_STATUS.CANCELLED,
+  ORDER_STATUS.NO_SHOW,
 ];
 
 /** Đặt bàn còn hiển thị ở màn tiếp nhận (chưa hủy / hoàn tất) */

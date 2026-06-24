@@ -16,7 +16,7 @@ const PRE_ORDER_MINUTES = 15;
 
 /**
  * Đồng bộ trạng thái bàn dựa theo orders (phiên đặt bàn):
- *  1. No-show reservation orders → completed, giải phóng bàn
+ *  1. No-show reservation orders → no_show, giải phóng bàn
  *  2. Chuyển bàn sang 'pre-ordered' khi còn ≤ PRE_ORDER_MINUTES trước giờ đến
  */
 async function expireReservationsForBranch(branchId, cutoff) {
@@ -27,9 +27,10 @@ async function expireReservationsForBranch(branchId, cutoff) {
 
   await db.sequelize.query(
     `UPDATE orders
-     SET status = 'completed'
+     SET status = 'no_show'
      WHERE order_type = 'reservation'
-       AND status = 'confirmed'
+       AND status IN ('pending', 'confirmed')
+       AND checked_in_at IS NULL
        AND arrival_time <= :noShowDeadline
        AND table_id IN (
          SELECT table_id FROM tables

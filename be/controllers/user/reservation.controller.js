@@ -11,8 +11,20 @@ const {
 } = require("../../utils/reservationStatus");
 const { ORDER_STATUS } = require("../../utils/orderStatus");
 const { MAX_GUESTS } = require("../../middlewares/validateReservationInput");
+const { Branch } = db;
 
-const MIN_ADVANCE_MS = 15 * 60 * 1000;
+const MIN_ADVANCE_MS = 30 * 60 * 1000;
+const MAX_ADVANCE_MS = 14 * 24 * 60 * 60 * 1000;
+const CANCELLATION_MIN_HOURS = 2;
+
+function buildBranchDateTime(dateLike, timeText) {
+  if (!timeText || typeof timeText !== "string") return null;
+  const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(timeText.trim());
+  if (!m) return null;
+  const dt = new Date(dateLike);
+  dt.setHours(Number(m[1]), Number(m[2]), 0, 0);
+  return dt;
+}
 
 function mapOrderResponse(order) {
   if (!order) return null;
@@ -30,11 +42,42 @@ const createReservation = async (req, res) => {
     const { reservation_time, number_of_guests, note } = req.body;
     const branch_id = parseInt(req.body.branch_id, 10) || 1;
 
-    if (!reservation_time || new Date(reservation_time).getTime() < Date.now() + MIN_ADVANCE_MS) {
+    const reservationDate = new Date(reservation_time);
+    if (!reservation_time || Number.isNaN(reservationDate.getTime())) {
       return res.status(400).json({
-        message: "Thời gian đặt bàn phải cách hiện tại ít nhất 15 phút.",
+        message: "Thời gian đặt bàn không hợp lệ.",
       });
     }
+    const now = Date.now();
+    const reservationMs = reservationDate.getTime();
+    if (reservationMs < now + MIN_ADVANCE_MS) {
+      return res.status(400).json({
+        message: "Thời gian đặt bàn phải cách hiện tại ít nhất 30 phút.",
+      });
+    }
+    if (reservationMs > now + MAX_ADVANCE_MS) {
+      return res.status(400).json({
+        message: "Chỉ được đặt bàn tối đa trong vòng 14 ngày tới.",
+      });
+    }
+
+    const branch = await Branch.findByPk(branch_id, {
+      attributes: ["branch_id", "open_time", "close_time", "is_active"],
+    });
+    if (!branch || branch.is_active === false) {
+      return res.status(400).json({ message: "Chi nhánh không hợp lệ." });
+    }
+
+    if (branch.open_time && branch.close_time) {
+      const openAt = buildBranchDateTime(reservationDate, branch.open_time);
+      const closeAt = buildBranchDateTime(reservationDate, branch.close_time);
+      if (!openAt || !closeAt || reservationDate < openAt || reservationDate > closeAt) {
+        return res.status(400).json({
+          message: "Thời gian đặt bàn phải nằm trong giờ mở cửa của chi nhánh.",
+        });
+      }
+    }
+
     if (!number_of_guests || Number(number_of_guests) < 1) {
       return res.status(400).json({ message: "Số lượng khách không hợp lệ." });
     }
@@ -72,7 +115,9 @@ const createReservation = async (req, res) => {
       booking_group_id,
     });
   } catch (err) {
-    if (err.code === "NO_TABLE") {
+    if (
+      ["NO_TABLE", "FUTURE_LIMIT", "USER_LOCKED", "BRANCH_INVALID"].includes(err.code)
+    ) {
       return res.status(400).json({ message: err.message });
     }
     console.error("Lỗi đặt bàn:", err);
@@ -87,6 +132,36 @@ const getAvailableTables = async (req, res) => {
 
     if (!reservation_time || !guests) {
       return res.status(400).json({ message: "Thiếu thông tin yêu cầu" });
+    }
+    const reservationDate = new Date(reservation_time);
+    if (Number.isNaN(reservationDate.getTime())) {
+      return res.status(400).json({ message: "Thời gian đặt bàn không hợp lệ" });
+    }
+    const now = Date.now();
+    const reservationMs = reservationDate.getTime();
+    if (reservationMs < now + MIN_ADVANCE_MS) {
+      return res
+        .status(400)
+        .json({ message: "Thời gian đặt bàn phải cách hiện tại ít nhất 30 phút." });
+    }
+    if (reservationMs > now + MAX_ADVANCE_MS) {
+      return res.status(400).json({ message: "Chỉ được đặt bàn tối đa trong vòng 14 ngày tới." });
+    }
+
+    const branch = await Branch.findByPk(branch_id, {
+      attributes: ["branch_id", "open_time", "close_time", "is_active"],
+    });
+    if (!branch || branch.is_active === false) {
+      return res.status(400).json({ message: "Chi nhánh không hợp lệ." });
+    }
+    if (branch.open_time && branch.close_time) {
+      const openAt = buildBranchDateTime(reservationDate, branch.open_time);
+      const closeAt = buildBranchDateTime(reservationDate, branch.close_time);
+      if (!openAt || !closeAt || reservationDate < openAt || reservationDate > closeAt) {
+        return res.status(400).json({
+          message: "Thời gian đặt bàn phải nằm trong giờ mở cửa của chi nhánh.",
+        });
+      }
     }
 
     const guestCount = Number(guests);
@@ -182,6 +257,18 @@ const cancelReservation = async (req, res) => {
 
     if (!CANCELABLE_RESERVATION_STATUSES.includes(order.status)) {
       return res.status(400).json({ message: "Không thể hủy ở trạng thái này" });
+    }
+    if (order.checked_in_at) {
+      return res.status(400).json({ message: "Không thể hủy sau khi đã check-in." });
+    }
+    const arrivalMs = new Date(order.arrival_time).getTime();
+    if (
+      Number.isFinite(arrivalMs) &&
+      arrivalMs - Date.now() < CANCELLATION_MIN_HOURS * 60 * 60 * 1000
+    ) {
+      return res
+        .status(400)
+        .json({ message: "Chỉ được hủy khi còn ít nhất 2 giờ trước giờ đến." });
     }
 
     const cancelled = await reservationService.cancelReservationGroup(order);

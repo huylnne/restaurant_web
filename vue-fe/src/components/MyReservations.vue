@@ -230,7 +230,6 @@
 import { ref, computed, onMounted } from "vue";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
-import { normalizeTableStatus } from "@/constants/tableStatus";
 import {
   formatRestaurantNameFromRow,
   formatBranchNameFromRow,
@@ -309,9 +308,11 @@ async function cancelReservation(id) {
 
 function canCancelReservation(row) {
   const resStatus = (row.status || "").trim().toLowerCase();
-  const tableStatus = normalizeTableStatus(row.Table?.status);
   if (!["pending", "confirmed"].includes(resStatus)) return false;
-  return tableStatus === "pre-ordered";
+  if (row.checked_in_at) return false;
+  const arrivalMs = new Date(row.arrival_time).getTime();
+  if (!Number.isFinite(arrivalMs)) return false;
+  return arrivalMs - Date.now() >= 2 * 60 * 60 * 1000;
 }
 
 function canReviewReservation(row) {

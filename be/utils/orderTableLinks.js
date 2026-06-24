@@ -1,16 +1,29 @@
 const { Order, OrderTable, Table } = require("../models");
-const { Op } = require("sequelize");
+const { Op, Sequelize } = require("sequelize");
 const { activeOrderStatusWhere } = require("./orderStatus");
 
 const BOOKING_ORDER_TYPES = ["reservation", "walk_in"];
-const ACTIVE_CONFLICT_STATUSES = { [Op.notIn]: ["cancelled", "completed"] };
+const ACTIVE_CONFLICT_STATUSES = { [Op.notIn]: ["cancelled", "completed", "no_show"] };
 
 function buildBookingConflictWhere(branch_id, windowStart, windowEnd) {
+  const requestStart = new Date(windowStart);
+  const requestEnd = new Date(windowEnd);
   return {
     branch_id,
     order_type: { [Op.in]: BOOKING_ORDER_TYPES },
-    arrival_time: { [Op.between]: [windowStart, windowEnd] },
     status: ACTIVE_CONFLICT_STATUSES,
+    [Op.and]: [
+      { arrival_time: { [Op.lt]: requestEnd } },
+      Sequelize.where(
+        Sequelize.fn(
+          "COALESCE",
+          Sequelize.col("expected_end_time"),
+          Sequelize.literal(`"Order"."arrival_time" + interval '2 hour'`)
+        ),
+        Op.gt,
+        requestStart
+      ),
+    ],
   };
 }
 

@@ -1,6 +1,6 @@
 /**
  * Trạng thái phiên / đơn (orders.status)
- * pending | confirmed | pre-ordered | in_progress | waiting_payment | completed | cancelled
+ * pending | confirmed | pre-ordered | in_progress | waiting_payment | completed | cancelled | no_show
  */
 
 const ORDER_STATUS = {
@@ -11,6 +11,7 @@ const ORDER_STATUS = {
   WAITING_PAYMENT: "waiting_payment",
   COMPLETED: "completed",
   CANCELLED: "cancelled",
+  NO_SHOW: "no_show",
 };
 
 const ORDER_STATUS_VALUES = Object.values(ORDER_STATUS);
@@ -24,6 +25,7 @@ function normalizeOrderStatus(status) {
   if (s === "IN_PROGRESS") return ORDER_STATUS.IN_PROGRESS;
   if (s === "COMPLETED") return ORDER_STATUS.COMPLETED;
   if (s === "CANCELLED") return ORDER_STATUS.CANCELLED;
+  if (s === "NO_SHOW") return ORDER_STATUS.NO_SHOW;
   if (lower === "open" || lower === "preorder") return ORDER_STATUS.PRE_ORDERED;
   return lower;
 }
@@ -46,6 +48,7 @@ const ACTIVE_ORDER_STATUS_DB_VALUES = [
 const TERMINAL_ORDER_STATUS_DB_VALUES = [
   ORDER_STATUS.COMPLETED,
   ORDER_STATUS.CANCELLED,
+  ORDER_STATUS.NO_SHOW,
   "COMPLETED",
   "CANCELLED",
 ];

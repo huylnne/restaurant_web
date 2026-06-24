@@ -1,5 +1,5 @@
 const db = require("../models");
-const { Order, Table } = db;
+const { Order, Table, Branch, User } = db;
 const sequelize = db.sequelize;
 const { Op } = require("sequelize");
 const {
@@ -16,13 +16,14 @@ const {
 const { CANCELABLE_RESERVATION_STATUSES } = require("../utils/reservationStatus");
 const { ORDER_STATUS } = require("../utils/orderStatus");
 
-const CONFLICT_WINDOW_MS = 60 * 60 * 1000;
+const RESERVATION_BUFFER_MS = 2 * 60 * 60 * 1000;
+const FUTURE_ACTIVE_LIMIT = 2;
 
 function getTimeWindow(arrivalTime) {
   const t = new Date(arrivalTime);
   return {
-    windowStart: new Date(t.getTime() - CONFLICT_WINDOW_MS),
-    windowEnd: new Date(t.getTime() + CONFLICT_WINDOW_MS),
+    windowStart: t,
+    windowEnd: new Date(t.getTime() + RESERVATION_BUFFER_MS),
   };
 }
 
@@ -207,9 +208,49 @@ async function pickAvailableTableWithLock(branch_id, number_of_guests, arrivalTi
 /** Tạo đặt bàn — một order; ghép bàn liền kề qua order_tables. */
 async function createReservation({ user_id, branch_id, reservation_time, number_of_guests, note }) {
   const guests = Number(number_of_guests);
-  const arrival_time = reservation_time;
+  const arrivalDate = new Date(reservation_time);
+  const arrival_time = arrivalDate.toISOString();
+  const expected_end_time = new Date(arrivalDate.getTime() + RESERVATION_BUFFER_MS);
 
   return sequelize.transaction(async (transaction) => {
+    const user = await User.findByPk(user_id, {
+      attributes: ["user_id", "is_active", "locked"],
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (!user || user.is_active === false || user.locked === true) {
+      const err = new Error("Tài khoản không hợp lệ hoặc đã bị khóa.");
+      err.code = "USER_LOCKED";
+      throw err;
+    }
+
+    const now = new Date();
+    const activeFutureCount = await Order.count({
+      where: {
+        user_id,
+        order_type: "reservation",
+        status: { [Op.in]: [ORDER_STATUS.PENDING, ORDER_STATUS.CONFIRMED] },
+        arrival_time: { [Op.gt]: now },
+      },
+      transaction,
+      lock: transaction.LOCK.UPDATE,
+    });
+    if (activeFutureCount >= FUTURE_ACTIVE_LIMIT) {
+      const err = new Error(`Bạn chỉ được có tối đa ${FUTURE_ACTIVE_LIMIT} lượt đặt bàn trong tương lai.`);
+      err.code = "FUTURE_LIMIT";
+      throw err;
+    }
+
+    const branch = await Branch.findByPk(branch_id, {
+      attributes: ["branch_id", "open_time", "close_time", "is_active"],
+      transaction,
+    });
+    if (!branch || branch.is_active === false) {
+      const err = new Error("Chi nhánh không tồn tại hoặc đang tạm ngưng hoạt động.");
+      err.code = "BRANCH_INVALID";
+      throw err;
+    }
+
     const picked = await pickAvailableTableWithLock(branch_id, guests, arrival_time, transaction);
 
     if (!picked.tables?.length) {
@@ -234,6 +275,7 @@ async function createReservation({ user_id, branch_id, reservation_time, number_
         branch_id,
         table_id: primaryTable.table_id,
         arrival_time,
+        expected_end_time,
         number_of_guests: guests,
         note: groupNote,
         booking_group_id: null,
@@ -288,7 +330,8 @@ async function cancelReservationGroup(orderRow, { transaction } = {}) {
 }
 
 module.exports = {
-  CONFLICT_WINDOW_MS,
+  RESERVATION_BUFFER_MS,
+  FUTURE_ACTIVE_LIMIT,
   getTimeWindow,
   getConflictTableIds,
   pickAvailableTable,

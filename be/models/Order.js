@@ -56,6 +56,16 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      expected_end_time: {
+
+        type: DataTypes.DATE,
+
+        allowNull: true,
+
+        comment: 'Thời điểm dự kiến kết thúc giữ bàn (arrival_time + 2 giờ)',
+
+      },
+
       number_of_guests: {
 
         type: DataTypes.INTEGER,
@@ -74,7 +84,7 @@ module.exports = (sequelize, DataTypes) => {
 
         comment:
 
-          'pending | confirmed | pre-ordered | in_progress | waiting_payment | completed | cancelled',
+          'pending | confirmed | pre-ordered | in_progress | waiting_payment | completed | cancelled | no_show',
 
       },
 

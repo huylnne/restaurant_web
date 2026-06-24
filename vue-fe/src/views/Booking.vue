@@ -88,11 +88,16 @@ const form = ref({
   note: "",
 });
 
-/** Disable dates before today */
+const MAX_ADVANCE_DAYS = 14;
+const MAX_ADVANCE_MS = MAX_ADVANCE_DAYS * 24 * 60 * 60 * 1000;
+
+/** Disable dates before today và quá 14 ngày */
 const disablePastDates = (date) => {
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  return date < today;
+  const maxDate = new Date(today);
+  maxDate.setDate(maxDate.getDate() + MAX_ADVANCE_DAYS);
+  return date < today || date > maxDate;
 };
 
 /** Tạo Date từ form.date + form.time; trả null nếu chưa chọn */
@@ -116,11 +121,41 @@ const timeError = computed(() => {
   const dt = buildReservationDate();
   if (!dt) return "";
   if (!isTimeValid(dt)) return `Vui lòng chọn giờ cách hiện tại ít nhất ${MIN_ADVANCE_MINUTES} phút`;
+  if (dt.getTime() > Date.now() + MAX_ADVANCE_MS) {
+    return `Chỉ được đặt bàn tối đa ${MAX_ADVANCE_DAYS} ngày tới`;
+  }
   return "";
 });
 
 const availabilityMessage = ref("");
 const canSubmit = ref(false);
+
+const selectedBranch = computed(() =>
+  branches.value.find((b) => Number(b.branch_id) === Number(form.value.branch_id)) || null
+);
+
+const isInBranchOpeningHours = (dt) => {
+  const branch = selectedBranch.value;
+  const open = branch?.open_time;
+  const close = branch?.close_time;
+  if (!open || !close || !dt) return true;
+
+  const parseHm = (v) => {
+    const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(String(v).trim());
+    if (!m) return null;
+    return { h: Number(m[1]), min: Number(m[2]) };
+  };
+
+  const openHm = parseHm(open);
+  const closeHm = parseHm(close);
+  if (!openHm || !closeHm) return true;
+
+  const openAt = new Date(dt);
+  openAt.setHours(openHm.h, openHm.min, 0, 0);
+  const closeAt = new Date(dt);
+  closeAt.setHours(closeHm.h, closeHm.min, 0, 0);
+  return dt >= openAt && dt <= closeAt;
+};
 
 const fetchBranches = async () => {
   try {
@@ -155,6 +190,14 @@ watch(
 
     const date = buildReservationDate();
     if (!isTimeValid(date)) return;
+    if (date.getTime() > Date.now() + MAX_ADVANCE_MS) {
+      availabilityMessage.value = `Chỉ được đặt bàn tối đa ${MAX_ADVANCE_DAYS} ngày tới`;
+      return;
+    }
+    if (!isInBranchOpeningHours(date)) {
+      availabilityMessage.value = "Thời gian đặt bàn phải nằm trong giờ mở cửa của chi nhánh.";
+      return;
+    }
 
     try {
       const res = await axios.get("/api/reservations/available", {
@@ -183,6 +226,14 @@ const submitForm = async () => {
   const date = buildReservationDate();
   if (!isTimeValid(date)) {
     ElMessage.error(`Giờ đặt bàn phải cách hiện tại ít nhất ${MIN_ADVANCE_MINUTES} phút`);
+    return;
+  }
+  if (date.getTime() > Date.now() + MAX_ADVANCE_MS) {
+    ElMessage.error(`Chỉ được đặt bàn tối đa ${MAX_ADVANCE_DAYS} ngày tới`);
+    return;
+  }
+  if (!isInBranchOpeningHours(date)) {
+    ElMessage.error("Thời gian đặt bàn phải nằm trong giờ mở cửa của chi nhánh.");
     return;
   }
 

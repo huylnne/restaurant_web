@@ -85,6 +85,7 @@ export function getDiningStatusLabel(row) {
   const tableStatus = normalizeTableStatus(row.Table?.status);
 
   if (resStatus === "cancelled") return "Đã hủy";
+  if (resStatus === "no_show") return "Vắng mặt";
   if (resStatus === "completed") return "Đã xong";
   if (resStatus === "pending") return "Chờ xác nhận";
   if (resStatus === "waiting_payment") return "Chờ thanh toán";

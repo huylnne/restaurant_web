@@ -65,6 +65,17 @@ async function initDatabase() {
   await db.sequelize
     .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS checked_in_at TIMESTAMP;', { raw: true })
     .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE orders ADD COLUMN IF NOT EXISTS expected_end_time TIMESTAMP;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE orders
+       SET expected_end_time = COALESCE(expected_end_time, arrival_time + interval '2 hour')
+       WHERE arrival_time IS NOT NULL;`,
+      { raw: true }
+    )
+    .catch(() => {});
   // Walk-in / QR / phiên tại bàn đã active → coi như đã tiếp nhận
   await db.sequelize
     .query(
