@@ -225,17 +225,18 @@ async function createReservation({ user_id, branch_id, reservation_time, number_
     }
 
     const now = new Date();
-    const activeFutureCount = await Order.count({
+    const activeFutureOrders = await Order.findAll({
       where: {
         user_id,
         order_type: "reservation",
         status: { [Op.in]: [ORDER_STATUS.PENDING, ORDER_STATUS.CONFIRMED] },
         arrival_time: { [Op.gt]: now },
       },
+      attributes: ["order_id"],
       transaction,
       lock: transaction.LOCK.UPDATE,
     });
-    if (activeFutureCount >= FUTURE_ACTIVE_LIMIT) {
+    if (activeFutureOrders.length >= FUTURE_ACTIVE_LIMIT) {
       const err = new Error(`Bạn chỉ được có tối đa ${FUTURE_ACTIVE_LIMIT} lượt đặt bàn trong tương lai.`);
       err.code = "FUTURE_LIMIT";
       throw err;
