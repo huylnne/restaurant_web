@@ -8,34 +8,34 @@ participant "Vue Client" as FE #4A90D9
 participant "Express API" as API #E74C3C
 participant "Order Service" as SVC #F39C12
 participant "Kitchen Service" as KIT #27AE60
-participant "Repository" as REPO #3498DB
+participant "Model" as MODEL #3498DB
 database "PostgreSQL" as DB #9B59B6
 
 W -> FE : Chọn bàn, ghi món
 FE -> API : POST /orders/{id}/items
 API -> SVC : addOrderItems()
-SVC -> REPO : INSERT order_items
-REPO -> DB : status=pending
+SVC -> MODEL : INSERT order_items
+MODEL -> DB : status=pending
 API --> FE : 201 Created
 
 K -> FE : Xem món chờ bếp
 FE -> API : GET /kitchen/order-items
 API -> KIT : listByStatus()
-KIT -> REPO : SELECT order_items
-REPO -> DB : JOIN orders, tables
+KIT -> MODEL : SELECT order_items
+MODEL -> DB : JOIN orders, tables
 API --> FE : 200 OK
 
 K -> FE : Cập nhật chế biến
 FE -> API : PATCH /order-items/{id}/status
 API -> KIT : updateStatus()
-KIT -> REPO : UPDATE order_items
-REPO -> DB : processing / done
+KIT -> MODEL : UPDATE order_items
+MODEL -> DB : processing / done
 API --> FE : 200 OK
 
 W -> FE : Giao món cho bàn
 FE -> API : PATCH /order-items/{id}/served
 API -> SVC : markServed()
-SVC -> REPO : UPDATE status=served
+SVC -> MODEL : UPDATE status=served
 API --> FE : 200 OK
 
 @enduml

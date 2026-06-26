@@ -7,28 +7,28 @@ actor "NV phục vụ" as W
 participant "Vue Client" as FE #4A90D9
 participant "Express API" as API #E74C3C
 participant "Order Service" as SVC #F39C12
-participant "Repository" as REPO #3498DB
+participant "Model" as MODEL #3498DB
 database "PostgreSQL" as DB #9B59B6
 
 W -> FE : Xem hóa đơn tạm tính
 FE -> API : GET /orders/{id}/bill
 API -> SVC : getBill()
-SVC -> REPO : SUM order_items
-REPO -> DB : SELECT
+SVC -> MODEL : SUM order_items
+MODEL -> DB : SELECT
 API --> FE : 200 OK + total_amount
 
 W -> FE : Thanh toán
 FE -> API : POST /orders/{id}/checkout
 API -> SVC : finalizePayment()
-SVC -> REPO : transaction
-REPO -> DB : payment_status=paid
-REPO -> DB : table status=cleaning
+SVC -> MODEL : transaction
+MODEL -> DB : payment_status=paid
+MODEL -> DB : table status=cleaning
 API --> FE : 200 OK
 
 W -> FE : Xuất hóa đơn PDF
 FE -> API : GET /orders/{id}/invoice.pdf
 API -> SVC : generateInvoice()
-SVC -> REPO : SELECT orders, order_items
+SVC -> MODEL : SELECT orders, order_items
 API --> FE : application/pdf
 
 @enduml

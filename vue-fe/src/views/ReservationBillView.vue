@@ -61,6 +61,12 @@
             />
           </div>
         </div>
+
+        <div v-if="canAddMoreDishes" class="card-section card-section--footer">
+          <router-link :to="orderMoreRoute" class="order-more-link">
+            <el-button type="primary" class="btn-order-more">Gọi thêm món</el-button>
+          </router-link>
+        </div>
       </div>
     </div>
   </div>
@@ -78,6 +84,8 @@ import {
 import {
   getDiningStatusLabel,
   formatTableNumber,
+  canOrderMoreDishes,
+  getOrderMoreRoute,
 } from "@/utils/reservationDisplay";
 
 const route = useRoute();
@@ -86,6 +94,15 @@ const error = ref("");
 const billData = ref(null);
 
 const billItems = computed(() => billData.value?.items || []);
+
+const canAddMoreDishes = computed(() => canOrderMoreDishes(billData.value));
+
+const orderMoreRoute = computed(() => {
+  const orderId = route.params.orderId;
+  return getOrderMoreRoute(billData.value, {
+    returnTo: `/profile/reservations/${orderId}/bill`,
+  });
+});
 
 const fetchBill = async () => {
   const orderId = route.params.orderId;
@@ -288,6 +305,20 @@ watch(
   max-width: 100%;
 }
 
+.card-section--footer {
+  display: flex;
+  justify-content: flex-end;
+  padding: var(--hl-space-md) var(--hl-space-lg) var(--hl-space-lg);
+}
+
+.order-more-link {
+  text-decoration: none;
+}
+
+.btn-order-more {
+  min-width: 180px;
+}
+
 .link-primary {
   display: inline-block;
   margin-top: var(--hl-space-sm);
@@ -316,6 +347,15 @@ watch(
 
   .card-section {
     padding: var(--hl-space-md);
+  }
+
+  .card-section--footer {
+    justify-content: stretch;
+  }
+
+  .order-more-link,
+  .btn-order-more {
+    width: 100%;
   }
 }
 </style>

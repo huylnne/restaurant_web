@@ -18,7 +18,16 @@ dễ bảo trì và triển khai trên nhiều chi nhánh.
 
 \subsection{Tổng quan kiến trúc}
 
-Hệ thống được chia thành ba tầng chính:
+Hệ thống được chia thành ba tầng chính. Sơ đồ kiến trúc tổng thể được trình bày như sau.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=\textwidth]{Chuong/BDQH.png}
+    \caption{Sơ đồ kiến trúc đa tầng kết hợp MVC}
+    \label{fig:architecture-mvc}
+\end{figure}
+
+Hình~\ref{fig:architecture-mvc} thể hiện ba tầng View, Controller và Model cùng luồng phụ thuộc giữa chúng:
 
 \begin{itemize}
     \item \textbf{Tầng trình bày (Frontend)}
@@ -48,7 +57,7 @@ Hệ thống được chia thành ba tầng chính:
 
 \subsection{Kiến trúc triển khai}
 
-Kiến trúc triển khai tổng thể gồm các thành phần chính:
+Kiến trúc triển khai tổng thể trên Hình~\ref{fig:architecture-mvc} gồm các thành phần chính:
 
 \begin{itemize}
     \item \textbf{Client (Browser)} -- giao diện theo từng vai trò người dùng.
@@ -108,8 +117,9 @@ $\rightarrow$ xử lý nghiệp vụ $\rightarrow$ truy cập CSDL $\rightarrow$
 \label{section:3.2}
 
 Biểu đồ trình tự mô tả tương tác giữa các tác nhân (khách hàng, nhân viên, bếp, hệ thống)
-theo thời gian cho ba quy trình nghiệp vụ trọng tâm. Các biểu đồ bám sát luồng UC05--UC07 (đặt bàn, gọi món)
-và UC11 (thanh toán), thể hiện rõ các bước xử lý chính và cập nhật dữ liệu.
+theo thời gian cho ba quy trình nghiệp vụ trọng tâm, bám sát luồng UC05--UC07 (đặt bàn, gọi món) và UC11 (thanh toán).
+
+Quy trình đặt bàn và kiểm tra buffer 2 giờ được mô tả như sau.
 
 \begin{figure}[H]
     \centering
@@ -123,6 +133,8 @@ theo quy tắc giữ chỗ theo khoảng thời gian $[\mathit{arrival\_time},\;
 sau đó tạo phiên đặt bàn và ghi nhận thời điểm kết thúc giữ bàn dự kiến.
 Nhân viên check-in khi khách đến; nếu quá 15 phút không đến, hệ thống xử lý no-show theo quy định.
 
+Quy trình gọi món và phục vụ được mô tả như sau.
+
 \begin{figure}[H]
     \centering
     \includegraphics[width=\textwidth]{Chuong/3.2-quy-trinh-goi-mon.png}
@@ -132,6 +144,8 @@ Nhân viên check-in khi khách đến; nếu quá 15 phút không đến, hệ 
 
 Hình~\ref{fig:seq-order} thể hiện luồng thêm \texttt{order\_items}, gửi yêu cầu xuống bếp,
 cập nhật trạng thái món và thông báo realtime tới màn hình phục vụ.
+
+Quy trình thanh toán và xuất hoá đơn được mô tả như sau.
 
 \begin{figure}[H]
     \centering
@@ -144,31 +158,12 @@ Hình~\ref{fig:seq-payment} mô tả tổng hợp bill, khởi tạo thanh toán
 và cập nhật trạng thái phiên phục vụ sau khi thanh toán thành công.
 
 % ============================================================
-\section{Biểu đồ lớp}
-\label{section:3.3}
-
-Biểu đồ lớp mô tả cấu trúc các thực thể nghiệp vụ chính và mối quan hệ giữa chúng
-(User, Branch, Table, MenuItem, Order, OrderItem, Payment, Review,...).
-Biểu đồ hỗ trợ thống nhất thiết kế CSDL với các lớp xử lý ở tầng nghiệp vụ và dữ liệu.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{Chuong/BDQH.png}
-    \caption{Biểu đồ lớp của hệ thống}
-    \label{fig:class-diagram}
-\end{figure}
-
-% ============================================================
 \section{Thiết kế cơ sở dữ liệu}
 \label{section:3.4}
 
-Hình~\ref{fig:erd} mô tả sơ đồ cơ sở dữ liệu tổng thể gồm \textbf{10 bảng}: \textbf{7 bảng lõi}
-(users, branches, tables, orders, order\_tables, order\_items, menu\_items) và \textbf{3 bảng phụ trợ}
-(payments, reviews, employees) phục vụ thanh toán, đánh giá và nhân sự.
-
-\textbf{Nguyên tắc thiết kế:} mỗi \texttt{orders} là một \textbf{phiên phục vụ} (đặt bàn trước, walk-in hoặc tại bàn):
-lưu thời gian đến, thời gian dự kiến kết thúc giữ bàn, số khách, tổng tiền và trạng thái thanh toán; chi tiết món nằm ở \texttt{order\_items}.
-Trường \texttt{order\_type} phân loại kênh phục vụ; trường \texttt{status} mô tả trạng thái phiên theo vòng đời nghiệp vụ.
+Phần này trình bày lược đồ quan hệ và đặc tả chi tiết các bảng dữ liệu của hệ thống.
+Các thực thể nghiệp vụ chính (User, Branch, Table, MenuItem, Order, OrderItem, Payment, Review,...)
+và mối quan hệ giữa chúng được thể hiện trên lược đồ quan hệ dưới đây.
 
 \begin{figure}[H]
     \centering
@@ -177,23 +172,16 @@ Trường \texttt{order\_type} phân loại kênh phục vụ; trường \texttt
     \label{fig:erd}
 \end{figure}
 
-\subsection{Thuật toán kiểm tra xung đột giữ chỗ (buffer 2 giờ)}
-
-Khi khách đặt bàn hoặc nhân viên tạo walk-in, hệ thống gán mỗi phiên một khoảng chiếm bàn:
-\[
-    \mathit{hold\_start} = \mathit{arrival\_time}, \qquad
-    \mathit{hold\_end} = \mathit{expected\_end\_time} = \mathit{arrival\_time} + 2\,\text{giờ}.
-\]
-Một bàn \textbf{khả dụng} cho yêu cầu mới tại thời điểm $T$ nếu không tồn tại phiên active
-(\texttt{reservation}, \texttt{walk\_in} hoặc \texttt{dine\_in}; trạng thái chưa \texttt{cancelled}/\texttt{completed}/\texttt{no\_show})
-mà khoảng $[\mathit{hold\_start},\; \mathit{hold\_end}]$ giao với $[T,\; T+2\,\text{giờ}]$.
-
-\textbf{Ví dụ:} cao điểm 20h toàn bộ bàn đều bận đến 22h thì khách đặt 21h \textbf{không} được gán lại các bàn đó;
-chỉ đặt 21h thành công khi còn bàn có khoảng rảnh chứa mốc 21h (ví dụ phiên walk-in 18h kết thúc giữ bàn lúc 20h).
-Việc kiểm tra và gán bàn được thực hiện trong giao dịch (transaction) để đảm bảo nhất quán dữ liệu;
-với nhóm đông, hệ thống có thể ghép nhiều bàn liền kề đủ sức chứa và ghi liên kết vào \texttt{order\_tables}.
-
-\subsection{Thiết kế các bảng dữ liệu chính}
+Hình~\ref{fig:erd} mô tả sơ đồ cơ sở dữ liệu tổng thể gồm \textbf{10 bảng}: \textbf{7 bảng lõi}
+(users, branches, tables, orders, order\_tables, order\_items, menu\_items) và \textbf{3 bảng phụ trợ}
+(payments, reviews, employees) phục vụ thanh toán, đánh giá và nhân sự.
+Mỗi \texttt{orders} là một \textbf{phiên phục vụ} (đặt bàn trước, walk-in hoặc tại bàn):
+lưu thời gian đến, thời gian dự kiến kết thúc giữ bàn, số khách, tổng tiền và trạng thái thanh toán; chi tiết món nằm ở \texttt{order\_items}.
+Trường \texttt{order\_type} phân loại kênh phục vụ; trường \texttt{status} mô tả trạng thái phiên theo vòng đời nghiệp vụ.
+Trên sơ đồ, một chi nhánh có nhiều bàn, món ăn, nhân viên và phiên phục vụ; một \texttt{orders} gồm nhiều \texttt{order\_items},
+có thể liên kết nhiều \texttt{tables} qua \texttt{order\_tables} khi ghép bàn, và có tối đa một \texttt{payments} cùng một \texttt{reviews}.
+Các quan hệ được ràng buộc bằng khóa ngoại nhằm đảm bảo tính toàn vẹn tham chiếu.
+Đặc tả chi tiết từng bảng trên Hình~\ref{fig:erd} được trình bày như sau.
 
 \subsubsection{Bảng \texttt{users}}
 
@@ -313,6 +301,10 @@ gồm thông tin khách, bàn, món (qua \texttt{order\_items}) và thanh toán.
 \texttt{payment\_status} phản ánh trạng thái tổng quát trên phiên; chi tiết giao dịch nằm ở bảng \texttt{payments}.
 Trường \texttt{expected\_end\_time} hỗ trợ kiểm tra xung đột giữ chỗ theo buffer 2 giờ;
 \texttt{checked\_in\_at} ghi nhận thời điểm nhân viên tiếp nhận khách thực tế.
+Khi khách đặt bàn hoặc nhân viên tạo walk-in, hệ thống gán mỗi phiên một khoảng chiếm bàn
+$\mathit{hold\_start}=\mathit{arrival\_time}$, $\mathit{hold\_end}=\mathit{expected\_end\_time}=\mathit{arrival\_time}+2\,\text{giờ}$.
+Một bàn khả dụng tại thời điểm $T$ nếu không tồn tại phiên active mà khoảng giữ bàn giao với $[T,\; T+2\,\text{giờ}]$;
+việc kiểm tra và gán bàn được thực hiện trong giao dịch, với nhóm đông có thể ghép nhiều bàn liền kề qua \texttt{order\_tables}.
 
 \needspace{20\baselineskip}
 \begin{table}[H]
@@ -467,136 +459,5 @@ dùng phân quyền đăng nhập (ví dụ nhân viên bếp có \texttt{role=k
 \end{tabularx}
 \caption{Mô tả bảng \texttt{employees}}
 \end{table}
-
-\subsection{Quan hệ giữa các bảng}
-
-Các mối quan hệ chính:
-\begin{itemize}
-    \item Một chi nhánh có nhiều bàn, món ăn, nhân viên và phiên phục vụ (\texttt{orders}).
-    \item Một \texttt{orders} gồm nhiều \texttt{order\_items}; có thể liên kết nhiều \texttt{tables} qua \texttt{order\_tables} khi ghép bàn.
-    \item Một \texttt{orders} có tối đa một \texttt{payments} và một \texttt{reviews}.
-    \item \texttt{orders.expected\_end\_time} phục vụ kiểm tra xung đột giữ chỗ; \texttt{checked\_in\_at} phân biệt no-show với phiên đã phục vụ.
-    \item \texttt{orders.total\_amount} được tính từ \texttt{order\_items.price $\times$ quantity};
-    \texttt{payment\_status} trên \texttt{orders} phản ánh trạng thái tổng quát, chi tiết giao dịch ở \texttt{payments.status}.
-    \item Các quan hệ được ràng buộc bằng khóa ngoại nhằm đảm bảo tính toàn vẹn tham chiếu.
-\end{itemize}
-
-% ============================================================
-\section{Thiết kế giao diện người dùng}
-\label{section:3.5}
-
-\subsection{Mục tiêu thiết kế giao diện}
-
-Giao diện người dùng được thiết kế theo định hướng trực quan, dễ sử dụng và phù hợp với từng nhóm tác nhân.
-Do hệ thống phục vụ nhiều vai trò (khách hàng, nhân viên phục vụ, bếp, quản lý, admin),
-giao diện được phân tách theo luồng nghiệp vụ và quyền truy cập, giúp thao tác nhanh và giảm nhầm lẫn
-trong môi trường nhà hàng. Trong phạm vi báo cáo, nhóm trình bày các màn hình tiêu biểu đại diện cho
-các nghiệp vụ chính thay vì liệt kê toàn bộ màn hình chi tiết.
-
-\subsection{Nguyên tắc thiết kế giao diện}
-
-Các giao diện được xây dựng dựa trên các nguyên tắc sau:
-
-\begin{itemize}
-    \item \textbf{Đơn giản và dễ thao tác:} các chức năng chính đặt ở vị trí dễ quan sát, số bước thao tác được rút gọn.
-    \item \textbf{Thống nhất:} màu sắc, kiểu nút, bảng dữ liệu và biểu mẫu dùng đồng nhất trên toàn hệ thống.
-    \item \textbf{Phân tách theo vai trò:} mỗi nhóm người dùng chỉ thấy menu và chức năng phù hợp \texttt{role}.
-    \item \textbf{Trực quan trạng thái:} trạng thái bàn, phiên phục vụ, món ăn và thanh toán hiển thị bằng nhãn/màu rõ ràng.
-    \item \textbf{Phản hồi tức thì:} thông báo thành công/lỗi sau thao tác; màn bếp/phục vụ cập nhật realtime qua WebSocket.
-    \item \textbf{Hỗ trợ mở rộng:} layout sidebar + router view cho phép bổ sung module mới mà không thay đổi khung tổng thể.
-\end{itemize}
-
-\subsection{Cấu trúc giao diện theo vai trò}
-
-Bảng~\ref{tab:ui-roles} tóm tắt các nhóm màn hình chính của hệ thống theo từng vai trò.
-
-\begin{table}[H]
-\centering
-\renewcommand{\arraystretch}{1.3}
-\small
-\begin{tabularx}{\textwidth}{|>{\RaggedRight\arraybackslash}p{3.2cm}|>{\RaggedRight\arraybackslash}X|>{\RaggedRight\arraybackslash}p{4.5cm}|}
-\hline
-\textbf{Vai trò} & \textbf{Chức năng giao diện} & \textbf{Màn hình tiêu biểu} \\
-\hline
-Khách hàng & Xem menu, đặt bàn, theo dõi bàn, đánh giá & \texttt{MenuView}, \texttt{Booking}, \texttt{MyTable}, \texttt{UserDashboard} \\ \hline
-Nhân viên phục vụ & Quản lý bàn, tạo order, thanh toán & \texttt{AdminTables}, \texttt{Ordermenu} \\ \hline
-Nhân viên bếp & Nhận và cập nhật trạng thái món & \texttt{AdminKitchen} \\ \hline
-Quản lý chi nhánh & Dashboard, menu, báo cáo, đánh giá & \texttt{AdminDashboard}, \texttt{AdminReports}, \texttt{AdminReviews} \\ \hline
-Admin hệ thống & Quản lý chi nhánh, tài khoản, nhân sự & \texttt{BranchManagement}, \texttt{CustomerAccounts}, \texttt{EmployeeManagement} \\ \hline
-\end{tabularx}
-\caption{Cấu trúc giao diện theo vai trò}
-\label{tab:ui-roles}
-\end{table}
-
-\subsection{Các màn hình giao diện tiêu biểu}
-
-\subsubsection{Giao diện trang menu dành cho khách hàng}
-
-Màn hình hỗ trợ khách xem danh sách món theo chi nhánh (UC04): tên món, mô tả, giá, ảnh và trạng thái còn bán.
-Khách có thể lọc theo danh mục và chọn món trước khi đặt bàn hoặc gọi món tại bàn.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{Chuong/menuUI.png}
-    \caption{Giao diện trang menu dành cho khách hàng}
-    \label{fig:ui-menu}
-\end{figure}
-
-\subsubsection{Giao diện đặt bàn}
-
-Màn hình đặt bàn (UC05) cho phép chọn chi nhánh, ngày/giờ, số khách và ghi chú.
-Hệ thống kiểm tra bàn trống theo buffer 2 giờ, hiển thị gợi ý ``còn chỗ'' hoặc ``hết chỗ'' trước khi xác nhận;
-đồng thời áp dụng CAPTCHA để giảm nguy cơ spam tự động.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{Chuong/TableBookingUI.png}
-    \caption{Giao diện đặt bàn}
-    \label{fig:ui-booking}
-\end{figure}
-
-\subsubsection{Giao diện quản lý bàn cho nhân viên phục vụ}
-
-Dành cho nhân viên phục vụ (UC06, UC10): xem sơ đồ/trạng thái bàn, tiếp nhận khách walk-in,
-xác nhận phiên đặt trước, xử lý no-show và chuyển bàn sang trạng thái phục vụ.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{Chuong/waiterTable.png}
-    \caption{Giao diện quản lý bàn và xác nhận đặt bàn}
-    \label{fig:ui-waiter}
-\end{figure}
-
-\subsubsection{Giao diện bếp xử lý món ăn}
-
-Màn hình bếp (UC08) tối giản, ưu tiên danh sách món cần chế biến theo thứ tự thời gian.
-Nhân viên bếp cập nhật trạng thái \texttt{processing} $\rightarrow$ \texttt{done}; phục vụ nhận cập nhật realtime.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{Chuong/UIDATN/kitchenUI.png}
-    \caption{Giao diện bếp xử lý món ăn}
-    \label{fig:ui-kitchen}
-\end{figure}
-
-\subsubsection{Giao diện quản lý chi nhánh}
-
-Tập trung giám sát vận hành (UC14, UC15): thống kê nhanh doanh thu, số phiên phục vụ,
-menu sidebar tới quản lý thực đơn, báo cáo và đánh giá khách hàng.
-
-\begin{figure}[H]
-    \centering
-    \includegraphics[width=\textwidth]{Chuong/adminUI.png}
-    \caption{Giao diện quản lý dành cho quản lý chi nhánh}
-    \label{fig:ui-admin}
-\end{figure}
-
-\subsection{Đánh giá thiết kế giao diện}
-
-Nhìn chung, giao diện được xây dựng theo hướng phân vai trò rõ ràng, đảm bảo mỗi nhóm người dùng
-chỉ thao tác trên chức năng phù hợp nghiệp vụ. Việc chọn các màn hình tiêu biểu giúp nội dung báo cáo
-ngắn gọn nhưng vẫn phản ánh định hướng thiết kế. Các giao diện đáp ứng yêu cầu về tính trực quan,
-thống nhất và thao tác nhanh trong môi trường nhà hàng; đồng thời tạo nền tảng thuận lợi cho việc
-bổ sung màn hình và tính năng ở các giai đoạn tiếp theo.
 
 \end{document}

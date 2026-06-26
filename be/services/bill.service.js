@@ -225,6 +225,7 @@ async function buildBill({ order, tableId }) {
     multiTable,
     order: {
       order_id: primaryOrder.order_id,
+      branch_id: primaryOrder.branch_id,
       arrival_time: primaryOrder.arrival_time,
       number_of_guests: primaryOrder.number_of_guests,
       status: primaryOrder.status,

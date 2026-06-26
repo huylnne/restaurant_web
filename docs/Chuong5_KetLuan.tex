@@ -1,0 +1,88 @@
+\documentclass[../DoAn.tex]{subfiles}
+\begin{document}
+
+\section{Kết quả đạt được}
+\label{section:5.1}
+
+Sau quá trình phân tích, thiết kế, hiện thực và kiểm thử, đề tài đã xây dựng được một \textbf{nguyên mẫu hoàn chỉnh} hệ thống quản lý chuỗi nhà hàng trên nền tảng web (SPA), vận hành được trên trình duyệt máy tính và thiết bị di động. Kết quả cụ thể được tổng hợp theo các nhóm sau.
+
+\subsection{Hoàn thiện quy trình nghiệp vụ khép kín}
+
+Hệ thống đã hiện thực và kiểm thử thành công toàn bộ chuỗi nghiệp vụ từ góc nhìn khách hàng đến vận hành nội bộ:
+
+\begin{itemize}
+    \item \textbf{Khách hàng:} tra cứu chi nhánh và menu, đặt bàn trực tuyến (có thể kèm đặt món trước), theo dõi phiên phục vụ tại màn hình ``Bàn của tôi'', gọi thêm món, gửi yêu cầu thanh toán, xem hóa đơn qua QR bàn và gửi đánh giá sau khi dùng bữa.
+    \item \textbf{Nhân viên phục vụ:} tiếp nhận khách walk-in hoặc check-in đặt bàn trước, tạo/cập nhật order, theo dõi tiến độ món, cập nhật trạng thái bàn và xác nhận thanh toán (tiền mặt, chuyển khoản, thẻ, ví điện tử; hỗ trợ hiển thị VietQR).
+    \item \textbf{Bộ phận bếp:} nhận danh sách món theo thứ tự ưu tiên, cập nhật trạng thái chế biến; thay đổi được đẩy tới giao diện phục vụ gần thời gian thực qua WebSocket.
+    \item \textbf{Quản lý và quản trị:} quản lý thực đơn, chi nhánh, nhân sự; xem báo cáo doanh thu, món bán chạy, đánh giá khách hàng và xuất file Excel/PDF.
+\end{itemize}
+
+Các luồng trên đã được kiểm thử thủ công liên tục trên môi trường phát triển; dữ liệu bàn, order và món ăn đồng bộ nhất quán giữa các vai trò, đáp ứng mục tiêu giảm sai sót so với quy trình ghi chép thủ công đã phân tích ở chương~2.
+
+\subsection{Đáp ứng yêu cầu chức năng theo use case}
+
+Trong phạm vi 17 use case (UC01--UC17) đã đặt ra, hệ thống đã hiện thực đầy đủ các nhóm chức năng cốt lõi:
+
+\begin{itemize}
+    \item \textbf{Xác thực và tài khoản} (UC01, UC02): đăng ký/đăng nhập có CAPTCHA và giới hạn tần suất; phân luồng giao diện theo vai trò sau khi đăng nhập.
+    \item \textbf{Khách hàng} (UC03--UC05, UC07, UC12, UC13): xem chi nhánh (kể cả tìm chi nhánh gần vị trí), xem menu, đặt bàn với quy tắc giữ chỗ buffer 2 giờ và tự gán bàn phù hợp, đặt món trước, theo dõi phiên bàn, hủy đặt bàn khi được phép, gửi đánh giá.
+    \item \textbf{Vận hành nhà hàng} (UC06--UC11): tiếp nhận khách, tạo order, đồng bộ bếp--phục vụ, cập nhật trạng thái bàn, thanh toán và xuất hóa đơn.
+    \item \textbf{Quản lý và quản trị} (UC14--UC17): báo cáo chi nhánh, quản lý thực đơn/chi nhánh, dashboard tổng quan, quản lý nhân viên, tài khoản khách, bàn và mã QR.
+\end{itemize}
+
+Như vậy, các yêu cầu chức năng chính của đề tài đã được chuyển hóa thành phần mềm có thể sử dụng được, không chỉ dừng ở mức thiết kế trên giấy.
+
+\subsection{Giải quyết các vấn đề nghiệp vụ đã khảo sát}
+
+So với hiện trạng quản lý thủ công ở chương~2, hệ thống đã đạt được các kết quả thực tiễn sau:
+
+\begin{itemize}
+    \item \textbf{Giảm trùng lịch đặt bàn:} kiểm tra xung đột theo khung giờ $[\mathit{arrival\_time},\; \mathit{arrival\_time}+2\,\mathrm{h}]$, tự động gán bàn theo sức chứa và hỗ trợ ghép bàn liền kề khi cần.
+    \item \textbf{Xử lý no-show:} tự động chuyển phiên đặt bàn sang trạng thái \texttt{no\_show} và giải phóng bàn nếu khách không check-in sau 15 phút kể từ giờ đến.
+    \item \textbf{Đồng bộ vận hành:} trạng thái món ăn (chờ chế biến, đang chế biến, hoàn thành, đã phục vụ) được cập nhật tập trung, thay thế trao đổi giấy tờ hoặc gọi điện nội bộ.
+    \item \textbf{Theo dõi doanh thu:} mỗi lần thanh toán được ghi nhận vào cơ sở dữ liệu, tổng hợp thành báo cáo theo ngày, giờ, món bán chạy và khách hàng tiêu biểu.
+    \item \textbf{Kiểm soát truy cập:} phân quyền theo vai trò (RBAC) và phạm vi chi nhánh; ghi nhật ký thao tác quan trọng phục vụ truy vết.
+\end{itemize}
+
+\subsection{Sản phẩm phần mềm và kết quả kiểm thử}
+
+Về mặt sản phẩm, đề tài bàn giao một hệ thống có quy mô triển khai thực tế trong phạm vi đồ án:
+
+\begin{itemize}
+    \item \textbf{Giao diện:} hơn 25 màn hình Vue, tách biệt theo vai trò (khách, phục vụ, bếp, quản lý, admin); giao diện responsive, thao tác được trên tablet và điện thoại.
+    \item \textbf{Backend:} 21 controller, 23 module service, 11 thực thể dữ liệu (chi nhánh, bàn, order, món, thanh toán, đánh giá\ldots).
+    \item \textbf{Dữ liệu mẫu:} 7 chi nhánh, nhân sự theo từng vai trò, thực đơn và bàn phục vụ demo và kiểm thử end-to-end.
+    \item \textbf{Kiểm thử:} checklist thủ công theo từng use case; thời gian phản hồi các thao tác phổ biến thường dưới 1 giây trên môi trường local; giao diện hiển thị ổn định trên Chrome, Edge và Firefox.
+\end{itemize}
+
+Tóm lại, đề tài đã đạt mục tiêu xây dựng một hệ thống quản lý chuỗi nhà hàng \textbf{chạy được, dùng được} trong phạm vi nguyên mẫu, bao phủ đủ các nghiệp vụ cốt lõi từ đặt bàn đến thanh toán và báo cáo.
+
+\section{Hạn chế tồn tại}
+\label{section:5.2}
+
+Trong phạm vi thời gian và nguồn lực đồ án, hệ thống còn một số hạn chế cần ghi nhận:
+
+\begin{itemize}
+    \item Hệ thống mới ở mức nguyên mẫu trên môi trường phát triển; chưa triển khai production, chưa đo đạc tải với hàng trăm người dùng đồng thời.
+    \item Thanh toán điện tử end-to-end phía khách (MoMo/VNPay) chưa gắn giao diện; VietQR mới hỗ trợ hiển thị mã chuyển khoản, chưa tự động đối soát giao dịch.
+    \item Một số module phụ trợ còn đơn giản: trang khuyến mãi chủ yếu nội dung tĩnh; báo cáo chưa có dự báo hay phân tích hành vi nâng cao.
+    \item WebSocket mới phục vụ đồng bộ nội bộ chi nhánh (bếp--phục vụ), chưa mở rộng thông báo đẩy cho khách hàng.
+    \item Chưa có bộ kiểm thử tự động (unit/integration); một phần thay đổi schema cơ sở dữ liệu còn cập nhật thủ công.
+\end{itemize}
+
+Các hạn chế trên không làm mất giá trị của nguyên mẫu đã xây dựng, nhưng là điểm cần hoàn thiện nếu đưa hệ thống vào vận hành thực tế.
+
+\section{Định hướng phát triển trong tương lai}
+\label{section:5.3}
+
+Từ nền tảng đã có, hệ thống có thể mở rộng theo các hướng:
+
+\begin{itemize}
+    \item \textbf{Vận hành và hiệu năng:} triển khai production, tối ưu WebSocket (reconnect, broadcast), bổ sung cache, hàng đợi và giám sát; mở thông báo realtime cho khách khi món sẵn sàng.
+    \item \textbf{Thanh toán:} hoàn thiện cổng MoMo/VNPay/ZaloPay trên giao diện khách, webhook đối soát chuyển khoản/VietQR, hóa đơn điện tử.
+    \item \textbf{Quản lý và phân tích:} khuyến mãi động gắn hóa đơn; dự báo doanh thu, món bán chạy, hiệu suất nhân viên.
+    \item \textbf{Kỹ thuật:} kiểm thử tự động, migration DB thống nhất, hardening bảo mật; cân nhắc tách microservice khi quy mô chi nhánh tăng.
+    \item \textbf{Dài hạn:} ứng dụng AI gợi ý món, dự đoán nhu cầu và tối ưu vận hành.
+\end{itemize}
+
+\end{document}

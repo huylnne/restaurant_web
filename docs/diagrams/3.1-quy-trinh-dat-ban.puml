@@ -7,36 +7,36 @@ actor "NV phục vụ" as W
 participant "Vue Client" as FE #4A90D9
 participant "Express API" as API #E74C3C
 participant "Reservation Service" as SVC #F39C12
-participant "Repository" as REPO #3498DB
+participant "Model" as MODEL #3498DB
 database "PostgreSQL" as DB #9B59B6
 
 C -> FE : Nhập chi nhánh, giờ đến, số khách
 FE -> API : GET /api/reservations/available
 API -> SVC : pickAvailableTable()
-SVC -> REPO : SELECT tables, orders (buffer 2h)
-REPO -> DB : kiểm tra giao khoảng\n[arrival, expected_end]
-DB --> REPO : rows
+SVC -> MODEL : SELECT tables, orders (buffer 2h)
+MODEL -> DB : kiểm tra giao khoảng\n[arrival, expected_end]
+DB --> MODEL : rows
 SVC -> SVC : pickTable (capacity, không xung đột)
 SVC --> API : available / hết chỗ
 API --> FE : 200 OK
 
 FE -> API : POST /api/reservations (JWT, CAPTCHA)
 API -> SVC : createReservation()
-SVC -> REPO : BEGIN transaction
-REPO -> DB : INSERT orders\nexpected_end = arrival + 2h
-REPO -> DB : order_type=reservation, confirmed
-DB --> REPO : order_id
-REPO -> SVC : COMMIT
+SVC -> MODEL : BEGIN transaction
+MODEL -> DB : INSERT orders\nexpected_end = arrival + 2h
+MODEL -> DB : order_type=reservation, confirmed
+DB --> MODEL : order_id
+MODEL -> SVC : COMMIT
 SVC --> API : 201 Created
 API --> FE : 201 Created
 
 W -> FE : Tiếp nhận khách
 FE -> API : POST /api/admin/reception/.../check-in
 API -> SVC : confirmArrival()
-SVC -> REPO : BEGIN transaction
-REPO -> DB : UPDATE orders.checked_in_at
-REPO -> DB : UPDATE tables.status=occupied
-DB --> REPO : COMMIT
+SVC -> MODEL : BEGIN transaction
+MODEL -> DB : UPDATE orders.checked_in_at
+MODEL -> DB : UPDATE tables.status=occupied
+DB --> MODEL : COMMIT
 API --> FE : 200 OK
 
 note over SVC, DB

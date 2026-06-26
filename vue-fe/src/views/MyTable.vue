@@ -54,13 +54,8 @@
           <div v-if="!orderItems.length" class="empty-state">
             <p>Bạn chưa gọi món nào.</p>
             <router-link
-              :to="{
-                name: 'OrderMenu',
-                query: {
-                  order_id: activeSession.order?.order_id,
-                  branch_id: activeSession.order?.branch_id,
-                },
-              }"
+              v-if="orderMoreRoute"
+              :to="orderMoreRoute"
               class="link-primary"
             >
               Gọi món ngay
@@ -77,6 +72,13 @@
         </div>
 
         <div class="card-section card-section--footer">
+          <router-link
+            v-if="canAddMoreDishes"
+            :to="orderMoreRoute"
+            class="order-more-link"
+          >
+            <el-button plain class="btn-order-more">Gọi thêm món</el-button>
+          </router-link>
           <el-button
             type="primary"
             class="btn-call"
@@ -100,6 +102,7 @@ import {
   getTableStatusLabel,
 } from "@/constants/tableStatus";
 import BillSummary from "@/components/BillSummary.vue";
+import { canOrderMoreDishes, getOrderMoreRoute } from "@/utils/reservationDisplay";
 
 const loading = ref(false);
 const error = ref("");
@@ -151,6 +154,12 @@ onMounted(() => {
 const orderItems = computed(() => activeSession.value?.items || []);
 
 const totalAmount = computed(() => activeSession.value?.total_amount || 0);
+
+const canAddMoreDishes = computed(() => canOrderMoreDishes(activeSession.value));
+
+const orderMoreRoute = computed(() =>
+  getOrderMoreRoute(activeSession.value, { returnTo: "/my-table" })
+);
 
 const normalizedTableStatus = computed(() =>
   normalizeTableStatus(activeSession.value?.table?.status)
@@ -295,8 +304,15 @@ const requestBill = async () => {
 .card-section--footer {
   display: flex;
   justify-content: flex-end;
+  align-items: center;
+  gap: var(--hl-space-sm);
+  flex-wrap: wrap;
   padding: var(--hl-space-md) var(--hl-space-lg) var(--hl-space-lg);
   border-bottom: none;
+}
+
+.order-more-link {
+  text-decoration: none;
 }
 
 .table-main-info h2 {
@@ -464,11 +480,18 @@ const requestBill = async () => {
 
   .card-section--footer {
     justify-content: stretch;
+    flex-direction: column;
+  }
+
+  .order-more-link,
+  .btn-call,
+  .btn-order-more {
+    width: 100%;
   }
 
   .btn-call {
-    width: 100%;
     min-width: 0;
+    margin-left: 0;
   }
 }
 </style>

@@ -80,6 +80,49 @@ export function getReservationBillRoute(row) {
   };
 }
 
+/** Phiên còn phục vụ — cho phép gọi thêm món (đồng bộ với luồng quét QR tại bàn). */
+export function canOrderMoreDishes(data) {
+  if (!data) return false;
+
+  const resStatus = String(data.status ?? data.order?.status ?? "").toLowerCase();
+  if (["cancelled", "completed", "no_show", "waiting_payment"].includes(resStatus)) {
+    return false;
+  }
+  if (data.Payment?.status === "succeeded") return false;
+  if (data.order?.payment_status === "paid") return false;
+
+  const tableStatus = normalizeTableStatus(
+    data.Table?.status ??
+      data.table?.status ??
+      data.tables?.[0]?.status ??
+      data.groupTables?.[0]?.status
+  );
+
+  if (tableStatus === "available" || tableStatus === "cleaning") return false;
+  if (tableStatus === "occupied" || tableStatus === "pre-ordered") return true;
+  if (resStatus === "in_progress") return true;
+
+  const hasItems = Boolean(
+    (data.items ?? data.OrderItems ?? []).length || Number(data.total_amount) > 0
+  );
+  return hasItems && resStatus === "confirmed";
+}
+
+export function getOrderMoreRoute(data, options = {}) {
+  const orderId = data?.order_id ?? data?.order?.order_id;
+  if (!orderId) return null;
+
+  const branchId = data?.branch_id ?? data?.order?.branch_id;
+  const query = {
+    order_id: String(orderId),
+    mode: "add",
+  };
+  if (branchId) query.branch_id = String(branchId);
+  if (options.returnTo) query.return_to = options.returnTo;
+
+  return { name: "OrderMenu", query };
+}
+
 export function getDiningStatusLabel(row) {
   const resStatus = (row.status || "").trim().toLowerCase();
   const tableStatus = normalizeTableStatus(row.Table?.status);

@@ -1,7 +1,10 @@
 <template>
   <div class="order-menu-page" :class="{ 'order-menu-page--has-cart': selectedItems.length }">
     <el-card class="order-menu-card">
-      <h2>Đặt món trước cho bàn đã đặt</h2>
+      <h2>{{ isAddMode ? "Gọi thêm món" : "Đặt món trước cho bàn đã đặt" }}</h2>
+      <p v-if="isAddMode" class="add-mode-hint">
+        Chọn món và gửi cho nhà hàng — đồng bộ với hóa đơn tại bàn như khi quét QR.
+      </p>
       <p v-if="branchLabel" class="branch-banner">
         Chi nhánh: <strong>{{ branchLabel }}</strong>
       </p>
@@ -79,7 +82,7 @@
           @click="submitOrder"
           :disabled="!hasItemSelected || menuLoading"
         >
-          Gửi đơn món đã chọn
+          {{ isAddMode ? "Gửi món đã chọn" : "Gửi đơn món đã chọn" }}
         </el-button>
       </div>
     </aside>
@@ -100,6 +103,7 @@ const DEFAULT_DISH_IMAGE =
 const route = useRoute();
 const router = useRouter();
 const order_id = route.query.order_id;
+const isAddMode = computed(() => route.query.mode === "add");
 
 const menu = ref([]);
 const order = ref({});
@@ -254,8 +258,15 @@ const submitOrder = async () => {
       { order_id, items },
       { headers: { Authorization: `Bearer ${token}` } }
     );
-    ElMessage.success("Đặt món trước thành công!");
-    router.push("profile");
+    ElMessage.success(isAddMode.value ? "Đã gửi món cho nhà hàng." : "Đặt món trước thành công!");
+    const returnTo = route.query.return_to;
+    if (typeof returnTo === "string" && returnTo.startsWith("/")) {
+      router.push(returnTo);
+    } else if (isAddMode.value) {
+      router.push("/my-table");
+    } else {
+      router.push("profile");
+    }
   } catch (err) {
     ElMessage.error(err.response?.data?.message || "Đặt món thất bại!");
   }
@@ -327,6 +338,16 @@ const submitOrder = async () => {
 
 .branch-banner strong {
   color: var(--hl-primary);
+}
+
+.add-mode-hint {
+  margin: 0 0 var(--hl-space-md);
+  padding: 10px 12px;
+  background: #f0fdf4;
+  border: 1px solid #bbf7d0;
+  border-radius: var(--hl-radius-md);
+  color: var(--hl-text-secondary);
+  font-size: 0.9rem;
 }
 
 .menu-empty {
