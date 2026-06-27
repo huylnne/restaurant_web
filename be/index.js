@@ -229,7 +229,7 @@ async function initDatabase() {
 
   await db.sequelize
     .query(
-      `UPDATE branches SET open_time = '08:00' WHERE open_time IS NULL OR TRIM(open_time) = '';`,
+      `UPDATE branches SET open_time = '08:00' WHERE open_time IS NULL OR TRIM(open_time) = '' OR open_time = '09:00';`,
       { raw: true }
     )
     .catch(() => {});

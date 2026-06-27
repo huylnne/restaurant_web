@@ -19,9 +19,6 @@
                 :value="branch.branch_id"
               />
             </el-select>
-            <p v-if="selectedBranch" class="branch-hours-hint">
-              Giờ mở cửa: {{ branchHoursLabel }}
-            </p>
           </el-form-item>
 
           <el-form-item label="Ngày đặt">
@@ -80,7 +77,6 @@ import { MAX_GUESTS } from "@/constants/reservation";
 import {
   buildLocalReservationDate,
   getOpeningHoursError,
-  formatBranchHoursLabel,
   RESERVATION_HOLD_MINUTES,
 } from "@/utils/branchHours";
 
@@ -143,10 +139,6 @@ const canSubmit = ref(false);
 
 const selectedBranch = computed(() =>
   branches.value.find((b) => Number(b.branch_id) === Number(form.value.branch_id)) || null
-);
-
-const branchHoursLabel = computed(() =>
-  formatBranchHoursLabel(selectedBranch.value?.open_time, selectedBranch.value?.close_time)
 );
 
 const getHoursValidationError = (dt) =>
@@ -362,12 +354,6 @@ const submitForm = async () => {
 
 .booking-branch-hint a:hover {
   text-decoration: underline;
-}
-
-.branch-hours-hint {
-  margin: 6px 0 0;
-  font-size: 0.85rem;
-  color: var(--hl-text-muted);
 }
 
 .availability-hint {

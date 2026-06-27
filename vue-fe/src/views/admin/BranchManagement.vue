@@ -65,7 +65,7 @@
         <el-form-item label="Giờ mở cửa">
           <el-row :gutter="10" style="width: 100%">
             <el-col :span="12">
-              <el-input v-model="myBranchForm.open_time" placeholder="VD: 09:00" />
+              <el-input v-model="myBranchForm.open_time" placeholder="VD: 08:00" />
             </el-col>
             <el-col :span="12">
               <el-input v-model="myBranchForm.close_time" placeholder="VD: 22:00" />
@@ -107,7 +107,7 @@
         <el-form-item label="Giờ mở cửa">
           <el-row :gutter="10" style="width: 100%">
             <el-col :span="12">
-              <el-input v-model="formData.open_time" placeholder="VD: 09:00" />
+              <el-input v-model="formData.open_time" placeholder="VD: 08:00" />
             </el-col>
             <el-col :span="12">
               <el-input v-model="formData.close_time" placeholder="VD: 22:00" />
