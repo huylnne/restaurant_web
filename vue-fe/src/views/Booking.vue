@@ -74,6 +74,7 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter, useRoute } from "vue-router";
 import CaptchaField from "@/components/CaptchaField.vue";
 import { MAX_GUESTS } from "@/constants/reservation";
+import { buildLocalReservationDate, isWithinOpeningHours } from "@/utils/branchHours";
 
 const router = useRouter();
 const route = useRoute();
@@ -101,13 +102,8 @@ const disablePastDates = (date) => {
 };
 
 /** Tạo Date từ form.date + form.time; trả null nếu chưa chọn */
-const buildReservationDate = () => {
-  if (!form.value.date || !form.value.time) return null;
-  const d = new Date(form.value.date);
-  const t = new Date(form.value.time);
-  d.setHours(t.getHours(), t.getMinutes(), 0, 0);
-  return d;
-};
+const buildReservationDate = () =>
+  buildLocalReservationDate(form.value.date, form.value.time);
 
 /** Thời gian tối thiểu phải cách hiện tại ít nhất N phút */
 const MIN_ADVANCE_MINUTES = 30;
@@ -136,25 +132,7 @@ const selectedBranch = computed(() =>
 
 const isInBranchOpeningHours = (dt) => {
   const branch = selectedBranch.value;
-  const open = branch?.open_time;
-  const close = branch?.close_time;
-  if (!open || !close || !dt) return true;
-
-  const parseHm = (v) => {
-    const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(String(v).trim());
-    if (!m) return null;
-    return { h: Number(m[1]), min: Number(m[2]) };
-  };
-
-  const openHm = parseHm(open);
-  const closeHm = parseHm(close);
-  if (!openHm || !closeHm) return true;
-
-  const openAt = new Date(dt);
-  openAt.setHours(openHm.h, openHm.min, 0, 0);
-  const closeAt = new Date(dt);
-  closeAt.setHours(closeHm.h, closeHm.min, 0, 0);
-  return dt >= openAt && dt <= closeAt;
+  return isWithinOpeningHours(dt, branch?.open_time, branch?.close_time);
 };
 
 const fetchBranches = async () => {
