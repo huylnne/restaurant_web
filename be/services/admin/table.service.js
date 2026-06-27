@@ -20,6 +20,9 @@ const {
   notTerminalOrderStatusWhere,
   completedOrderStatusSqlIn,
 } = require("../../utils/orderStatus");
+const { orderItemLineRevenueSumExpr } = require("../../utils/revenueSql");
+
+const lineRevenueSum = orderItemLineRevenueSumExpr();
 
 const DEFAULT_BRANCH_ID = tableSummaryService.DEFAULT_BRANCH_ID;
 
@@ -296,7 +299,7 @@ const tableService = {
     today.setHours(0, 0, 0, 0);
 
     const revenueQuery = `
-      SELECT COALESCE(SUM(oi.quantity * mi.price), 0) as total
+      SELECT ${lineRevenueSum} as total
       FROM order_items oi
       JOIN orders o ON oi.order_id = o.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id

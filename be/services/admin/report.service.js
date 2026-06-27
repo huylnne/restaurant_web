@@ -7,6 +7,9 @@ const {
   inProgressOrderStatusSqlIn,
 } = require('../../utils/orderStatus');
 const { hasDateRange, inclusiveDateClause } = require('../../utils/reportDateRange');
+const { orderItemLineRevenueSumExpr } = require('../../utils/revenueSql');
+
+const lineRevenueSum = orderItemLineRevenueSumExpr();
 
 const reportService = {
   async getOverviewStats(branchId = 1, startDate, endDate) {
@@ -20,7 +23,7 @@ const reportService = {
 
     const revenueParams = [branchId];
     let revenueQuery = `
-      SELECT COALESCE(SUM(oi.quantity * mi.price), 0) as total_revenue
+      SELECT ${lineRevenueSum} as total_revenue
       FROM order_items oi
       JOIN menu_items mi ON oi.item_id = mi.item_id
       JOIN orders o ON oi.order_id = o.order_id
@@ -93,7 +96,7 @@ const reportService = {
     const query = `
       SELECT
         DATE(o.created_at) as date,
-        COALESCE(SUM(oi.quantity * mi.price), 0) as revenue
+        ${lineRevenueSum} as revenue
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
@@ -124,7 +127,7 @@ const reportService = {
         mi.sale_price,
         mi.image_url,
         SUM(oi.quantity) as total_sold,
-        COALESCE(SUM(oi.quantity * mi.price), 0) as total_revenue
+        ${lineRevenueSum} as total_revenue
       FROM order_items oi
       JOIN menu_items mi ON oi.item_id = mi.item_id
       JOIN orders o ON oi.order_id = o.order_id
@@ -149,7 +152,7 @@ const reportService = {
     const query = `
       SELECT
         mi.category,
-        COALESCE(SUM(oi.quantity * mi.price), 0) as revenue,
+        ${lineRevenueSum} as revenue,
         SUM(oi.quantity) as total_sold
       FROM order_items oi
       JOIN menu_items mi ON oi.item_id = mi.item_id
@@ -178,7 +181,7 @@ const reportService = {
       SELECT
         EXTRACT(HOUR FROM o.created_at)::int as hour,
         COUNT(DISTINCT o.order_id) as order_count,
-        COALESCE(SUM(oi.quantity * mi.price), 0) as revenue
+        ${lineRevenueSum} as revenue
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
@@ -206,7 +209,7 @@ const reportService = {
         u.full_name,
         u.phone,
         COUNT(DISTINCT o.order_id) as total_orders,
-        COALESCE(SUM(oi.quantity * mi.price), 0) as total_spent
+        ${lineRevenueSum} as total_spent
       FROM users u
       JOIN orders o ON u.user_id = o.user_id
       JOIN order_items oi ON o.order_id = oi.order_id
@@ -216,7 +219,7 @@ const reportService = {
         AND mi.branch_id = $1
         ${dateFilter}
       GROUP BY u.user_id, u.full_name, u.phone
-      HAVING COALESCE(SUM(oi.quantity * mi.price), 0) > 0
+      HAVING ${lineRevenueSum} > 0
       ORDER BY total_spent DESC
       LIMIT $${params.length}
     `;
@@ -254,7 +257,7 @@ const reportService = {
     const query = `
       SELECT
         TO_CHAR(o.created_at, 'YYYY-MM') as month,
-        COALESCE(SUM(oi.quantity * mi.price), 0) as revenue,
+        ${lineRevenueSum} as revenue,
         COUNT(DISTINCT o.order_id) as order_count
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id

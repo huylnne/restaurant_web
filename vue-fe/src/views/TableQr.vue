@@ -2,7 +2,6 @@
   <div class="qr-page">
     <div class="qr-header">
       <h1 class="title">Bàn {{ tableInfo?.table_number ?? "?" }}</h1>
-      <p class="subtitle">Quét QR để xem món đã gọi, gọi thêm món và thanh toán.</p>
     </div>
 
     <div v-if="loading" class="card card--center">Đang tải thông tin bàn...</div>
@@ -28,7 +27,6 @@
         <div class="section-head">
           <div>
             <h2>Món đã gọi</h2>
-            <p class="muted">Danh sách món hiện tại của bàn.</p>
           </div>
           <el-button size="small" plain @click="refreshBill">Làm mới</el-button>
         </div>
@@ -56,7 +54,6 @@
         <div class="section-head">
           <div>
             <h2>Gọi thêm món</h2>
-            <p class="muted">Chọn số lượng rồi bấm gửi món cho nhà hàng.</p>
           </div>
           <span class="selected-count" v-if="selectedItems.length">{{ selectedItems.length }} món đã chọn</span>
         </div>
@@ -338,11 +335,6 @@ const genBankQr = async () => {
   font-size: 1.75rem;
   font-weight: 700;
   color: var(--hl-primary);
-}
-.subtitle {
-  margin: 0;
-  color: var(--hl-text-muted);
-  font-size: 0.9375rem;
 }
 .layout {
   max-width: 960px;

@@ -2,9 +2,6 @@
   <div class="my-table-page">
     <div class="my-table-header">
       <h1 class="title">Bàn của tôi</h1>
-      <p class="subtitle">
-        Xem trạng thái bàn, các món đã gọi và gọi nhân viên thanh toán.
-      </p>
     </div>
 
     <div v-if="loading" class="card card--center">
@@ -253,12 +250,6 @@ const requestBill = async () => {
   font-size: 1.75rem;
   font-weight: 700;
   color: var(--hl-primary);
-}
-
-.subtitle {
-  margin: 0;
-  color: var(--hl-text-muted);
-  font-size: 0.9375rem;
 }
 
 .layout {

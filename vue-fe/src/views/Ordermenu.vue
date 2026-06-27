@@ -2,12 +2,6 @@
   <div class="order-menu-page" :class="{ 'order-menu-page--has-cart': selectedItems.length }">
     <el-card class="order-menu-card">
       <h2>{{ isAddMode ? "Gọi thêm món" : "Đặt món trước cho bàn đã đặt" }}</h2>
-      <p v-if="isAddMode" class="add-mode-hint">
-        Chọn món và gửi cho nhà hàng — đồng bộ với hóa đơn tại bàn như khi quét QR.
-      </p>
-      <p v-if="branchLabel" class="branch-banner">
-        Chi nhánh: <strong>{{ branchLabel }}</strong>
-      </p>
       <MenuHighlightSections
         :branch-id="branchId"
         :show-order-button="true"
@@ -324,30 +318,6 @@ const submitOrder = async () => {
   color: var(--hl-primary);
   font-weight: 600;
   margin-bottom: var(--hl-space-lg);
-}
-
-.branch-banner {
-  margin: 0 0 var(--hl-space-md);
-  padding: 10px 12px;
-  background: #fff7ed;
-  border: 1px solid #fed7aa;
-  border-radius: var(--hl-radius-md);
-  color: var(--hl-text-secondary);
-  font-size: 14px;
-}
-
-.branch-banner strong {
-  color: var(--hl-primary);
-}
-
-.add-mode-hint {
-  margin: 0 0 var(--hl-space-md);
-  padding: 10px 12px;
-  background: #f0fdf4;
-  border: 1px solid #bbf7d0;
-  border-radius: var(--hl-radius-md);
-  color: var(--hl-text-secondary);
-  font-size: 0.9rem;
 }
 
 .menu-empty {

@@ -2,6 +2,9 @@ const { Sequelize } = require("sequelize");
 const db = require("../../models/db");
 const tableSummaryService = require("./tableSummary.service");
 const { completedOrderStatusSqlIn } = require("../../utils/orderStatus");
+const { orderItemLineRevenueSumExpr } = require("../../utils/revenueSql");
+
+const lineRevenueSum = orderItemLineRevenueSumExpr();
 
 const dashboardService = {
   async getSummary(branchId = 1) {
@@ -16,7 +19,7 @@ const dashboardService = {
     yesterdayEnd.setHours(23, 59, 59, 999);
 
     const todayRevenueQuery = `
-      SELECT COALESCE(SUM(mi.price * oi.quantity), 0) AS total
+      SELECT ${lineRevenueSum} AS total
       FROM order_items oi
       JOIN menu_items mi ON mi.item_id = oi.item_id
       JOIN orders o ON o.order_id = oi.order_id
@@ -32,7 +35,7 @@ const dashboardService = {
     const todayRevenue = parseFloat(todayRevenueResult.total) || 0;
 
     const yesterdayRevenueQuery = `
-      SELECT COALESCE(SUM(mi.price * oi.quantity), 0) AS total
+      SELECT ${lineRevenueSum} AS total
       FROM order_items oi
       JOIN menu_items mi ON mi.item_id = oi.item_id
       JOIN orders o ON o.order_id = oi.order_id
@@ -152,7 +155,7 @@ const dashboardService = {
     const query = `
       SELECT 
         DATE(o.created_at) AS order_date,
-        COALESCE(SUM(mi.price * oi.quantity), 0) AS revenue
+        ${lineRevenueSum} AS revenue
       FROM orders o
       JOIN order_items oi ON o.order_id = oi.order_id
       JOIN menu_items mi ON oi.item_id = mi.item_id
@@ -209,7 +212,7 @@ const dashboardService = {
         mi.name AS dish_name,
         mi.category,
         COALESCE(SUM(oi.quantity), 0) AS total_quantity,
-        COALESCE(SUM(mi.price * oi.quantity), 0) AS revenue
+        ${lineRevenueSum} AS revenue
       FROM order_items oi
       JOIN menu_items mi ON oi.item_id = mi.item_id
       JOIN orders o ON oi.order_id = o.order_id

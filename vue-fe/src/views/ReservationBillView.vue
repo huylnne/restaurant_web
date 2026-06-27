@@ -3,7 +3,6 @@
     <div class="reservation-bill-header">
       <router-link to="/profile" class="back-link">← Quay lại lịch sử</router-link>
       <h1 class="title">Chi tiết hóa đơn</h1>
-      <p class="subtitle">Hóa đơn tạm tính đồng bộ với nhân viên phục vụ.</p>
     </div>
 
     <div v-if="loading" class="card card--center">
@@ -184,12 +183,6 @@ watch(
   font-size: 1.75rem;
   font-weight: 700;
   color: var(--hl-primary);
-}
-
-.subtitle {
-  margin: 0;
-  color: var(--hl-text-muted);
-  font-size: 0.9375rem;
 }
 
 .layout {
