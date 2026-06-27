@@ -376,6 +376,16 @@ const submitForm = async () => {
   width: 100%;
 }
 
+.booking-card :deep(.el-form-item__error) {
+  position: static;
+  margin-top: 6px;
+  line-height: 1.45;
+}
+
+.booking-card :deep(.el-form-item.is-error) {
+  margin-bottom: 22px;
+}
+
 @media (max-width: 768px) {
   .booking_grid {
     min-height: auto;
