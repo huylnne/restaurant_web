@@ -19,6 +19,9 @@
                 :value="branch.branch_id"
               />
             </el-select>
+            <p v-if="selectedBranch" class="branch-hours-hint">
+              Giờ mở cửa: {{ branchHoursLabel }}
+            </p>
           </el-form-item>
 
           <el-form-item label="Ngày đặt">
@@ -74,7 +77,12 @@ import { ElMessage, ElMessageBox } from "element-plus";
 import { useRouter, useRoute } from "vue-router";
 import CaptchaField from "@/components/CaptchaField.vue";
 import { MAX_GUESTS } from "@/constants/reservation";
-import { buildLocalReservationDate, isWithinOpeningHours } from "@/utils/branchHours";
+import {
+  buildLocalReservationDate,
+  getOpeningHoursError,
+  formatBranchHoursLabel,
+  RESERVATION_HOLD_MINUTES,
+} from "@/utils/branchHours";
 
 const router = useRouter();
 const route = useRoute();
@@ -120,6 +128,13 @@ const timeError = computed(() => {
   if (dt.getTime() > Date.now() + MAX_ADVANCE_MS) {
     return `Chỉ được đặt bàn tối đa ${MAX_ADVANCE_DAYS} ngày tới`;
   }
+  const hoursErr = getOpeningHoursError(
+    dt,
+    selectedBranch.value?.open_time,
+    selectedBranch.value?.close_time,
+    { holdMinutes: RESERVATION_HOLD_MINUTES }
+  );
+  if (hoursErr) return hoursErr;
   return "";
 });
 
@@ -130,10 +145,17 @@ const selectedBranch = computed(() =>
   branches.value.find((b) => Number(b.branch_id) === Number(form.value.branch_id)) || null
 );
 
-const isInBranchOpeningHours = (dt) => {
-  const branch = selectedBranch.value;
-  return isWithinOpeningHours(dt, branch?.open_time, branch?.close_time);
-};
+const branchHoursLabel = computed(() =>
+  formatBranchHoursLabel(selectedBranch.value?.open_time, selectedBranch.value?.close_time)
+);
+
+const getHoursValidationError = (dt) =>
+  getOpeningHoursError(
+    dt,
+    selectedBranch.value?.open_time,
+    selectedBranch.value?.close_time,
+    { holdMinutes: RESERVATION_HOLD_MINUTES }
+  );
 
 const fetchBranches = async () => {
   try {
@@ -154,7 +176,13 @@ const fetchBranches = async () => {
 fetchBranches();
 
 watch(
-  [() => form.value.branch_id, () => form.value.date, () => form.value.time, () => form.value.guests],
+  [
+    branches,
+    () => form.value.branch_id,
+    () => form.value.date,
+    () => form.value.time,
+    () => form.value.guests,
+  ],
   async () => {
     availabilityMessage.value = "";
     canSubmit.value = false;
@@ -172,8 +200,9 @@ watch(
       availabilityMessage.value = `Chỉ được đặt bàn tối đa ${MAX_ADVANCE_DAYS} ngày tới`;
       return;
     }
-    if (!isInBranchOpeningHours(date)) {
-      availabilityMessage.value = "Thời gian đặt bàn phải nằm trong giờ mở cửa của chi nhánh.";
+    const hoursErr = getHoursValidationError(date);
+    if (hoursErr) {
+      availabilityMessage.value = hoursErr;
       return;
     }
 
@@ -210,8 +239,9 @@ const submitForm = async () => {
     ElMessage.error(`Chỉ được đặt bàn tối đa ${MAX_ADVANCE_DAYS} ngày tới`);
     return;
   }
-  if (!isInBranchOpeningHours(date)) {
-    ElMessage.error("Thời gian đặt bàn phải nằm trong giờ mở cửa của chi nhánh.");
+  const hoursErr = getHoursValidationError(date);
+  if (hoursErr) {
+    ElMessage.error(hoursErr);
     return;
   }
 
@@ -332,6 +362,12 @@ const submitForm = async () => {
 
 .booking-branch-hint a:hover {
   text-decoration: underline;
+}
+
+.branch-hours-hint {
+  margin: 6px 0 0;
+  font-size: 0.85rem;
+  color: var(--hl-text-muted);
 }
 
 .availability-hint {

@@ -1,3 +1,8 @@
+export const DEFAULT_OPEN_TIME = "08:00";
+export const DEFAULT_CLOSE_TIME = "22:00";
+/** Buffer giữ bàn khi đặt trước (UC05) */
+export const RESERVATION_HOLD_MINUTES = 120;
+
 export function parseHm(timeText) {
   if (timeText == null || timeText === "") return null;
   const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(timeText).trim());
@@ -8,15 +13,41 @@ export function parseHm(timeText) {
   return { h, min };
 }
 
-export function isWithinOpeningHours(date, openTime, closeTime) {
-  if (!openTime || !closeTime || !date) return true;
-  const openHm = parseHm(openTime);
-  const closeHm = parseHm(closeTime);
-  if (!openHm || !closeHm) return true;
+export function resolveBranchHours(openTime, closeTime) {
+  const open =
+    openTime != null && String(openTime).trim() !== "" ? String(openTime).trim() : DEFAULT_OPEN_TIME;
+  const close =
+    closeTime != null && String(closeTime).trim() !== ""
+      ? String(closeTime).trim()
+      : DEFAULT_CLOSE_TIME;
+  return { open, close };
+}
+
+/**
+ * Kiểm tra giờ đặt bàn theo giờ mở cửa (local).
+ * holdMinutes: buffer giữ bàn sau giờ đến.
+ */
+export function isWithinOpeningHours(date, openTime, closeTime, { holdMinutes = 0 } = {}) {
+  return getOpeningHoursError(date, openTime, closeTime, { holdMinutes }) == null;
+}
+
+export function getOpeningHoursError(date, openTime, closeTime, { holdMinutes = 0 } = {}) {
+  if (!date) return "Thời gian đặt bàn không hợp lệ.";
+  const { open, close } = resolveBranchHours(openTime, closeTime);
+  const openHm = parseHm(open);
+  const closeHm = parseHm(close);
+  if (!openHm || !closeHm) return "Giờ mở cửa chi nhánh chưa được cấu hình hợp lệ.";
   const resMin = date.getHours() * 60 + date.getMinutes();
   const openMin = openHm.h * 60 + openHm.min;
   const closeMin = closeHm.h * 60 + closeHm.min;
-  return resMin >= openMin && resMin <= closeMin;
+  if (resMin < openMin || resMin > closeMin) {
+    return `Thời gian đặt bàn phải nằm trong giờ mở cửa (${open} – ${close}).`;
+  }
+  if (holdMinutes > 0 && resMin + holdMinutes > closeMin) {
+    const holdHours = holdMinutes / 60;
+    return `Giờ đặt quá gần giờ đóng cửa. Hệ thống giữ bàn ${holdHours} giờ sau giờ đến — vui lòng chọn sớm hơn.`;
+  }
+  return null;
 }
 
 /** Ghép ngày + giờ theo lịch local, tránh lệch khi date picker trả về UTC midnight. */
@@ -34,4 +65,9 @@ export function buildLocalReservationDate(datePart, timePart) {
     0,
     0
   );
+}
+
+export function formatBranchHoursLabel(openTime, closeTime) {
+  const { open, close } = resolveBranchHours(openTime, closeTime);
+  return `${open} – ${close}`;
 }

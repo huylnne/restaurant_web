@@ -12,7 +12,10 @@ const {
 const { ORDER_STATUS } = require("../../utils/orderStatus");
 const { MAX_GUESTS } = require("../../middlewares/validateReservationInput");
 const { Branch } = db;
-const { isWithinBranchHours } = require("../../utils/branchHours");
+const {
+  getBranchHoursValidationMessage,
+  RESERVATION_HOLD_MINUTES,
+} = require("../../utils/branchHours");
 
 const MIN_ADVANCE_MS = 30 * 60 * 1000;
 const MAX_ADVANCE_MS = 14 * 24 * 60 * 60 * 1000;
@@ -60,10 +63,14 @@ const createReservation = async (req, res) => {
       return res.status(400).json({ message: "Chi nhánh không hợp lệ." });
     }
 
-    if (!isWithinBranchHours(reservationDate, branch.open_time, branch.close_time)) {
-      return res.status(400).json({
-        message: "Thời gian đặt bàn phải nằm trong giờ mở cửa của chi nhánh.",
-      });
+    const hoursError = getBranchHoursValidationMessage(
+      reservationDate,
+      branch.open_time,
+      branch.close_time,
+      { holdMinutes: RESERVATION_HOLD_MINUTES }
+    );
+    if (hoursError) {
+      return res.status(400).json({ message: hoursError });
     }
 
     if (!number_of_guests || Number(number_of_guests) < 1) {
@@ -142,10 +149,14 @@ const getAvailableTables = async (req, res) => {
     if (!branch || branch.is_active === false) {
       return res.status(400).json({ message: "Chi nhánh không hợp lệ." });
     }
-    if (!isWithinBranchHours(reservationDate, branch.open_time, branch.close_time)) {
-      return res.status(400).json({
-        message: "Thời gian đặt bàn phải nằm trong giờ mở cửa của chi nhánh.",
-      });
+    const hoursError = getBranchHoursValidationMessage(
+      reservationDate,
+      branch.open_time,
+      branch.close_time,
+      { holdMinutes: RESERVATION_HOLD_MINUTES }
+    );
+    if (hoursError) {
+      return res.json({ available: false, message: hoursError });
     }
 
     const guestCount = Number(guests);

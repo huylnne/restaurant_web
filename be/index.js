@@ -228,6 +228,18 @@ async function initDatabase() {
     .catch(() => {});
 
   await db.sequelize
+    .query(
+      `UPDATE branches SET open_time = '08:00' WHERE open_time IS NULL OR TRIM(open_time) = '';`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE branches SET close_time = '22:00' WHERE close_time IS NULL OR TRIM(close_time) = '';`,
+      { raw: true }
+    )
+    .catch(() => {});
+  await db.sequelize
     .query('ALTER TABLE branches ADD COLUMN IF NOT EXISTS latitude DECIMAL(10, 7);', { raw: true })
     .catch(() => {});
   await db.sequelize
