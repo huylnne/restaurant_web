@@ -43,7 +43,7 @@
           </el-form-item>
 
           <p
-            v-if="availabilityMessage"
+            v-if="availabilityMessage && !timeError"
             class="availability-hint"
             :class="canSubmit ? 'availability-hint--ok' : 'availability-hint--warn'"
           >
@@ -188,15 +188,8 @@ watch(
 
     const date = buildReservationDate();
     if (!isTimeValid(date)) return;
-    if (date.getTime() > Date.now() + MAX_ADVANCE_MS) {
-      availabilityMessage.value = `Chỉ được đặt bàn tối đa ${MAX_ADVANCE_DAYS} ngày tới`;
-      return;
-    }
-    const hoursErr = getHoursValidationError(date);
-    if (hoursErr) {
-      availabilityMessage.value = hoursErr;
-      return;
-    }
+    if (date.getTime() > Date.now() + MAX_ADVANCE_MS) return;
+    if (getHoursValidationError(date)) return;
 
     try {
       const res = await axios.get("/api/reservations/available", {
