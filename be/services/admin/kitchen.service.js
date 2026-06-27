@@ -3,6 +3,7 @@ const {
   findKitchenOrderItems,
   syncOrderStatusFromItems,
   orderTableInclude,
+  resolveOrderBranchId,
 } = require('../../utils/orderQueries');
 const { groupKitchenItemsByTable } = require('../../utils/kitchenQueue');
 const { normalizeOrderItemStatus, ORDER_ITEM_STATUS } = require('../../utils/orderItemStatus');
@@ -17,10 +18,14 @@ const kitchenService = {
   async updateOrderItemStatus(orderItemId, newStatus, branchId = 1) {
     const item = await OrderItem.findOne({
       where: { order_item_id: orderItemId },
-      include: [{ model: MenuItem, attributes: ['branch_id'] }],
+      include: [
+        { model: MenuItem, attributes: ['branch_id', 'name', 'item_id'] },
+        ...orderTableInclude(),
+      ],
     });
     if (!item) throw new Error('OrderItem not found');
-    if (item.MenuItem?.branch_id !== Number(branchId)) {
+    const itemBranchId = resolveOrderBranchId(item.toJSON());
+    if (itemBranchId == null || Number(itemBranchId) !== Number(branchId)) {
       throw new Error('Không có quyền cập nhật món của chi nhánh khác');
     }
 
