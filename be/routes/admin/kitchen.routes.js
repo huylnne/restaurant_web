@@ -4,7 +4,7 @@ const kitchenController = require('../../controllers/admin/kitchen.controller');
 const { verifyToken, authorizeRole } = require('../../middlewares/auth');
 const { auditLog } = require('../../middlewares/operationLog');
 
-router.use(verifyToken, authorizeRole('admin', 'waiter', 'kitchen'));
+router.use(verifyToken, authorizeRole('admin', 'kitchen'));
 
 router.get('/order-items', kitchenController.listOrderItems);
 

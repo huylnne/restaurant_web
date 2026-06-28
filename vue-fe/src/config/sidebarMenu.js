@@ -3,7 +3,7 @@
  * Mỗi item: key, label, icon (tên component), route (null = không link), roles (mảng role được phép xem).
  * - admin: full menu
  * - manager: chi nhánh của mình, báo cáo, đánh giá, quản lý món ăn
- * - waiter: chỉ Quản lý món ăn, Quản lý bàn / Phục vụ, Bếp
+ * - waiter: chỉ Quản lý món ăn, Quản lý bàn / Phục vụ
  * - kitchen: chỉ Bếp
  */
 export const SIDEBAR_MENU = [
@@ -75,7 +75,7 @@ export const SIDEBAR_MENU = [
     label: "Bếp",
     icon: "Dish",
     route: "/admin/kitchen",
-    roles: ["admin", "waiter", "kitchen"],
+    roles: ["admin", "kitchen"],
   },
   {
     key: "settings",
