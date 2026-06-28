@@ -1,4 +1,4 @@
-const MAX_GUESTS = 50;
+const MAX_GUESTS = 12;
 const NOTE_MAX_LEN = 500;
 
 function rejectUnexpectedKeys(body, allowedKeys) {
@@ -33,7 +33,9 @@ const validateCreateReservationBody = (req, res, next) => {
 
   const guests = Number(req.body.number_of_guests);
   if (!Number.isFinite(guests) || guests < 1 || guests > MAX_GUESTS) {
-    return res.status(400).json({ message: `Số khách phải từ 1 đến ${MAX_GUESTS}` });
+    return res.status(400).json({
+      message: `Đặt bàn online tối đa ${MAX_GUESTS} khách. Nhóm lớn vui lòng gọi trực tiếp để nhà hàng xác nhận và đặt cọc.`,
+    });
   }
 
   if (req.body.branch_id != null && req.body.branch_id !== '') {
