@@ -9,14 +9,14 @@ const { Sequelize } = require("sequelize");
 
 const DEFAULT_BRANCH_ID = 1;
 
-/** Số phút sau giờ đặt mà khách chưa tới thì coi là no-show → giải phóng bàn */
+/** Số phút sau giờ đặt mà khách chưa tới thì coi là no-show → giải phóng bàn và khóa tài khoản */
 const OVERDUE_MINUTES = 15;
 /** Số phút trước giờ đặt thì chuyển bàn sang 'pre-ordered' để nhân viên chuẩn bị */
 const PRE_ORDER_MINUTES = 15;
 
 /**
  * Đồng bộ trạng thái bàn dựa theo orders (phiên đặt bàn):
- *  1. Đặt bàn chưa được tiếp nhận quá 15 phút → no_show, giải phóng bàn
+ *  1. Đặt bàn chưa được tiếp nhận quá 15 phút → no_show, giải phóng bàn, khóa tài khoản khách
  *  2. Chuyển bàn sang 'pre-ordered' khi còn ≤ PRE_ORDER_MINUTES trước giờ đến
  */
 async function expireReservationsForBranch(branchId, cutoff) {
@@ -26,13 +26,25 @@ async function expireReservationsForBranch(branchId, cutoff) {
   const preOrderTrigger = new Date(now.getTime() + PRE_ORDER_MINUTES * 60 * 1000);
 
   await db.sequelize.query(
-    `UPDATE orders
-     SET status = 'no_show'
-     WHERE order_type = 'reservation'
-       AND branch_id = :branchId
-       AND status IN ('pending', 'confirmed', 'pre-ordered')
-       AND checked_in_at IS NULL
-       AND arrival_time <= :noShowDeadline`,
+    `WITH expired AS (
+       UPDATE orders
+       SET status = 'no_show'
+       WHERE order_type = 'reservation'
+         AND branch_id = :branchId
+         AND status IN ('pending', 'confirmed', 'pre-ordered')
+         AND checked_in_at IS NULL
+         AND arrival_time <= :noShowDeadline
+       RETURNING user_id
+     )
+     UPDATE users u
+     SET locked = true
+     WHERE u.user_id IN (
+       SELECT user_id
+       FROM expired
+       WHERE user_id IS NOT NULL
+     )
+       AND u.role = 'user'
+       AND u.locked = false`,
     {
       replacements: {
         branchId,
