@@ -374,9 +374,12 @@ const selectCategory = (category) => {
   currentPage.value = 1;
 };
 
+const canPreOrderForReservation = (order) =>
+  ["pending", "confirmed"].includes(String(order?.status || "").toLowerCase());
+
 const handleOrderClick = (dish) => {
   const order = JSON.parse(localStorage.getItem("activeOrder") || "null");
-  if (order && order.status === "confirmed") {
+  if (order && canPreOrderForReservation(order)) {
     if (dish?.item_id) {
       sessionStorage.setItem(
         "pendingOrderDish",

@@ -13,6 +13,7 @@ const {
   getConflictTableIds: getLinkedConflictTableIds,
   hasOverlappingBooking: hasLinkedOverlappingBooking,
 } = require("../utils/orderTableLinks");
+const tableSummaryService = require("./admin/tableSummary.service");
 const { CANCELABLE_RESERVATION_STATUSES } = require("../utils/reservationStatus");
 const { ORDER_STATUS } = require("../utils/orderStatus");
 
@@ -116,6 +117,8 @@ async function resolveNoTableMessage(branch_id, guests, arrivalTime, conflictIds
 }
 
 async function pickAvailableTable(branch_id, number_of_guests, arrivalTime) {
+  await tableSummaryService.expireReservationsForBranch(branch_id);
+
   const guests = Number(number_of_guests);
   const available = await getAvailableTablesForSlot(branch_id, arrivalTime);
   const plan = planTableAllocation(
@@ -252,6 +255,8 @@ async function createReservation({ user_id, branch_id, reservation_time, number_
       throw err;
     }
 
+    await tableSummaryService.expireReservationsForBranch(branch_id);
+
     const picked = await pickAvailableTableWithLock(branch_id, guests, arrival_time, transaction);
 
     if (!picked.tables?.length) {
@@ -281,7 +286,7 @@ async function createReservation({ user_id, branch_id, reservation_time, number_
         note: groupNote,
         booking_group_id: null,
         order_type: "reservation",
-        status: ORDER_STATUS.CONFIRMED,
+        status: ORDER_STATUS.PENDING,
         payment_status: "unpaid",
         total_amount: 0,
         created_at: new Date(),

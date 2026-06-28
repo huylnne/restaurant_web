@@ -30,29 +30,25 @@ Hệ thống được chia thành ba tầng chính. Sơ đồ kiến trúc tổn
 Hình~\ref{fig:architecture-mvc} thể hiện ba tầng View, Controller và Model cùng luồng phụ thuộc giữa chúng:
 
 \begin{itemize}
-    \item \textbf{Tầng trình bày (Frontend)}
-    Phát triển bằng \textbf{Vue.js 3 + Element Plus}.
-    Đây là nơi tương tác trực tiếp với: khách hàng, nhân viên phục vụ, nhân viên bếp, quản lý chi nhánh và admin hệ thống.
+    \item \textit{Tầng trình bày (Frontend)}
+    Phát triển bằng Vue.js 3 kết hợp Element Plus, là nơi tương tác trực tiếp với khách hàng, nhân viên phục vụ, nhân viên bếp, quản lý chi nhánh và admin hệ thống.
     Frontend giao tiếp với Backend qua API (HTTP/HTTPS) và WebSocket khi cần đồng bộ realtime.
 
-    \item \textbf{Tầng ứng dụng (Backend)}
-    Xây dựng bằng \textbf{Node.js + Express}.
-    Chịu trách nhiệm xử lý toàn bộ logic nghiệp vụ được mô tả trong UC01--UC17, gồm:
+    \item \textit{Tầng ứng dụng (Backend)}
+    Xây dựng bằng Node.js và Express, chịu trách nhiệm xử lý toàn bộ logic nghiệp vụ UC01--UC17, gồm:
     \begin{itemize}
-        \item quản lý đặt bàn, kiểm tra bàn trống theo \textbf{buffer giữ chỗ 2 giờ}, tự động phân bàn và ghép bàn liền kề;
-        \item tạo phiên phục vụ (\texttt{orders}), gọi món, đồng bộ trạng thái chế biến giữa phục vụ và bếp;
-        \item xử lý no-show (quá 15 phút sau giờ đặt chưa check-in), hủy đặt bàn và giải phóng bàn;
-        \item tổng hợp hóa đơn, xử lý thanh toán (tiền mặt, chuyển khoản, Momo, VietQR);
-        \item quản lý menu, chi nhánh, nhân sự và tài khoản;
-        \item thống kê doanh thu và đánh giá khách hàng;
-        \item phân quyền người dùng theo vai trò (\texttt{role}) và phạm vi chi nhánh.
+        \item Quản lý đặt bàn, kiểm tra bàn trống theo buffer giữ chỗ 2 giờ, tự động phân bàn và ghép bàn liền kề.
+        \item Tạo phiên phục vụ (\texttt{orders}), gọi món, đồng bộ trạng thái chế biến giữa phục vụ và bếp.
+        \item Xử lý no-show (quá 15 phút sau giờ đặt chưa check-in), hủy đặt bàn và giải phóng bàn.
+        \item Tổng hợp hóa đơn, thanh toán (tiền mặt, chuyển khoản, Momo, VietQR).
+        \item Quản lý menu, chi nhánh, nhân sự và tài khoản.
+        \item Thống kê doanh thu, đánh giá khách hàng.
+        \item Phân quyền theo vai trò (\texttt{role}) và phạm vi chi nhánh.
     \end{itemize}
 
-    \item \textbf{Tầng dữ liệu (Database)}
-    Sử dụng \textbf{PostgreSQL}.
-    Lưu trữ dữ liệu tập trung: \texttt{users}, \texttt{branches}, \texttt{tables}, \texttt{orders},
-    \texttt{order\_tables}, \texttt{order\_items}, \texttt{menu\_items}, \texttt{payments}, \texttt{reviews},
-    \texttt{employees}.
+    \item \textit{Tầng dữ liệu (Database)}
+    Sử dụng PostgreSQL, lưu trữ tập trung các bảng \texttt{users}, \texttt{branches}, \texttt{tables}, \texttt{orders},
+    \texttt{order\_tables}, \texttt{order\_items}, \texttt{menu\_items}, \texttt{payments}, \texttt{reviews}, \texttt{employees}.
 \end{itemize}
 
 \subsection{Kiến trúc triển khai}
@@ -60,12 +56,12 @@ Hình~\ref{fig:architecture-mvc} thể hiện ba tầng View, Controller và Mod
 Kiến trúc triển khai tổng thể trên Hình~\ref{fig:architecture-mvc} gồm các thành phần chính:
 
 \begin{itemize}
-    \item \textbf{Client (Browser)} -- giao diện theo từng vai trò người dùng.
-    \item \textbf{API Server} -- tiếp nhận yêu cầu, kiểm tra xác thực/phân quyền và điều phối xử lý nghiệp vụ.
-    \item \textbf{Lớp nghiệp vụ (Service)} -- hiện thực các quy tắc đặt bàn, vận hành phục vụ, thanh toán và quản trị.
-    \item \textbf{Lớp truy cập dữ liệu (ORM)} -- ánh xạ thực thể và thực thi truy vấn trên CSDL.
-    \item \textbf{Cơ sở dữ liệu quan hệ} -- lưu trữ dữ liệu và ràng buộc toàn vẹn.
-    \item \textbf{Kênh realtime} -- đồng bộ trạng thái món ăn giữa bếp và phục vụ theo chi nhánh (UC08).
+    \item Client (Browser) -- giao diện theo từng vai trò người dùng.
+    \item API Server -- tiếp nhận yêu cầu, kiểm tra xác thực/phân quyền và điều phối xử lý nghiệp vụ.
+    \item Lớp nghiệp vụ (Service) -- hiện thực các quy tắc đặt bàn, vận hành phục vụ, thanh toán và quản trị.
+    \item Lớp truy cập dữ liệu (ORM) -- ánh xạ thực thể và thực thi truy vấn trên CSDL.
+    \item Cơ sở dữ liệu quan hệ -- lưu trữ dữ liệu và ràng buộc toàn vẹn.
+    \item Kênh realtime -- đồng bộ trạng thái món ăn giữa bếp và phục vụ theo chi nhánh (UC08).
 \end{itemize}
 
 Luồng xử lý điển hình: Client gửi yêu cầu $\rightarrow$ kiểm tra xác thực/phân quyền
@@ -95,11 +91,11 @@ $\rightarrow$ xử lý nghiệp vụ $\rightarrow$ truy cập CSDL $\rightarrow$
 \subsection{Mối quan hệ giữa các thành phần}
 
 \begin{itemize}
-    \item \textbf{Separation of Concerns}: mỗi tầng đảm nhiệm một vai trò độc lập (View / Controller / Service / Model).
-    \item \textbf{Loose Coupling}: frontend chỉ phụ thuộc API contract, không truy cập trực tiếp CSDL.
-    \item \textbf{Role-based Access}: phân quyền theo \texttt{users.role} và phạm vi \texttt{branch\_id}.
-    \item \textbf{Real-time synchronization}: trạng thái món ăn được cập nhật liên tục qua WebSocket theo chi nhánh.
-    \item \textbf{Interval-based booking}: giữ chỗ bàn dựa trên khoảng thời gian có hạn (buffer 2 giờ), không chỉ mốc \textit{arrival\_time} đơn lẻ.
+    \item \textit{Separation of Concerns}: Mỗi tầng đảm nhiệm một vai trò độc lập (View / Controller / Service / Model).
+    \item \textit{Loose Coupling}: Frontend chỉ phụ thuộc API contract, không truy cập trực tiếp CSDL.
+    \item \textit{Role-based Access}: Phân quyền theo \texttt{users.role} và phạm vi \texttt{branch\_id}.
+    \item \textit{Real-time synchronization}: Trạng thái món ăn được cập nhật liên tục qua WebSocket theo chi nhánh.
+    \item \textit{Interval-based booking}: Giữ chỗ bàn dựa trên khoảng thời gian có hạn (buffer 2 giờ), không chỉ mốc \textit{arrival\_time} đơn lẻ.
 \end{itemize}
 
 \subsection{Định hướng mở rộng}
@@ -123,7 +119,7 @@ Quy trình đặt bàn và kiểm tra buffer 2 giờ được mô tả như sau.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth]{Chuong/3.1-quy-trinh-dat-ban.png}
+    \includegraphics[width=\textwidth]{Chuong/Sequence1.png}
     \caption{Biểu đồ trình tự: Quy trình đặt bàn (kiểm tra buffer 2 giờ)}
     \label{fig:seq-booking}
 \end{figure}
@@ -137,7 +133,7 @@ Quy trình gọi món và phục vụ được mô tả như sau.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth]{Chuong/3.2-quy-trinh-goi-mon.png}
+    \includegraphics[width=\textwidth]{Chuong/Sequence2.png}
     \caption{Biểu đồ trình tự: Quy trình gọi món và phục vụ}
     \label{fig:seq-order}
 \end{figure}
@@ -149,7 +145,7 @@ Quy trình thanh toán và xuất hoá đơn được mô tả như sau.
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth]{Chuong/3.3-quy-trinh-thanh-toan.png}
+    \includegraphics[width=\textwidth]{Chuong/Sequence3.png}
     \caption{Biểu đồ trình tự: Quy trình thanh toán và xuất hoá đơn}
     \label{fig:seq-payment}
 \end{figure}
@@ -167,15 +163,15 @@ và mối quan hệ giữa chúng được thể hiện trên lược đồ quan
 
 \begin{figure}[H]
     \centering
-    \includegraphics[width=\textwidth]{Chuong/BDquanhe.png}
+    \includegraphics[width=1.5\textwidth,angle=-90]{Chuong/database.png}
     \caption{Lược đồ quan hệ của cơ sở dữ liệu}
     \label{fig:erd}
 \end{figure}
 
-Hình~\ref{fig:erd} mô tả sơ đồ cơ sở dữ liệu tổng thể gồm \textbf{10 bảng}: \textbf{7 bảng lõi}
-(users, branches, tables, orders, order\_tables, order\_items, menu\_items) và \textbf{3 bảng phụ trợ}
+Hình~\ref{fig:erd} mô tả sơ đồ cơ sở dữ liệu tổng thể gồm 10 bảng: 7 bảng lõi
+(users, branches, tables, orders, order\_tables, order\_items, menu\_items) và 3 bảng phụ trợ
 (payments, reviews, employees) phục vụ thanh toán, đánh giá và nhân sự.
-Mỗi \texttt{orders} là một \textbf{phiên phục vụ} (đặt bàn trước, walk-in hoặc tại bàn):
+Mỗi \texttt{orders} là một phiên phục vụ (đặt bàn trước, walk-in hoặc tại bàn):
 lưu thời gian đến, thời gian dự kiến kết thúc giữ bàn, số khách, tổng tiền và trạng thái thanh toán; chi tiết món nằm ở \texttt{order\_items}.
 Trường \texttt{order\_type} phân loại kênh phục vụ; trường \texttt{status} mô tả trạng thái phiên theo vòng đời nghiệp vụ.
 Trên sơ đồ, một chi nhánh có nhiều bàn, món ăn, nhân viên và phiên phục vụ; một \texttt{orders} gồm nhiều \texttt{order\_items},

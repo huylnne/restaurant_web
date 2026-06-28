@@ -13,6 +13,11 @@ const { ORDER_STATUS } = require("../../utils/orderStatus");
 const { getTablesForOrder } = require("../../utils/orderTableLinks");
 
 const TERMINAL_STATUSES = TERMINAL_RESERVATION_STATUSES;
+const PENDING_RECEPTION_STATUSES = [
+  ORDER_STATUS.PENDING,
+  ORDER_STATUS.CONFIRMED,
+  ORDER_STATUS.PRE_ORDERED,
+];
 
 function mapArrivalRow(o, { groupTables } = {}) {
   const data = o.toJSON();
@@ -344,7 +349,7 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
     where: {
       table_id: tableId,
       order_type: "reservation",
-      status: "confirmed",
+      status: { [Op.in]: PENDING_RECEPTION_STATUSES },
       arrival_time: { [Op.gt]: now },
     },
   });
@@ -417,7 +422,7 @@ async function getWalkInTables(branchId, guests = 1) {
     where: {
       table_id: { [Op.in]: tableIds },
       order_type: "reservation",
-      status: "confirmed",
+      status: { [Op.in]: PENDING_RECEPTION_STATUSES },
       arrival_time: { [Op.gt]: now },
     },
     attributes: ["table_id", "arrival_time", "number_of_guests"],

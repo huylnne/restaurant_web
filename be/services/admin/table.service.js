@@ -25,6 +25,11 @@ const { orderItemLineRevenueSumExpr } = require("../../utils/revenueSql");
 const lineRevenueSum = orderItemLineRevenueSumExpr();
 
 const DEFAULT_BRANCH_ID = tableSummaryService.DEFAULT_BRANCH_ID;
+const UPCOMING_RESERVATION_STATUSES = [
+  ORDER_STATUS.PENDING,
+  ORDER_STATUS.CONFIRMED,
+  ORDER_STATUS.PRE_ORDERED,
+];
 
 const tableService = {
   async ensureQrToken(table) {
@@ -147,7 +152,12 @@ const tableService = {
       const upcomingReservation =
         tableData.status === TABLE_STATUS.AVAILABLE
           ? (activeOrders.find((o) => {
-              if (o.order_type !== "reservation" || o.status !== "confirmed") return false;
+              if (
+                o.order_type !== "reservation" ||
+                !UPCOMING_RESERVATION_STATUSES.includes(o.status)
+              ) {
+                return false;
+              }
               const arrival = new Date(o.arrival_time || o.created_at);
               const diffHours = (arrival - now) / (1000 * 60 * 60);
               return diffHours > 0 && diffHours <= 24;

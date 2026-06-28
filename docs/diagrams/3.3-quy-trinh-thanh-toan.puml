@@ -6,29 +6,41 @@ actor "Khách hàng" as C
 actor "NV phục vụ" as W
 participant "Vue Client" as FE #4A90D9
 participant "Express API" as API #E74C3C
-participant "Order Service" as SVC #F39C12
-participant "Model" as MODEL #3498DB
+participant "Bill Service" as BILL #F39C12
+participant "Payment Service" as PAY #E67E22
+participant "Sequelize Models\n(Order, OrderItem, Payment, Table)" as MODEL #3498DB
 database "PostgreSQL" as DB #9B59B6
 
 W -> FE : Xem hóa đơn tạm tính
-FE -> API : GET /orders/{id}/bill
-API -> SVC : getBill()
-SVC -> MODEL : SUM order_items
-MODEL -> DB : SELECT
+FE -> API : GET /api/admin/waiter/tables/{id}/bill
+API -> BILL : getBillByTable()
+BILL -> MODEL : Order.findByPk()\n+ OrderItem (SUM)
+MODEL -> DB : SELECT + aggregate
+DB --> MODEL : rows
+MODEL --> BILL : total_amount
+BILL --> API : 200 OK
 API --> FE : 200 OK + total_amount
 
 W -> FE : Thanh toán
-FE -> API : POST /orders/{id}/checkout
-API -> SVC : finalizePayment()
-SVC -> MODEL : transaction
-MODEL -> DB : payment_status=paid
-MODEL -> DB : table status=cleaning
+FE -> API : POST /api/admin/waiter/tables/{id}/checkout
+API -> PAY : finalizeReservationPayment()
+PAY -> MODEL : sequelize.transaction()
+MODEL -> DB : Payment.create/update()\nstatus=succeeded
+MODEL -> DB : Order.update()\npayment_status, status=completed
+MODEL -> DB : Table.update()\nstatus=cleaning
+DB --> MODEL : ok
+MODEL --> PAY : commit
+PAY --> API : 200 OK
 API --> FE : 200 OK
 
 W -> FE : Xuất hóa đơn PDF
-FE -> API : GET /orders/{id}/invoice.pdf
-API -> SVC : generateInvoice()
-SVC -> MODEL : SELECT orders, order_items
+FE -> API : GET /api/admin/waiter/reservations/{id}/invoice.pdf
+API -> PAY : getInvoicePdf()
+PAY -> MODEL : Payment.findOne()\n+ Order, OrderItem
+MODEL -> DB : SELECT
+DB --> MODEL : rows
+MODEL --> PAY : invoice data
+PAY --> API : application/pdf
 API --> FE : application/pdf
 
 @enduml

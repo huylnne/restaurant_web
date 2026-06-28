@@ -1,0 +1,50 @@
+\documentclass[../DoAn.tex]{subfiles}
+\begin{document}
+
+
+\section{Đặt vấn đề}
+\label{section:1.1}
+Trong những năm gần đây, ngành dịch vụ ăn uống và ẩm thực tại Việt Nam phát triển mạnh mẽ, kéo theo nhu cầu quản lý và vận hành chuỗi nhà hàng ngày càng phức tạp. Việc kiểm soát hoạt động giữa các bộ phận như đặt bàn, phục vụ, bếp,  kế toán thường được thực hiện thủ công hoặc thông qua các phần mềm rời rạc. Điều này dẫn đến tình trạng sai sót trong quy trình phục vụ, khó theo dõi doanh thu, và thiếu tính liên kết giữa các chi nhánh.  
+
+Đối với các chuỗi nhà hàng có quy mô lớn, thách thức càng trở nên rõ rệt khi cần quản lý dữ liệu tập trung, đồng bộ hóa thông tin khách hàng và thống kê doanh thu theo thời gian thực. Sự phát triển của công nghệ web và các nền tảng dữ liệu hiện đại mở ra cơ hội xây dựng một hệ thống quản lý toàn diện, giúp tự động hóa quy trình, tối ưu vận hành và nâng cao trải nghiệm khách hàng. Chính vì vậy, việc nghiên cứu và phát triển hệ thống quản lý chuỗi nhà hàng là cần thiết và mang tính thực tiễn cao.
+
+\section{Mục tiêu và phạm vi đề tài}
+\label{section:1.2}
+  
+Mục tiêu của đề tài là thiết kế và xây dựng một hệ thống quản lý chuỗi nhà hàng hoạt động trên nền tảng web/app, hỗ trợ đồng bộ dữ liệu giữa khách hàng, nhân viên phục vụ, nhân viên bếp, quản lý chi nhánh và quản trị hệ thống. Hệ thống hỗ trợ các hoạt động chính như đăng ký, đăng nhập, xem chi nhánh, xem menu, đặt bàn, xử lý yêu cầu đặt bàn, tạo order món ăn, cập nhật trạng thái phục vụ, thanh toán , đồng thời đảm bảo tính bảo mật và thân thiện với người dùng.
+
+Phạm vi của đề tài tập trung vào việc phân tích, thiết kế và xây dựng hệ thống ở mức nguyên mẫu cho mô hình chuỗi nhà hàng nhiều chi nhánh. Trong khuôn khổ đồ án, hệ thống ưu tiên hiện thực các chức năng cốt lõi như quản lý tài khoản người dùng, xem thông tin chi nhánh, xem menu, đặt bàn trực tuyến, xử lý yêu cầu đặt bàn, tạo order món ăn, cập nhật trạng thái món ăn và bàn, thanh toán. Các chức năng như báo cáo doanh thu, quản lý chi nhánh và phân quyền hệ thống được phân tích trong thiết kế tổng thể và có thể được hoàn thiện thêm trong giai đoạn phát triển tiếp theo.
+
+\section{Định hướng giải pháp}
+\label{section:1.3}
+Hệ thống được phát triển theo mô hình \textbf{MVC (Model–View–Controller)} nhằm tách biệt rõ ràng giữa giao diện, xử lý nghiệp vụ và cơ sở dữ liệu.
+
+Về công nghệ:
+\begin{itemize}
+    \item \textit{Frontend:} sử dụng Vue.js~3 kết hợp với thư viện Element Plus để xây dựng giao diện thân thiện, hiện đại, tương thích đa nền tảng.
+    \item \textit{Backend:} sử dụng Node.js và Express.js để xử lý nghiệp vụ, xây dựng các API theo chuẩn RESTful.
+    \item \textit{Cơ sở dữ liệu:} sử dụng PostgreSQL để lưu trữ và quản lý dữ liệu tập trung, đảm bảo tính toàn vẹn và hiệu năng truy xuất cao.
+\end{itemize}
+
+Định hướng phát triển trong tương lai:
+Hệ thống hướng đến việc đồng bộ hóa dữ liệu giữa các chi nhánh, hỗ trợ người quản lý giám sát hoạt động từ xa, giảm tải công việc thủ công cho nhân viên và nâng cao chất lượng phục vụ khách hàng.  
+
+Trong phạm vi đồ án, hệ thống tập trung vào các chức năng cốt lõi như đặt bàn, gọi món, quản lý chi nhánh và báo cáo cơ bản.  
+
+Trong tương lai, hệ thống có thể được mở rộng thêm các chức năng như tích hợp thanh toán điện tử, hỗ trợ mô hình nhượng quyền và xây dựng các công cụ phân tích doanh thu trực quan nhằm nâng cao hiệu quả quản lý và khả năng mở rộng của hệ thống.
+
+\section{Bố cục đồ án}
+\label{section:1.4}
+Đồ án tốt nghiệp được chia thành năm chương chính:  
+
+Chương 1 – Giới thiệu đề tài: Trình bày bối cảnh, lý do chọn đề tài, mục tiêu, phạm vi và hướng tiếp cận tổng quan của hệ thống.
+
+Chương 2 – Phân tích yêu cầu hệ thống: Mô tả chi tiết các tác nhân, use case, luồng nghiệp vụ và chức năng chính của hệ thống quản lý nhà hàng.
+
+Chương 3 – Phân tích và thiết kế hệ thống: Trình bày các mô hình dữ liệu, sơ đồ lớp, sơ đồ trình tự, thiết kế cơ sở dữ liệu và mối quan hệ giữa các thành phần.
+
+Chương 4 – Cài đặt và đánh giá kết quả: Giới thiệu các công nghệ được sử dụng, mô tả quá trình triển khai, các chức năng chính đã hoàn thiện và đánh giá hiệu quả hệ thống.
+
+Chương 5 – Kết luận và hướng phát triển: Tổng kết kết quả đạt được, nêu các hạn chế còn tồn tại và định hướng mở rộng hệ thống trong tương lai.
+
+\end{document}
