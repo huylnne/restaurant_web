@@ -509,7 +509,7 @@
     <el-dialog
       v-model="showReceptionDialog"
       title="Tiếp nhận khách"
-      width="640px"
+      width="700px"
       destroy-on-close
       @open="onReceptionDialogOpen"
     >
@@ -607,13 +607,17 @@
               v-for="t in walkInTables"
               :key="t.table_id"
               class="walkin-table-chip"
-              :class="{ selected: walkInSelectedTableId === t.table_id }"
-              @click="walkInSelectedTableId = t.table_id"
+              :class="{ selected: isWalkInTableSelected(t.table_id) }"
+              @click="toggleWalkInTable(t.table_id)"
             >
               <strong>B{{ t.table_number }}</strong>
               <span>{{ t.capacity }} chỗ</span>
             </div>
           </div>
+          <p class="walkin-selection-summary">
+            Đã chọn {{ walkInSelectedTableIds.length }} bàn · {{ walkInSelectedCapacity }} /
+            {{ walkInGuests || 0 }} chỗ
+          </p>
         </el-tab-pane>
       </el-tabs>
 
@@ -622,7 +626,7 @@
         <el-button
           v-if="receptionTab === 'walkin'"
           type="primary"
-          :disabled="!walkInSelectedTableId"
+          :disabled="!hasEnoughWalkInCapacity"
           :loading="walkInSubmitLoading"
           @click="submitWalkIn"
         >
@@ -868,8 +872,20 @@ const receptionConfirmLoading = ref(null);
 const walkInGuests = ref(2);
 const walkInTables = ref([]);
 const walkInTablesLoading = ref(false);
-const walkInSelectedTableId = ref(null);
+const walkInSelectedTableIds = ref([]);
 const walkInSubmitLoading = ref(false);
+
+const walkInSelectedCapacity = computed(() =>
+  walkInTables.value
+    .filter((table) => walkInSelectedTableIds.value.includes(table.table_id))
+    .reduce((sum, table) => sum + Number(table.capacity || 0), 0)
+);
+
+const hasEnoughWalkInCapacity = computed(
+  () =>
+    walkInSelectedTableIds.value.length > 0 &&
+    walkInSelectedCapacity.value >= Number(walkInGuests.value || 0)
+);
 
 const fetchBranches = async () => {
   try {
@@ -1432,7 +1448,7 @@ const onReceptionDialogOpen = () => {
   receptionResults.value = [];
   receptionSearched.value = false;
   walkInGuests.value = 2;
-  walkInSelectedTableId.value = null;
+  walkInSelectedTableIds.value = [];
   walkInTables.value = [];
   loadUpcomingArrivals();
 };
@@ -1549,7 +1565,7 @@ const confirmReception = async (item) => {
 
 const fetchWalkInTables = async () => {
   walkInTablesLoading.value = true;
-  walkInSelectedTableId.value = null;
+  walkInSelectedTableIds.value = [];
   try {
     const res = await axios.get(`${RECEPTION_API}/walk-in-tables`, {
       params: { branchId: selectedBranchId.value, guests: walkInGuests.value },
@@ -1567,14 +1583,28 @@ const fetchWalkInTables = async () => {
   }
 };
 
+const isWalkInTableSelected = (tableId) => walkInSelectedTableIds.value.includes(tableId);
+
+const toggleWalkInTable = (tableId) => {
+  if (isWalkInTableSelected(tableId)) {
+    walkInSelectedTableIds.value = walkInSelectedTableIds.value.filter((id) => id !== tableId);
+    return;
+  }
+  walkInSelectedTableIds.value = [...walkInSelectedTableIds.value, tableId];
+};
+
 const submitWalkIn = async () => {
-  if (!walkInSelectedTableId.value) return;
+  if (!hasEnoughWalkInCapacity.value) {
+    ElMessage.warning("Chọn thêm bàn để đủ chỗ cho nhóm khách");
+    return;
+  }
   walkInSubmitLoading.value = true;
   try {
     const res = await axios.post(
       `${RECEPTION_API}/walk-in`,
       {
-        table_id: walkInSelectedTableId.value,
+        table_id: walkInSelectedTableIds.value[0],
+        table_ids: walkInSelectedTableIds.value,
         number_of_guests: walkInGuests.value,
         branch_id: selectedBranchId.value,
       },
@@ -2295,6 +2325,12 @@ onUnmounted(() => {
   font-size: 12px;
   color: var(--hl-text-muted);
   margin-top: 4px;
+}
+
+.walkin-selection-summary {
+  margin: 10px 0 0;
+  font-size: 13px;
+  color: var(--hl-text-muted);
 }
 
 @media (max-width: 1200px) {

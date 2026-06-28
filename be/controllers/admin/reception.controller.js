@@ -58,9 +58,9 @@ exports.confirmArrival = async (req, res) => {
 exports.walkInCheckIn = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.body.branch_id || req.query.branchId, 1);
-    const { table_id, number_of_guests } = req.body;
-    if (!table_id) {
-      return res.status(400).json({ message: "Thiếu table_id" });
+    const { table_id, table_ids, number_of_guests } = req.body;
+    if (!table_id && !(Array.isArray(table_ids) && table_ids.length)) {
+      return res.status(400).json({ message: "Thiếu bàn cần xếp khách" });
     }
     const staffUserId = req.user?.user_id || req.userId;
     if (!staffUserId) {
@@ -69,13 +69,15 @@ exports.walkInCheckIn = async (req, res) => {
     const result = await receptionService.walkInCheckIn({
       branchId,
       tableId: table_id,
+      tableIds: table_ids,
       numberOfGuests: number_of_guests,
       staffUserId,
     });
+    const auditTableIds = result.tables?.map((table) => table.table_id) || [result.table?.table_id].filter(Boolean);
     req.audit = {
       entityId: result.order?.order_id,
-      description: `Tiếp nhận walk-in bàn #${table_id}`,
-      metadata: { branchId, number_of_guests },
+      description: `Tiếp nhận walk-in bàn #${auditTableIds.join(", #")}`,
+      metadata: { branchId, number_of_guests, table_ids: auditTableIds },
     };
     res.status(201).json({
       message: "Xếp bàn thành công",

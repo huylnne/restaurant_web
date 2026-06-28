@@ -10,7 +10,11 @@ const {
   isOrderCheckedIn,
 } = require("../../utils/reservationStatus");
 const { ORDER_STATUS } = require("../../utils/orderStatus");
-const { getTablesForOrder } = require("../../utils/orderTableLinks");
+const {
+  findActiveOrderByTableId,
+  getTablesForOrder,
+  linkTablesToOrder,
+} = require("../../utils/orderTableLinks");
 
 const TERMINAL_STATUSES = TERMINAL_RESERVATION_STATUSES;
 const PENDING_RECEPTION_STATUSES = [
@@ -310,7 +314,12 @@ async function confirmArrival(orderId, branchId) {
   };
 }
 
-async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId }) {
+function normalizeTableIds(tableIds, tableId) {
+  const source = Array.isArray(tableIds) && tableIds.length ? tableIds : [tableId];
+  return [...new Set(source.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
+}
+
+async function walkInCheckIn({ branchId, tableId, tableIds, numberOfGuests, staffUserId }) {
   const guests = Number(numberOfGuests);
   if (!Number.isFinite(guests) || guests < 1) {
     const err = new Error("Số khách không hợp lệ");
@@ -318,28 +327,48 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
     throw err;
   }
 
+  const selectedTableIds = normalizeTableIds(tableIds, tableId);
+  if (!selectedTableIds.length) {
+    const err = new Error("Thiếu bàn cần xếp khách");
+    err.code = "TABLE_NOT_FOUND";
+    throw err;
+  }
+
   await tableSummaryService.expireReservationsForBranch(branchId);
 
-  const table = await Table.findOne({
-    where: { table_id: tableId, branch_id: branchId },
+  const tables = await Table.findAll({
+    where: { table_id: { [Op.in]: selectedTableIds }, branch_id: branchId },
+    order: [["table_number", "ASC"]],
   });
 
-  if (!table) {
+  if (tables.length !== selectedTableIds.length) {
     const err = new Error("Không tìm thấy bàn");
     err.code = "TABLE_NOT_FOUND";
     throw err;
   }
 
-  if (!isBookableTableStatus(table.status)) {
-    const err = new Error(
-      table.status === TABLE_STATUS.CLEANING ? "Bàn đang chờ dọn" : "Bàn không còn trống"
-    );
-    err.code = "TABLE_NOT_AVAILABLE";
-    throw err;
+  const tableById = new Map(tables.map((table) => [table.table_id, table]));
+  const selectedTables = selectedTableIds.map((tableId) => tableById.get(tableId)).filter(Boolean);
+
+  for (const table of selectedTables) {
+    if (!isBookableTableStatus(table.status)) {
+      const err = new Error(
+        table.status === TABLE_STATUS.CLEANING
+          ? `Bàn ${table.table_number} đang chờ dọn`
+          : `Bàn ${table.table_number} không còn trống`
+      );
+      err.code = "TABLE_NOT_AVAILABLE";
+      throw err;
+    }
   }
 
-  if (table.capacity < guests) {
-    const err = new Error(`Bàn chỉ có ${table.capacity} chỗ`);
+  const totalCapacity = selectedTables.reduce((sum, table) => sum + Number(table.capacity || 0), 0);
+  if (totalCapacity < guests) {
+    const err = new Error(
+      selectedTableIds.length > 1
+        ? `Các bàn đã chọn chỉ có tổng ${totalCapacity} chỗ`
+        : `Bàn chỉ có ${totalCapacity} chỗ`
+    );
     err.code = "CAPACITY_EXCEEDED";
     throw err;
   }
@@ -347,41 +376,58 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
   const now = new Date();
   const upcoming = await Order.findOne({
     where: {
-      table_id: tableId,
+      table_id: { [Op.in]: selectedTableIds },
       order_type: "reservation",
       status: { [Op.in]: PENDING_RECEPTION_STATUSES },
       arrival_time: { [Op.gt]: now },
     },
   });
 
-  if (upcoming) {
+  const upcomingLinked = await OrderTable.findOne({
+    where: { table_id: { [Op.in]: selectedTableIds } },
+    include: [
+      {
+        model: Order,
+        required: true,
+        where: {
+          order_type: "reservation",
+          status: { [Op.in]: PENDING_RECEPTION_STATUSES },
+          arrival_time: { [Op.gt]: now },
+        },
+      },
+    ],
+  });
+
+  if (upcoming || upcomingLinked) {
     const err = new Error("Bàn có đặt trước sắp tới, không nên xếp khách vãng lai");
     err.code = "TABLE_RESERVED";
     throw err;
   }
 
-  const existing = await Order.findOne({
-    where: {
-      table_id: tableId,
-      status: { [Op.in]: ACTIVE_SESSION_STATUSES },
-    },
-  });
-
-  if (existing) {
-    const err = new Error("Bàn đang có phiên phục vụ");
-    err.code = "TABLE_BUSY";
-    throw err;
+  for (const table of selectedTables) {
+    const existing = await findActiveOrderByTableId(table.table_id);
+    if (existing) {
+      const err = new Error(`Bàn ${table.table_number} đang có phiên phục vụ`);
+      err.code = "TABLE_BUSY";
+      throw err;
+    }
   }
 
+  const primaryTable = selectedTables[0];
+  const tableLabel = selectedTables.map((table) => `B${table.table_number}`).join(", ");
   let order;
   await sequelize.transaction(async (t) => {
     order = await Order.create(
       {
         user_id: staffUserId,
         branch_id: branchId,
-        table_id: tableId,
+        table_id: primaryTable.table_id,
         arrival_time: now,
         number_of_guests: guests,
+        note:
+          selectedTables.length > 1
+            ? `Nhóm ${guests} khách - ghép bàn: ${tableLabel}`
+            : null,
         status: RESERVATION_STATUS.PRE_ORDERED,
         order_type: "walk_in",
         payment_status: "unpaid",
@@ -390,27 +436,33 @@ async function walkInCheckIn({ branchId, tableId, numberOfGuests, staffUserId })
       },
       { transaction: t }
     );
-    await table.update({ status: "occupied" }, { transaction: t });
+    if (selectedTables.length > 1) {
+      await linkTablesToOrder(order.order_id, selectedTables, { transaction: t });
+    }
+    await Table.update(
+      { status: TABLE_STATUS.OCCUPIED },
+      { where: { table_id: { [Op.in]: selectedTableIds } }, transaction: t }
+    );
   });
 
   return {
     order: order.toJSON(),
     reservation: order.toJSON(),
-    table: table.toJSON(),
+    table: primaryTable.toJSON(),
+    tables: selectedTables.map((table) => table.toJSON()),
+    multiTable: selectedTables.length > 1,
   };
 }
 
-async function getWalkInTables(branchId, guests = 1) {
+async function getWalkInTables(branchId) {
   await tableSummaryService.expireReservationsForBranch(branchId);
 
-  const minGuests = Math.max(1, Number(guests) || 1);
   const now = new Date();
 
   const tables = await Table.findAll({
     where: {
       branch_id: branchId,
       status: "available",
-      capacity: { [Op.gte]: minGuests },
     },
     order: [["table_number", "ASC"]],
   });
@@ -429,6 +481,31 @@ async function getWalkInTables(branchId, guests = 1) {
   });
 
   const upcomingByTable = new Map(upcomingList.map((o) => [o.table_id, o.toJSON()]));
+  const linkedUpcomingList = await OrderTable.findAll({
+    where: { table_id: { [Op.in]: tableIds } },
+    include: [
+      {
+        model: Order,
+        required: true,
+        where: {
+          branch_id: branchId,
+          order_type: "reservation",
+          status: { [Op.in]: PENDING_RECEPTION_STATUSES },
+          arrival_time: { [Op.gt]: now },
+        },
+        attributes: ["arrival_time", "number_of_guests"],
+      },
+    ],
+  });
+  for (const link of linkedUpcomingList) {
+    if (!upcomingByTable.has(link.table_id) && link.Order) {
+      upcomingByTable.set(link.table_id, {
+        table_id: link.table_id,
+        arrival_time: link.Order.arrival_time,
+        number_of_guests: link.Order.number_of_guests,
+      });
+    }
+  }
 
   return tables
     .map((t) => {
