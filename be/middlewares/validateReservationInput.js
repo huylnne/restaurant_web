@@ -1,4 +1,4 @@
-const MAX_GUESTS = 12;
+const { MAX_GUESTS } = require('../config/restaurantRules');
 const NOTE_MAX_LEN = 500;
 
 function rejectUnexpectedKeys(body, allowedKeys) {

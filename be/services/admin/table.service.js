@@ -21,6 +21,7 @@ const {
   completedOrderStatusSqlIn,
 } = require("../../utils/orderStatus");
 const { orderItemLineRevenueSumExpr } = require("../../utils/revenueSql");
+const { TABLE_CAPACITY } = require("../../config/restaurantRules");
 
 const lineRevenueSum = orderItemLineRevenueSumExpr();
 
@@ -207,7 +208,7 @@ const tableService = {
   },
 
   async createTable(data) {
-    const { table_number, capacity } = data;
+    const { table_number } = data;
     const branch_id = parseInt(data.branch_id, 10) || 1;
 
     const existingTable = await Table.findOne({ where: { table_number, branch_id } });
@@ -217,7 +218,7 @@ const tableService = {
 
     const table = await Table.create({
       table_number,
-      capacity,
+      capacity: TABLE_CAPACITY,
       status: TABLE_STATUS.AVAILABLE,
       branch_id,
     });
@@ -231,7 +232,7 @@ const tableService = {
     const table = await Table.findOne({ where: { table_number: tableNumber, branch_id } });
     if (!table) throw new Error("Không tìm thấy bàn");
 
-    const { table_number, capacity, status } = data;
+    const { table_number, status } = data;
 
     if (status && !isValidTableStatus(status)) {
       throw new Error("Trạng thái bàn không hợp lệ");
@@ -244,7 +245,7 @@ const tableService = {
 
     await table.update({
       table_number: table_number || table.table_number,
-      capacity: capacity || table.capacity,
+      capacity: TABLE_CAPACITY,
       status: status || table.status,
     });
 

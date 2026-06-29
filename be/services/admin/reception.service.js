@@ -15,6 +15,7 @@ const {
   getTablesForOrder,
   linkTablesToOrder,
 } = require("../../utils/orderTableLinks");
+const { MAX_GUESTS } = require("../../config/restaurantRules");
 
 const TERMINAL_STATUSES = TERMINAL_RESERVATION_STATUSES;
 const PENDING_RECEPTION_STATUSES = [
@@ -323,6 +324,11 @@ async function walkInCheckIn({ branchId, tableId, tableIds, numberOfGuests, staf
   const guests = Number(numberOfGuests);
   if (!Number.isFinite(guests) || guests < 1) {
     const err = new Error("Số khách không hợp lệ");
+    err.code = "INVALID_GUESTS";
+    throw err;
+  }
+  if (guests > MAX_GUESTS) {
+    const err = new Error(`Số khách tối đa ${MAX_GUESTS} người/lần`);
     err.code = "INVALID_GUESTS";
     throw err;
   }

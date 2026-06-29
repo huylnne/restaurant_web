@@ -95,7 +95,7 @@ module.exports = {
         tables.push({
           branch_id: branchId,
           table_number: n,
-          capacity: 2 + (n % 6),
+          capacity: 6,
           status: 'available',
           created_at: now,
         });

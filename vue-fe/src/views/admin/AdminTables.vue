@@ -202,7 +202,8 @@
           <el-input
             v-model.number="newTable.capacity"
             type="number"
-            placeholder="Nhập số ghế"
+            :placeholder="`${TABLE_CAPACITY} chỗ (cố định)`"
+            disabled
           />
         </el-form-item>
       </el-form>
@@ -594,7 +595,7 @@
               <el-input-number
                 v-model="walkInGuests"
                 :min="1"
-                :max="20"
+                :max="MAX_GUESTS"
                 @change="fetchWalkInTables"
               />
             </el-form-item>
@@ -650,8 +651,8 @@
           <el-input
             v-model.number="editTableForm.capacity"
             type="number"
-            placeholder="Nhập số ghế"
-            :disabled="userRole === 'waiter'"
+            :placeholder="`${TABLE_CAPACITY} chỗ (cố định)`"
+            disabled
           />
         </el-form-item>
         <el-form-item label="Trạng thái">
@@ -727,6 +728,7 @@ import {
   notifyKitchenDishDone,
 } from "@/utils/kitchenDoneAlert";
 import { API_ORIGIN } from "@/config/api";
+import { TABLE_CAPACITY, MAX_GUESTS } from "@/constants/reservation";
 
 const API_BASE = API_ORIGIN;
 /** Số bàn mỗi trang — cập nhật theo chiều rộng lưới + viewport (tránh 12 bàn trên màn 5 cột) */
@@ -852,7 +854,7 @@ const preOrders = legacyPreOrders;
 
 const newTable = ref({
   table_number: null,
-  capacity: null,
+  capacity: TABLE_CAPACITY,
 });
 
 const editTableForm = ref({
@@ -1134,7 +1136,7 @@ const addTable = async () => {
     });
     ElMessage.success("Thêm bàn thành công");
     showAddDialog.value = false;
-    newTable.value = { table_number: null, capacity: null };
+    newTable.value = { table_number: null, capacity: TABLE_CAPACITY };
     fetchTables();
     fetchSummary();
   } catch (error) {

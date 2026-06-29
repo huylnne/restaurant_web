@@ -1,4 +1,5 @@
 /**
- * Đồng bộ be/middlewares/validateReservationInput.js
+ * Đồng bộ be/config/restaurantRules.js
  */
-export const MAX_GUESTS = 12;
+export const TABLE_CAPACITY = 6;
+export const MAX_GUESTS = 20;

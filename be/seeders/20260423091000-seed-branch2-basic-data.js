@@ -11,7 +11,7 @@ module.exports = {
       tables.push({
         branch_id: 2,
         table_number: i,
-        capacity: i % 5 === 0 ? 8 : i % 3 === 0 ? 6 : 4,
+        capacity: 6,
         status: 'available',
         created_at: now,
       });

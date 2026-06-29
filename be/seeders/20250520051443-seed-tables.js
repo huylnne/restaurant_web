@@ -9,7 +9,7 @@ module.exports = {
       tables.push({
         branch_id: 1,
         table_number: i,
-        capacity: Math.floor(Math.random() * 6) + 2, // 2 - 7
+        capacity: 6,
         status: 'available',
         created_at: now,
       });
