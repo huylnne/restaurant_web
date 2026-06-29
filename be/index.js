@@ -509,6 +509,41 @@ app.use((err, req, res, next) => {
 const PORT = Number(process.env.PORT) || 3000;
 const realtimeHub = require('./realtimeHub');
 let server;
+let reservationExpiryTimer;
+let reservationExpiryRunning = false;
+
+const RESERVATION_EXPIRY_SWEEP_MS = 60 * 1000;
+
+async function runReservationExpirySweep(source = 'timer') {
+  if (reservationExpiryRunning) return;
+  reservationExpiryRunning = true;
+
+  try {
+    const tableSummaryService = require('./services/admin/tableSummary.service');
+    const branches = await db.Branch.findAll({
+      attributes: ['branch_id'],
+      where: { is_active: true },
+    });
+
+    for (const branch of branches) {
+      await tableSummaryService.expireReservationsForBranch(branch.branch_id);
+    }
+  } catch (err) {
+    console.error(`❌ Lỗi quét no-show đặt bàn (${source}):`, err.message || err);
+  } finally {
+    reservationExpiryRunning = false;
+  }
+}
+
+function startReservationExpiryScheduler() {
+  if (reservationExpiryTimer) return;
+
+  runReservationExpirySweep('startup');
+  reservationExpiryTimer = setInterval(
+    () => runReservationExpirySweep('timer'),
+    RESERVATION_EXPIRY_SWEEP_MS
+  );
+}
 
 async function startServer() {
   try {
@@ -524,6 +559,8 @@ async function startServer() {
     console.log('   Giữ terminal mở. Dừng server: Ctrl+C');
     realtimeHub.attachToHttpServer(server);
     console.log(`   WebSocket realtime: ws://localhost:${PORT}/ws/realtime`);
+    startReservationExpiryScheduler();
+    console.log('   Tự động quét đặt bàn no-show mỗi 60 giây');
   });
 
   server.on('error', (err) => {
@@ -548,6 +585,9 @@ process.on('uncaughtException', (err) => {
 
 process.on('SIGINT', () => {
   console.log('\n⏹ Đang tắt server...');
+  if (reservationExpiryTimer) {
+    clearInterval(reservationExpiryTimer);
+  }
   if (server) {
     server.close(() => process.exit(0));
   } else {
