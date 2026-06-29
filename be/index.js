@@ -164,6 +164,9 @@ async function initDatabase() {
   await db.sequelize
     .query('ALTER TABLE reviews DROP COLUMN IF EXISTS reservation_id;', { raw: true })
     .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE reviews ALTER COLUMN user_id DROP NOT NULL;', { raw: true })
+    .catch(() => {});
 
   // Payments: chỉ order_id
   await db.sequelize
@@ -399,6 +402,18 @@ async function initDatabase() {
     .catch(() => {});
   await db.sequelize
     .query(`UPDATE order_items SET price = 0 WHERE price IS NULL;`, { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS ordered_at TIMESTAMP;', { raw: true })
+    .catch(() => {});
+  await db.sequelize
+    .query(
+      `UPDATE order_items oi
+       SET ordered_at = o.created_at
+       FROM orders o
+       WHERE oi.order_id = o.order_id AND oi.ordered_at IS NULL;`,
+      { raw: true }
+    )
     .catch(() => {});
 
   const { ensureMenuForEmptyBranches } = require('./utils/ensureBranchMenus');

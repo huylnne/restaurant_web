@@ -35,5 +35,23 @@ router.post(
   ctrl.checkinByToken
 );
 
+router.get("/by-token/:token/review-eligibility", ctrl.getReviewEligibility);
+
+router.post(
+  "/by-token/:token/reviews",
+  auditLog({
+    action: "TABLE_QR_REVIEW_CREATE",
+    module: "reviews",
+    description: "Khách đánh giá qua QR bàn",
+    entityType: "review",
+    metadata: (req) => ({
+      tableToken: req.params.token,
+      order_id: req.body?.order_id,
+      rating: req.body?.rating,
+    }),
+  }),
+  ctrl.createReviewByToken
+);
+
 module.exports = router;
 

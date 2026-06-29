@@ -33,6 +33,7 @@ async function buildOrderItemPayloads(items, transaction) {
       price: resolveMenuItemUnitPrice(menuItem),
       note: it.note || null,
       status: ORDER_ITEM_STATUS.PENDING,
+      ordered_at: new Date(),
     };
   });
 }

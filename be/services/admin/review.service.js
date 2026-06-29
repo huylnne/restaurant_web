@@ -19,7 +19,7 @@ function buildReviewFilters(branchId, { startDate, endDate, rating, q }) {
 
   if (q && String(q).trim()) {
     whereParts.push(
-      "(u.full_name ILIKE :q OR u.phone ILIKE :q OR rv.comment ILIKE :q OR CAST(rv.order_id AS TEXT) ILIKE :q)"
+      "(COALESCE(u.full_name, 'Khách QR') ILIKE :q OR u.phone ILIKE :q OR rv.comment ILIKE :q OR CAST(rv.order_id AS TEXT) ILIKE :q)"
     );
     replacements.q = `%${String(q).trim()}%`;
   }
@@ -46,7 +46,7 @@ const reviewService = {
     const fromClause = `
       FROM reviews rv
       JOIN orders o ON o.order_id = rv.order_id
-      JOIN users u ON u.user_id = rv.user_id
+      LEFT JOIN users u ON u.user_id = rv.user_id
       LEFT JOIN tables t ON t.table_id = o.table_id
       WHERE ${whereParts.join(" AND ")}
     `;
@@ -69,7 +69,7 @@ const reviewService = {
         o.arrival_time,
         o.arrival_time AS reservation_time,
         o.number_of_guests,
-        u.full_name,
+        COALESCE(u.full_name, 'Khách QR') AS full_name,
         u.phone,
         t.table_number
       ${fromClause}

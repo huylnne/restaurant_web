@@ -70,3 +70,57 @@ exports.addOrderItemsByToken = async (req, res) => {
   }
 };
 
+exports.getReviewEligibility = async (req, res) => {
+  try {
+    const orderId = req.query.order_id ? Number(req.query.order_id) : null;
+    const data = await service.getReviewEligibilityByToken(req.params.token, orderId);
+    if (!data) return res.status(404).json({ message: "Không tìm thấy bàn" });
+    res.json(data);
+  } catch (e) {
+    console.error("getReviewEligibility error:", e);
+    res.status(500).json({ message: "Lỗi server" });
+  }
+};
+
+const reviewErrorMessage = (err) => {
+  const map = {
+    ORDER_ID_INVALID: "Mã đơn không hợp lệ",
+    RATING_INVALID: "Vui lòng chọn số sao từ 1 đến 5",
+    COMMENT_TOO_SHORT: "Nội dung đánh giá quá ngắn (tối thiểu 5 ký tự)",
+    COMMENT_TOO_LONG: "Nội dung đánh giá quá dài (tối đa 1000 ký tự)",
+    ORDER_NOT_FOUND: "Không tìm thấy đơn hàng hợp lệ",
+    REVIEW_ALREADY_EXISTS: "Bạn đã đánh giá cho lượt phục vụ này rồi",
+    REVIEW_NOT_ALLOWED: "Chỉ có thể đánh giá sau khi đã thanh toán",
+  };
+  return map[err.message] || "Không thể gửi đánh giá";
+};
+
+exports.createReviewByToken = async (req, res) => {
+  try {
+    const review = await service.createReviewByToken({
+      token: req.params.token,
+      order_id: req.body?.order_id,
+      rating: req.body?.rating,
+      comment: req.body?.comment,
+    });
+    req.audit = {
+      entityId: review.review_id,
+      description: `Khách QR đánh giá order #${review.order_id}`,
+      metadata: { rating: review.rating, tableToken: req.params.token },
+    };
+    res.status(201).json({ message: "Gửi đánh giá thành công", review });
+  } catch (e) {
+    const map = {
+      TABLE_NOT_FOUND: 404,
+      ORDER_ID_INVALID: 400,
+      RATING_INVALID: 400,
+      COMMENT_TOO_SHORT: 400,
+      COMMENT_TOO_LONG: 400,
+      ORDER_NOT_FOUND: 404,
+      REVIEW_ALREADY_EXISTS: 409,
+      REVIEW_NOT_ALLOWED: 400,
+    };
+    res.status(map[e.message] || 500).json({ message: reviewErrorMessage(e) });
+  }
+};
+

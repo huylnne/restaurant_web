@@ -76,8 +76,8 @@
                 </el-tag>
               </div>
               <div class="dish-sub">
-                <span v-if="item.order_created_at" class="dish-ordered-at">
-                  Gọi món: {{ formatDateTime(item.order_created_at) }}
+                <span v-if="item.ordered_at || item.order_created_at" class="dish-ordered-at">
+                  Gọi món: {{ formatDateTime(item.ordered_at || item.order_created_at) }}
                 </span>
                 <span v-if="item.order_id" class="dish-order-id">Đơn #{{ item.order_id }}</span>
               </div>

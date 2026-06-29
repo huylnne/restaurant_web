@@ -98,6 +98,17 @@ exports.getCurrentBill = async (req, res) => {
 };
 
 // UC13 - Gửi đánh giá dịch vụ
+exports.getPendingReview = async (req, res) => {
+  try {
+    const data = await userService.getPendingReview(req.userId);
+    res.json(data);
+  } catch (err) {
+    console.error("getPendingReview error:", err);
+    res.status(500).json({ message: "Không thể kiểm tra đánh giá" });
+  }
+};
+
+// UC13 - Gửi đánh giá dịch vụ
 exports.createReview = async (req, res) => {
   try {
     const review = await userService.createReservationReview(req.userId, req.body);

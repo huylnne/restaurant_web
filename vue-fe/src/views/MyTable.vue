@@ -87,11 +87,19 @@
         </div>
       </div>
     </div>
+
+    <ReviewDialog
+      v-model="reviewDialogVisible"
+      :order-id="reviewOrderId"
+      mode="auth"
+      @submitted="onReviewSubmitted"
+      @closed="onReviewClosed"
+    />
   </div>
 </template>
 
 <script setup>
-import { ref, computed, onMounted } from "vue";
+import { ref, computed, onMounted, onUnmounted } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 import {
@@ -99,11 +107,20 @@ import {
   getTableStatusLabel,
 } from "@/constants/tableStatus";
 import BillSummary from "@/components/BillSummary.vue";
+import ReviewDialog from "@/components/ReviewDialog.vue";
 import { canOrderMoreDishes, getOrderMoreRoute } from "@/utils/reservationDisplay";
+import {
+  hasReviewPromptBeenShown,
+  markReviewPromptShown,
+  isOrderPaidOrCompleted,
+} from "@/utils/reviewPrompt";
 
 const loading = ref(false);
 const error = ref("");
 const bill = ref(null);
+const reviewDialogVisible = ref(false);
+const reviewOrderId = ref(null);
+let sessionPollTimer = null;
 
 // Chỉ coi là đang phục vụ nếu bàn không ở trạng thái trống
 const activeSession = computed(() => {
@@ -130,9 +147,11 @@ const fetchCurrentTable = async () => {
       }
     );
     bill.value = res.data || null;
+    maybePromptReviewFromBill();
   } catch (err) {
     if (err.response?.status === 404) {
       bill.value = null;
+      await checkPendingReview();
     } else {
       console.error("Lỗi khi lấy bàn hiện tại:", err);
       error.value =
@@ -144,8 +163,50 @@ const fetchCurrentTable = async () => {
   }
 };
 
+const openReviewPrompt = (orderId) => {
+  const id = Number(orderId);
+  if (!id || hasReviewPromptBeenShown(id) || reviewDialogVisible.value) return;
+  reviewOrderId.value = id;
+  reviewDialogVisible.value = true;
+  markReviewPromptShown(id);
+};
+
+const onReviewSubmitted = () => {
+  reviewOrderId.value = null;
+};
+
+const onReviewClosed = () => {
+  reviewOrderId.value = null;
+};
+
+const maybePromptReviewFromBill = () => {
+  if (!isOrderPaidOrCompleted(bill.value)) return;
+  openReviewPrompt(bill.value?.order?.order_id);
+};
+
+const checkPendingReview = async () => {
+  if (reviewDialogVisible.value) return;
+  const token = localStorage.getItem("token");
+  if (!token) return;
+  try {
+    const res = await axios.get("/api/users/me/pending-review", {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (res.data?.can_review && res.data?.order_id) {
+      openReviewPrompt(res.data.order_id);
+    }
+  } catch (err) {
+    console.error("checkPendingReview:", err);
+  }
+};
+
 onMounted(() => {
   fetchCurrentTable();
+  sessionPollTimer = setInterval(fetchCurrentTable, 5000);
+});
+
+onUnmounted(() => {
+  if (sessionPollTimer) clearInterval(sessionPollTimer);
 });
 
 const orderItems = computed(() => activeSession.value?.items || []);

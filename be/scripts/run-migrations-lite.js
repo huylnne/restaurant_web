@@ -66,6 +66,14 @@ async function run() {
 
   await q('UPDATE order_items SET price = 0 WHERE price IS NULL;');
 
+  await q('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS ordered_at TIMESTAMP;');
+  await q(
+    `UPDATE order_items oi
+     SET ordered_at = o.created_at
+     FROM orders o
+     WHERE oi.order_id = o.order_id AND oi.ordered_at IS NULL;`
+  );
+
   await q(
 
     `UPDATE orders o
@@ -98,6 +106,7 @@ async function run() {
      WHERE rv.order_id IS NULL AND rv.reservation_id IS NOT NULL;`
   );
   await q('ALTER TABLE reviews DROP COLUMN IF EXISTS reservation_id;');
+  await q('ALTER TABLE reviews ALTER COLUMN user_id DROP NOT NULL;');
 
   await q(
     `UPDATE payments p SET order_id = p.reservation_id

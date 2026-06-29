@@ -59,6 +59,11 @@ function resolveKitchenServeContext(order) {
   };
 }
 
+function orderedAtMs(row) {
+  const raw = row?.ordered_at ?? row?.order_created_at ?? row?.Order?.created_at;
+  return raw ? new Date(raw).getTime() : Date.now();
+}
+
 function tableGroupKey(row) {
   if (row.table_id != null) return `t:${row.table_id}`;
   if (row.order_id) return `o:${row.order_id}`;
@@ -99,6 +104,15 @@ function groupKitchenItemsByTable(itemRows) {
     group.items.push(row);
     const st = String(row.status || "pending").toLowerCase();
     if (group.status_counts[st] != null) group.status_counts[st] += 1;
+  }
+
+  for (const group of map.values()) {
+    if (group.serve_mode === "active" && group.items.length) {
+      const serveMs = Math.min(...group.items.map(orderedAtMs));
+      group.serve_at_ms = serveMs;
+      group.serve_at = new Date(serveMs).toISOString();
+      group.sort_key = serveMs;
+    }
   }
 
   return sortKitchenTableGroups([...map.values()]);

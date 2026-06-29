@@ -36,6 +36,11 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: false,
         defaultValue: 'pending',
       },
+      ordered_at: {
+        type: DataTypes.DATE,
+        allowNull: true,
+        comment: 'Thời điểm gọi món (mỗi lần thêm món)',
+      },
     },
     {
       tableName: 'order_items',

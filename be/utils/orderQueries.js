@@ -81,11 +81,13 @@ function mapKitchenItemRow(item) {
   const order = plain.Order ?? null;
   const resolvedTable = order?.Table ?? null;
   const serve_context = resolveKitchenServeContext(order);
+  const ordered_at = plain.ordered_at ?? order?.created_at ?? null;
 
   return {
     ...plain,
+    ordered_at,
     order_id: order?.order_id ?? plain.order_id,
-    order_created_at: order?.created_at ?? null,
+    order_created_at: ordered_at,
     table_id: resolvedTable?.table_id ?? order?.table_id ?? null,
     table_number: resolvedTable?.table_number ?? null,
     serve_context,

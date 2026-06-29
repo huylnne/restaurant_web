@@ -212,68 +212,18 @@ exports.getReservationsWithOrders = async (userId) => {
   }
 };
 
-exports.createReservationReview = async (userId, { order_id, reservation_id, rating, comment }) => {
-  const sessionOrderId = Number(order_id || reservation_id);
-  const normalizedRating = Number(rating);
-  const normalizedComment = String(comment || "").trim();
+const reviewService = require("./review.service");
 
-  if (!Number.isInteger(sessionOrderId) || sessionOrderId <= 0) {
-    throw new Error("ORDER_ID_INVALID");
-  }
-  if (!Number.isInteger(normalizedRating) || normalizedRating < 1 || normalizedRating > 5) {
-    throw new Error("RATING_INVALID");
-  }
-  if (!normalizedComment || normalizedComment.length < 5) {
-    throw new Error("COMMENT_TOO_SHORT");
-  }
-  if (normalizedComment.length > 1000) {
-    throw new Error("COMMENT_TOO_LONG");
-  }
-
-  const order = await Order.findOne({
-    where: { order_id: sessionOrderId, user_id: userId },
-    attributes: ["order_id", "user_id", "status", "payment_status"],
+exports.createReservationReview = async (userId, body) => {
+  return reviewService.createOrderReview({
+    orderId: body.order_id || body.reservation_id,
+    userId,
+    rating: body.rating,
+    comment: body.comment,
   });
-  if (!order) {
-    throw new Error("ORDER_NOT_FOUND");
-  }
-
-  const existing = await Review.findOne({
-    where: { order_id: sessionOrderId },
-    attributes: ["review_id"],
-  });
-  if (existing) {
-    throw new Error("REVIEW_ALREADY_EXISTS");
-  }
-
-  const isCompleted = String(order.status || "").toLowerCase() === "completed";
-  const payment = await Payment.findOne({
-    where: { order_id: sessionOrderId, status: "succeeded" },
-    attributes: ["payment_id"],
-  });
-  const isPaid = order.payment_status === "succeeded" || !!payment;
-
-  if (!isCompleted && !isPaid) {
-    throw new Error("REVIEW_NOT_ALLOWED");
-  }
-
-  try {
-    const review = await Review.create({
-      order_id: sessionOrderId,
-      user_id: userId,
-      rating: normalizedRating,
-      comment: normalizedComment,
-      created_at: new Date(),
-    });
-
-    return review;
-  } catch (error) {
-    if (error?.name === "SequelizeUniqueConstraintError") {
-      throw new Error("REVIEW_ALREADY_EXISTS");
-    }
-    throw error;
-  }
 };
+
+exports.getPendingReview = async (userId) => reviewService.getPendingReviewForUser(userId);
 
 exports.getCurrentTableSession = async (userId) => {
   try {

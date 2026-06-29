@@ -34,6 +34,7 @@ router.get('/reservations/:orderId/bill', verifyToken, userController.getReserva
 router.get('/reservations', verifyToken, userController.getReservationsWithOrders);
 router.get('/me/current-table', verifyToken, userController.getCurrentTableSession);
 router.get('/me/current-bill', verifyToken, userController.getCurrentBill);
+router.get('/me/pending-review', verifyToken, userController.getPendingReview);
 router.post(
   '/reviews',
   verifyToken,

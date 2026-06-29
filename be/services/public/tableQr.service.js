@@ -7,6 +7,7 @@ const { Op } = require("sequelize");
 const { buildOrderItemPayloads } = require("../../utils/orderItemFactory");
 const { findActiveOrderByTableId } = require("../../utils/orderTableLinks");
 const realtimeHub = require("../../realtimeHub");
+const sharedReviewService = require("../review.service");
 
 async function getTableByToken(token) {
   if (!token) return null;
@@ -166,9 +167,53 @@ async function addOrderItemsByToken({ token, items = [], note = null }) {
   };
 }
 
+async function getReviewEligibilityByToken(token, orderId = null) {
+  const table = await Table.findOne({
+    where: { qr_token: token },
+    attributes: ["table_id"],
+  });
+  if (!table) return null;
+
+  let order = null;
+  if (orderId) {
+    const belongs = await sharedReviewService.orderBelongsToTable(orderId, table.table_id);
+    if (!belongs) return { can_review: false, order_id: null, already_reviewed: false, review: null };
+    order = await Order.findByPk(orderId, {
+      attributes: ["order_id", "status", "payment_status"],
+    });
+    if (!order || !(await sharedReviewService.isOrderReviewable(order))) {
+      return { can_review: false, order_id: Number(orderId), already_reviewed: false, review: null };
+    }
+    return sharedReviewService.getReviewStatusForOrder(order.order_id);
+  }
+
+  order = await sharedReviewService.findRecentReviewableOrderForTable(table.table_id);
+  if (!order) {
+    return { can_review: false, order_id: null, already_reviewed: false, review: null };
+  }
+  return sharedReviewService.getReviewStatusForOrder(order.order_id);
+}
+
+async function createReviewByToken({ token, order_id, rating, comment }) {
+  const table = await Table.findOne({
+    where: { qr_token: token },
+    attributes: ["table_id"],
+  });
+  if (!table) throw new Error("TABLE_NOT_FOUND");
+
+  return sharedReviewService.createOrderReview({
+    orderId: order_id,
+    tableId: table.table_id,
+    rating,
+    comment,
+  });
+}
+
 module.exports = {
   getTableByToken,
   getBillByToken,
   checkinByToken,
   addOrderItemsByToken,
+  getReviewEligibilityByToken,
+  createReviewByToken,
 };

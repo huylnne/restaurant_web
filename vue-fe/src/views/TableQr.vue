@@ -117,6 +117,15 @@
         </div>
       </section>
     </div>
+
+    <ReviewDialog
+      v-model="reviewDialogVisible"
+      :order-id="reviewOrderId"
+      mode="guest"
+      :table-token="token"
+      @submitted="onReviewSubmitted"
+      @closed="onReviewClosed"
+    />
   </div>
 </template>
 
@@ -129,6 +138,12 @@ import { ElMessage } from "element-plus";
 import { API_ORIGIN } from "@/config/api";
 import { getTableStatusLabel } from "@/constants/tableStatus";
 import BillSummary from "@/components/BillSummary.vue";
+import ReviewDialog from "@/components/ReviewDialog.vue";
+import {
+  hasReviewPromptBeenShown,
+  markReviewPromptShown,
+  isOrderPaidOrCompleted,
+} from "@/utils/reviewPrompt";
 
 const API_BASE = API_ORIGIN;
 const DEFAULT_DISH_IMAGE =
@@ -152,8 +167,11 @@ const bankAmount = ref(0);
 const paymentOrderId = ref(null);
 const paymentCode = ref("");
 const paymentStatus = ref("");
+const reviewDialogVisible = ref(false);
+const reviewOrderId = ref(null);
 let paymentStatusTimer = null;
 let billRefreshTimer = null;
+let reviewCheckTimer = null;
 
 const token = route.params.token;
 
@@ -176,11 +194,50 @@ const fetchAll = async () => {
 onMounted(async () => {
   await fetchAll();
   billRefreshTimer = setInterval(refreshBill, 8000);
+  reviewCheckTimer = setInterval(checkReviewEligibility, 5000);
 });
 onUnmounted(() => {
   stopPaymentPolling();
   if (billRefreshTimer) clearInterval(billRefreshTimer);
+  if (reviewCheckTimer) clearInterval(reviewCheckTimer);
 });
+
+const openReviewPrompt = (orderId) => {
+  const id = Number(orderId);
+  if (!id || hasReviewPromptBeenShown(id) || reviewDialogVisible.value) return;
+  reviewOrderId.value = id;
+  reviewDialogVisible.value = true;
+  markReviewPromptShown(id);
+};
+
+const onReviewSubmitted = () => {
+  reviewOrderId.value = null;
+};
+
+const onReviewClosed = () => {
+  reviewOrderId.value = null;
+};
+
+const checkReviewEligibility = async (preferredOrderId = null) => {
+  if (reviewDialogVisible.value) return;
+  try {
+    const params = preferredOrderId ? { order_id: preferredOrderId } : undefined;
+    const res = await axios.get(
+      `${API_BASE}/api/public/tables/by-token/${token}/review-eligibility`,
+      { params }
+    );
+    if (res.data?.can_review && res.data?.order_id) {
+      openReviewPrompt(res.data.order_id);
+    }
+  } catch (err) {
+    if (err.response?.status !== 404) console.error(err);
+  }
+};
+
+const maybePromptReviewFromBill = () => {
+  if (!isOrderPaidOrCompleted(bill.value)) return;
+  openReviewPrompt(bill.value?.order?.order_id);
+};
 
 const formatCurrency = (amount) => {
   const n = Number(amount) || 0;
@@ -210,6 +267,7 @@ const refreshBill = async () => {
     bill.value = null;
   } finally {
     billLoading.value = false;
+    maybePromptReviewFromBill();
   }
 };
 
@@ -279,6 +337,9 @@ const pollPaymentStatus = async () => {
       stopPaymentPolling();
       ElMessage.success("Thanh toán thành công!");
       await fetchAll();
+      if (paymentOrderId.value) {
+        await checkReviewEligibility(paymentOrderId.value);
+      }
     }
   } catch (err) {
     console.error(err);

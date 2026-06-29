@@ -6,7 +6,8 @@ const { getTableIdsForOrder } = require("../utils/orderTableLinks");
 const momo = require("../utils/momo");
 const { generateVietQR } = require("vietqr-ts");
 const { TABLE_STATUS } = require("../utils/tableStatus");
-const { ORDER_STATUS, activeOrderStatusWhere } = require("../utils/orderStatus");
+const { ORDER_STATUS, normalizeOrderStatus } = require("../utils/orderStatus");
+const realtimeHub = require("../realtimeHub");
 
 const PAYMENT_METHODS = {
   CASH: "CASH",
@@ -260,9 +261,9 @@ async function createSession({ orderId, reservationId, tableToken, method, retur
   throw new Error("UNSUPPORTED_METHOD");
 }
 
-async function onPaymentSucceededByOrder(sessionOrderId) {
+async function resolvePaidSessionTargets(sessionOrderId) {
   const order = await Order.findByPk(sessionOrderId);
-  if (!order) return;
+  if (!order) return null;
 
   let orderIds = [order.order_id];
   let tableIds = await getTableIdsForOrder(order.order_id);
@@ -270,22 +271,60 @@ async function onPaymentSucceededByOrder(sessionOrderId) {
   if (order.booking_group_id) {
     const groupOrders = await billService.findGroupSessionOrders(order);
     orderIds = groupOrders.map((o) => o.order_id);
-    tableIds = [...new Set(groupOrders.map((o) => o.table_id).filter(Boolean))];
+    tableIds = [
+      ...new Set([
+        ...tableIds,
+        ...groupOrders.map((o) => o.table_id).filter(Boolean),
+      ]),
+    ];
   }
 
-  await Order.update(
-    {
-      status: ORDER_STATUS.COMPLETED,
-      payment_status: "succeeded",
-    },
-    { where: { order_id: { [Op.in]: orderIds } } }
-  );
+  if (!tableIds.length && order.table_id) {
+    tableIds = [order.table_id];
+  }
+
+  return { order, orderIds, tableIds };
+}
+
+/** Idempotent: đóng phiên + chuyển bàn sang chờ dọn sau khi thanh toán thành công. */
+async function onPaymentSucceededByOrder(sessionOrderId) {
+  const targets = await resolvePaidSessionTargets(sessionOrderId);
+  if (!targets) return;
+
+  const { order, orderIds, tableIds } = targets;
+  const alreadyCompleted = normalizeOrderStatus(order.status) === ORDER_STATUS.COMPLETED;
+
+  if (!alreadyCompleted) {
+    await Order.update(
+      {
+        status: ORDER_STATUS.COMPLETED,
+        payment_status: "succeeded",
+      },
+      { where: { order_id: { [Op.in]: orderIds } } }
+    );
+  }
 
   if (tableIds.length) {
     await Table.update(
       { status: TABLE_STATUS.CLEANING },
-      { where: { table_id: { [Op.in]: tableIds } } }
+      {
+        where: {
+          table_id: { [Op.in]: tableIds },
+          status: { [Op.in]: [TABLE_STATUS.OCCUPIED, TABLE_STATUS.PRE_ORDERED] },
+        },
+      }
     );
+  }
+
+  if (!alreadyCompleted && order.branch_id) {
+    try {
+      realtimeHub.notifyBranch(order.branch_id, {
+        type: "order_flow",
+        reason: "payment_succeeded",
+        order_id: Number(sessionOrderId),
+        table_ids: tableIds,
+      });
+    } catch (_) {}
   }
 }
 
@@ -375,6 +414,7 @@ async function handleSePayWebhook(payload, verifyOk = true) {
   if (transactionRef) {
     const existingTransaction = await Payment.findOne({ where: { transaction_ref: transactionRef } });
     if (existingTransaction?.status === "succeeded") {
+      await onPaymentSucceededByOrder(sessionOrderId);
       return { processed: true, paymentId: existingTransaction.payment_id, orderId: existingTransaction.order_id };
     }
   }
@@ -393,6 +433,7 @@ async function handleSePayWebhook(payload, verifyOk = true) {
 
   let payment = await Payment.findOne({ where: { order_id: sessionOrderId } });
   if (payment?.status === "succeeded") {
+    await onPaymentSucceededByOrder(sessionOrderId);
     return { processed: true, paymentId: payment.payment_id, orderId: sessionOrderId, reason: "ALREADY_PAID" };
   }
 
@@ -423,7 +464,15 @@ async function handleSePayWebhook(payload, verifyOk = true) {
 }
 
 async function getPaymentByOrder(orderId) {
-  return Payment.findOne({ where: { order_id: orderId } });
+  const payment = await Payment.findOne({ where: { order_id: orderId } });
+  if (payment?.status === "succeeded") {
+    try {
+      await onPaymentSucceededByOrder(orderId);
+    } catch (err) {
+      console.error("getPaymentByOrder finalize", orderId, err.message);
+    }
+  }
+  return payment;
 }
 
 async function getPaymentByReservation(reservationId) {
