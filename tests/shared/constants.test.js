@@ -5,9 +5,9 @@ const test = require("node:test");
 const assert = require("node:assert/strict");
 const path = require("path");
 
-const orderStatus = require(path.join(__dirname, "../../shared/orderStatus"));
-const tableStatus = require(path.join(__dirname, "../../shared/tableStatus"));
-const branchHours = require(path.join(__dirname, "../../shared/branchHours"));
+const orderStatus = require(path.join(__dirname, "../../be/shared/orderStatus"));
+const tableStatus = require(path.join(__dirname, "../../be/shared/tableStatus"));
+const branchHours = require(path.join(__dirname, "../../be/shared/branchHours"));
 
 test("normalizeOrderStatus maps legacy values", () => {
   assert.equal(orderStatus.normalizeOrderStatus("open"), "pre-ordered");

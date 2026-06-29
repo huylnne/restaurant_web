@@ -1,4 +1,4 @@
-const shared = require("../../shared/branchHours");
+const shared = require("../shared/branchHours");
 
 const APP_TZ = process.env.APP_TIMEZONE || "Asia/Ho_Chi_Minh";
 

@@ -1,4 +1,4 @@
-const { splitRestaurantAndBranch } = require("../../shared/branchDisplay");
+const { splitRestaurantAndBranch } = require("../shared/branchDisplay");
 
 const DEFAULT_RESTAURANT_NAME = process.env.RESTAURANT_NAME || "ABC Restaurant";
 

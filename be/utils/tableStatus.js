@@ -1,1 +1,1 @@
-module.exports = require("../../shared/tableStatus");
+module.exports = require("../shared/tableStatus");

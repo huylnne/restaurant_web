@@ -1,4 +1,4 @@
-const shared = require("../../shared/orderStatus");
+const shared = require("../shared/orderStatus");
 const { Op } = require("sequelize");
 
 function sqlLiteralIn(values) {
