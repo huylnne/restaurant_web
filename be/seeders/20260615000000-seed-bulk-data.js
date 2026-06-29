@@ -1,6 +1,6 @@
 'use strict';
 
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 const { fakerVI: faker } = require('@faker-js/faker');
 const { BRANCH_BESTSELLER_NAMES } = require('./data/restaurantMenuCatalog');
 

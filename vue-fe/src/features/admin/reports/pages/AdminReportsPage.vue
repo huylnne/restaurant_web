@@ -1,0 +1,839 @@
+<template>
+  <div class="admin-reports">
+    <div class="header">
+      <div class="title-section">
+        <h2>Báo cáo & Thống kê</h2>
+        <p>Theo dõi doanh thu và hiệu suất hoạt động của chi nhánh</p>
+        <p v-if="periodLabel" class="period-hint">Khoảng thống kê: {{ periodLabel }}</p>
+      </div>
+      <div class="filter-section admin-toolbar">
+        <el-select
+          v-model="selectedBranchId"
+          placeholder="Chọn chi nhánh"
+          class="filter-branch-select"
+          :disabled="!isSuperAdmin"
+          @change="fetchAllData"
+        >
+          <el-option
+            v-for="branch in branches"
+            :key="branch.branch_id"
+            :label="branch.name"
+            :value="branch.branch_id"
+          />
+        </el-select>
+        <el-date-picker
+          v-model="dateRange"
+          type="daterange"
+          range-separator="đến"
+          start-placeholder="Từ ngày"
+          end-placeholder="Đến ngày"
+          format="DD/MM/YYYY"
+          value-format="YYYY-MM-DD"
+          clearable
+          @change="fetchAllData"
+        />
+        <el-button type="primary" @click="fetchAllData">
+          <el-icon><Refresh /></el-icon>
+          Làm mới
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="exportLoading === 'xlsx'"
+          :disabled="!!exportLoading && exportLoading !== 'xlsx'"
+          @click="downloadReport('xlsx')"
+        >
+          <el-icon><Download /></el-icon>
+          Xuất Excel
+        </el-button>
+        <el-button
+          type="primary"
+          :loading="exportLoading === 'pdf'"
+          :disabled="!!exportLoading && exportLoading !== 'pdf'"
+          @click="downloadReport('pdf')"
+        >
+          <el-icon><Document /></el-icon>
+          Xuất PDF
+        </el-button>
+      </div>
+    </div>
+
+    <!-- Cards tổng quan -->
+    <div class="overview-cards">
+      <div class="stat-card revenue">
+        <div class="card-icon">
+          <el-icon><Money /></el-icon>
+        </div>
+        <div class="card-content">
+          <h3>Tổng doanh thu</h3>
+          <p class="value">{{ formatCurrency(overview.totalRevenue) }}</p>
+        </div>
+      </div>
+
+      <div class="stat-card orders">
+        <div class="card-icon">
+          <el-icon><ShoppingCart /></el-icon>
+        </div>
+        <div class="card-content">
+          <h3>Đơn hoàn thành</h3>
+          <p class="value">{{ overview.totalOrders }}</p>
+        </div>
+      </div>
+
+      <div class="stat-card pending">
+        <div class="card-icon">
+          <el-icon><Clock /></el-icon>
+        </div>
+        <div class="card-content">
+          <h3>Đơn đang xử lý</h3>
+          <p class="value">{{ overview.pendingOrders }}</p>
+        </div>
+      </div>
+
+      <div class="stat-card customers">
+        <div class="card-icon">
+          <el-icon><User /></el-icon>
+        </div>
+        <div class="card-content">
+          <h3>Khách hàng</h3>
+          <p class="value">{{ overview.totalCustomers }}</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Biểu đồ -->
+    <div class="charts-section">
+      <!-- Doanh thu theo ngày -->
+      <div class="chart-card">
+        <h3>{{ chartTitles.revenueByDay }}</h3>
+        <div ref="revenueChart" class="chart-container"></div>
+      </div>
+
+      <!-- Doanh thu theo danh mục -->
+      <div class="chart-card">
+        <h3>{{ chartTitles.revenueByCategory }}</h3>
+        <div ref="categoryChart" class="chart-container"></div>
+      </div>
+      <div class="chart-card">
+        <h3>{{ chartTitles.ordersByHour }}</h3>
+        <div ref="hourChart" class="chart-container"></div>
+      </div>
+
+      <div class="chart-card">
+        <h3>{{ chartTitles.monthlyRevenue }}</h3>
+        <div ref="monthlyChart" class="chart-container"></div>
+      </div>
+    </div>
+
+    <!-- Bảng món bán chạy -->
+    <div class="table-section">
+      <h3>{{ tableTitles.topSelling }}</h3>
+      <el-table :data="topSellingItems" stripe style="width: 100%">
+        <el-table-column prop="name" label="Tên món" width="250" />
+        <el-table-column prop="category" label="Danh mục" width="150" />
+        <el-table-column label="Giá" width="150">
+          <template #default="scope">
+            {{ formatCurrency(scope.row.price) }}
+          </template>
+        </el-table-column>
+        <el-table-column prop="total_sold" label="Số lượng bán" width="150" />
+        <el-table-column label="Doanh thu">
+          <template #default="scope">
+            {{ formatCurrency(scope.row.total_revenue) }}
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <!-- Bảng khách hàng thân thiết -->
+    <div class="table-section">
+      <h3>{{ tableTitles.topCustomers }}</h3>
+      <el-table :data="topCustomers" stripe style="width: 100%">
+        <el-table-column prop="full_name" label="Họ tên" width="200" />
+        <el-table-column prop="phone" label="Số điện thoại" width="150" />
+        <el-table-column prop="total_orders" label="Số đơn hàng" width="150" />
+        <el-table-column label="Tổng chi tiêu">
+          <template #default="scope">
+            {{ formatCurrency(scope.row.total_spent) }}
+          </template>
+        </el-table-column>
+      </el-table>
+    </div>
+
+    <!-- Thống kê bàn (trạng thái hiện tại, không lọc theo ngày) -->
+    <div class="table-stats-section">
+      <h3>Thống kê bàn ăn <span class="section-note">(hiện tại)</span></h3>
+      <div class="table-stats-cards">
+        <div class="stat-item">
+          <span class="label">Tổng số bàn:</span>
+          <span class="value">{{ tableStats.totalTables }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">Bàn trống:</span>
+          <span class="value green">{{ tableStats.availableTables }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">Đang phục vụ:</span>
+          <span class="value orange">{{ tableStats.occupiedTables }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">Đã đặt:</span>
+          <span class="value blue">{{ tableStats.reservedTables }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">Chờ dọn:</span>
+          <span class="value">{{ tableStats.cleaningTables }}</span>
+        </div>
+        <div class="stat-item">
+          <span class="label">Tỷ lệ sử dụng:</span>
+          <span class="value">{{ tableStats.occupancyRate }}%</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</template>
+
+<script setup>
+import { ref, computed, onMounted, onUnmounted } from "vue";
+import axios from "axios";
+import { ElMessage } from "element-plus";
+import {
+  Money,
+  ShoppingCart,
+  Clock,
+  User,
+  Refresh,
+  Download,
+  Document,
+} from "@element-plus/icons-vue";
+import { loadEcharts } from "@/utils/echartsLoader";
+import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
+import { API_ORIGIN } from "@/config/api";
+
+const API_BASE = API_ORIGIN;
+
+const dateRange = ref(null);
+const exportLoading = ref(null);
+
+const formatDisplayDate = (iso) => {
+  if (!iso) return "";
+  const [y, m, d] = String(iso).split("-");
+  return d && m && y ? `${d}/${m}/${y}` : iso;
+};
+
+const periodLabel = computed(() => {
+  if (dateRange.value?.length === 2) {
+    return `${formatDisplayDate(dateRange.value[0])} – ${formatDisplayDate(dateRange.value[1])}`;
+  }
+  return null;
+});
+
+const chartTitles = computed(() => {
+  const p = periodLabel.value;
+  return {
+    revenueByDay: p ? `Doanh thu theo ngày (${p})` : "Doanh thu 7 ngày gần nhất",
+    revenueByCategory: p ? `Doanh thu theo danh mục (${p})` : "Doanh thu theo danh mục (toàn thời gian)",
+    ordersByHour: p ? `Đơn hàng theo giờ (${p})` : "Đơn hàng theo giờ (hôm nay)",
+    monthlyRevenue: p ? `Doanh thu theo tháng (${p})` : "Doanh thu 6 tháng gần nhất",
+  };
+});
+
+const tableTitles = computed(() => {
+  const p = periodLabel.value;
+  const suffix = p ? ` — ${p}` : "";
+  return {
+    topSelling: `Top 10 món bán chạy nhất${suffix}`,
+    topCustomers: `Top 10 khách hàng thân thiết${suffix}`,
+  };
+});
+
+const buildReportParams = (extra = {}) => {
+  const params = { branchId: selectedBranchId.value, days: 7, months: 6, limit: 10, ...extra };
+  if (dateRange.value?.length === 2) {
+    params.startDate = dateRange.value[0];
+    params.endDate = dateRange.value[1];
+  }
+  return params;
+};
+const branches = ref([]);
+const selectedBranchId = ref(1);
+const currentUser = getCurrentUser();
+const isSuperAdmin = isSuperAdminUser(currentUser);
+const overview = ref({
+  totalRevenue: 0,
+  totalOrders: 0,
+  pendingOrders: 0,
+  totalReservations: 0,
+  totalCustomers: 0,
+});
+
+const revenueByDay = ref([]);
+const topSellingItems = ref([]);
+const revenueByCategory = ref([]);
+const ordersByHour = ref([]);
+const topCustomers = ref([]);
+const tableStats = ref({
+  totalTables: 0,
+  availableTables: 0,
+  occupiedTables: 0,
+  reservedTables: 0,
+  cleaningTables: 0,
+  occupancyRate: 0,
+});
+const monthlyRevenue = ref([]);
+
+const revenueChart = ref(null);
+const categoryChart = ref(null);
+const hourChart = ref(null);
+const monthlyChart = ref(null);
+const chartInstances = [];
+
+async function renderChart(el, option) {
+  if (!el) return null;
+  const echarts = await loadEcharts();
+  const existing = echarts.getInstanceByDom(el);
+  const chart = existing || echarts.init(el);
+  chart.setOption(option, true);
+  if (!chartInstances.includes(chart)) chartInstances.push(chart);
+  return chart;
+}
+
+function resizeAllCharts() {
+  chartInstances.forEach((c) => c?.resize());
+}
+const fetchBranches = async () => {
+  try {
+    const res = await axios.get(`${API_BASE}/api/home/branches`);
+    branches.value = Array.isArray(res.data) ? res.data : [];
+    if (!isSuperAdmin) {
+      selectedBranchId.value = getDefaultBranchIdForUser(currentUser);
+    } else if (branches.value.length && !branches.value.some((b) => b.branch_id === selectedBranchId.value)) {
+      selectedBranchId.value = branches.value[0].branch_id;
+    }
+  } catch {
+    branches.value = [];
+  }
+};
+
+// Format tiền
+const formatCurrency = (amount) => {
+  return new Intl.NumberFormat("vi-VN", {
+    style: "currency",
+    currency: "VND",
+  }).format(amount || 0);
+};
+
+// Lấy token
+const getToken = () => localStorage.getItem("token");
+
+// Lấy tất cả dữ liệu
+const fetchAllData = async () => {
+  try {
+    const token = getToken();
+    const headers = { Authorization: `Bearer ${token}` };
+
+    const params = buildReportParams();
+
+    const [
+      overviewRes,
+      revenueByDayRes,
+      topSellingRes,
+      categoryRes,
+      hourRes,
+      customersRes,
+      tableStatsRes,
+      monthlyRes,
+    ] = await Promise.all([
+      axios.get(`${API_BASE}/api/admin/reports/overview`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/revenue-by-day`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/top-selling`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/revenue-by-category`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/orders-by-hour`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/top-customers`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reports/table-stats`, {
+        headers,
+        params: { branchId: selectedBranchId.value },
+      }),
+      axios.get(`${API_BASE}/api/admin/reports/monthly-revenue`, { headers, params }),
+    ]);
+
+    overview.value = overviewRes.data;
+    revenueByDay.value = revenueByDayRes.data;
+    topSellingItems.value = topSellingRes.data;
+    revenueByCategory.value = categoryRes.data;
+    ordersByHour.value = hourRes.data;
+    topCustomers.value = customersRes.data;
+    tableStats.value = tableStatsRes.data;
+    monthlyRevenue.value = monthlyRes.data;
+
+    // Vẽ biểu đồ
+    drawCharts();
+  } catch (error) {
+    console.error("Lỗi lấy dữ liệu báo cáo:", error);
+    ElMessage.error("Không thể lấy dữ liệu báo cáo");
+  }
+};
+
+const downloadReport = async (format) => {
+  try {
+    exportLoading.value = format;
+    const token = getToken();
+    const params = { format, ...buildReportParams() };
+    const res = await axios.get(`${API_BASE}/api/admin/reports/export`, {
+      headers: { Authorization: `Bearer ${token}` },
+      params,
+      responseType: "blob",
+    });
+    const mime =
+      format === "pdf"
+        ? "application/pdf"
+        : "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
+    const ext = format === "pdf" ? "pdf" : "xlsx";
+    const blob = new Blob([res.data], { type: mime });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `bao-cao-chi-nhanh-${selectedBranchId.value}-${Date.now()}.${ext}`;
+    a.click();
+    URL.revokeObjectURL(url);
+    ElMessage.success("Đã tải báo cáo");
+  } catch (error) {
+    const data = error.response?.data;
+    if (data instanceof Blob) {
+      try {
+        const text = await data.text();
+        const j = JSON.parse(text);
+        ElMessage.error(j.message || "Không thể xuất báo cáo");
+      } catch {
+        ElMessage.error("Không thể xuất báo cáo");
+      }
+    } else {
+      ElMessage.error(error.response?.data?.message || "Không thể xuất báo cáo");
+    }
+  } finally {
+    exportLoading.value = null;
+  }
+};
+
+// Vẽ biểu đồ
+const drawCharts = () => {
+  drawRevenueChart();
+  drawCategoryChart();
+  drawHourChart();
+  drawMonthlyChart();
+};
+
+// Biểu đồ doanh thu theo ngày
+const drawRevenueChart = () => {
+  const option = {
+    tooltip: {
+      trigger: "axis",
+      formatter: (params) => {
+        return `${params[0].name}<br/>${formatCurrency(params[0].value)}`;
+      },
+    },
+    xAxis: {
+      type: "category",
+      data: revenueByDay.value.map((item) => item.date),
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value) => (value / 1000).toFixed(0) + "K",
+      },
+    },
+    series: [
+      {
+        data: revenueByDay.value.map((item) => parseFloat(item.revenue)),
+        type: "line",
+        smooth: true,
+        itemStyle: { color: "#f97316" },
+        areaStyle: {
+          color: "rgba(249, 115, 22, 0.15)",
+        },
+      },
+    ],
+  };
+  renderChart(revenueChart.value, option);
+};
+
+// Biểu đồ doanh thu theo danh mục
+const drawCategoryChart = () => {
+  const option = {
+    tooltip: {
+      trigger: "item",
+      formatter: (params) => {
+        return `${params.name}<br/>${formatCurrency(params.value)}`;
+      },
+    },
+    legend: {
+      orient: "horizontal",
+      bottom: 0,
+      left: "center",
+      type: "scroll",
+    },
+    series: [
+      {
+        type: "pie",
+        radius: ["38%", "62%"],
+        center: ["50%", "44%"],
+        avoidLabelOverlap: true,
+        label: { show: false },
+        labelLine: { show: false },
+        data: revenueByCategory.value.map((item) => ({
+          name: item.category,
+          value: parseFloat(item.revenue),
+        })),
+        emphasis: {
+          label: { show: true, fontSize: 13, fontWeight: "bold" },
+          itemStyle: {
+            shadowBlur: 10,
+            shadowOffsetX: 0,
+            shadowColor: "rgba(0, 0, 0, 0.2)",
+          },
+        },
+      },
+    ],
+  };
+  renderChart(categoryChart.value, option);
+};
+
+// Biểu đồ đơn hàng theo giờ
+const drawHourChart = () => {
+  const option = {
+    tooltip: {
+      trigger: "axis",
+    },
+    xAxis: {
+      type: "category",
+      data: ordersByHour.value.map((item) => `${item.hour}h`),
+    },
+    yAxis: {
+      type: "value",
+    },
+    series: [
+      {
+        data: ordersByHour.value.map((item) => item.order_count),
+        type: "bar",
+        itemStyle: { color: "#10b981" },
+      },
+    ],
+  };
+  renderChart(hourChart.value, option);
+};
+
+// Biểu đồ doanh thu theo tháng
+const drawMonthlyChart = () => {
+  const option = {
+    tooltip: {
+      trigger: "axis",
+      formatter: (params) => {
+        return `${params[0].name}<br/>${formatCurrency(params[0].value)}`;
+      },
+    },
+    xAxis: {
+      type: "category",
+      data: monthlyRevenue.value.map((item) => item.month),
+    },
+    yAxis: {
+      type: "value",
+      axisLabel: {
+        formatter: (value) => (value / 1000000).toFixed(1) + "M",
+      },
+    },
+    series: [
+      {
+        data: monthlyRevenue.value.map((item) => parseFloat(item.revenue)),
+        type: "bar",
+        itemStyle: { color: "#3b82f6" },
+      },
+    ],
+  };
+  renderChart(monthlyChart.value, option);
+};
+
+onMounted(async () => {
+  selectedBranchId.value = getDefaultBranchIdForUser(currentUser);
+  await fetchBranches();
+  fetchAllData();
+  window.addEventListener("resize", resizeAllCharts);
+});
+
+onUnmounted(() => {
+  window.removeEventListener("resize", resizeAllCharts);
+  chartInstances.forEach((c) => c.dispose());
+  chartInstances.length = 0;
+});
+</script>
+
+<style scoped>
+.admin-reports {
+  padding: 0;
+  background: var(--hl-admin-bg);
+  min-height: 0;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
+  box-sizing: border-box;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: var(--hl-space-lg);
+  flex-wrap: wrap;
+  gap: var(--hl-space-md);
+}
+
+.title-section h2 {
+  margin: 0 0 var(--hl-space-sm);
+  color: var(--hl-primary);
+  font-size: 1.75rem;
+  font-weight: 700;
+}
+
+.title-section p {
+  margin: 0;
+  color: var(--hl-text-muted);
+  font-size: 14px;
+}
+
+.title-section .period-hint {
+  margin-top: 6px;
+  color: var(--hl-primary);
+  font-weight: 500;
+}
+
+.filter-branch-select {
+  width: 220px;
+}
+
+/* Cards tổng quan */
+.overview-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: var(--hl-admin-grid-gap);
+  margin-bottom: var(--hl-space-lg);
+  width: 100%;
+}
+
+.stat-card {
+  background: var(--hl-admin-card);
+  border-radius: var(--hl-radius-xl);
+  padding: var(--hl-space-lg);
+  display: flex;
+  align-items: center;
+  gap: var(--hl-space-lg);
+  box-shadow: var(--hl-shadow-md);
+  border: 1px solid var(--hl-admin-border);
+}
+
+.stat-card.revenue {
+  border-color: #fde047;
+}
+.stat-card.orders {
+  border-color: var(--hl-primary);
+}
+.stat-card.pending {
+  border-color: var(--hl-admin-info);
+}
+.stat-card.customers {
+  border-color: var(--hl-admin-success);
+}
+
+.card-icon {
+  width: 64px;
+  height: 64px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 32px;
+  color: white;
+}
+
+.revenue .card-icon {
+  background: linear-gradient(135deg, var(--hl-admin-warning), #f59e0b);
+}
+.orders .card-icon {
+  background: linear-gradient(135deg, var(--hl-primary), var(--hl-primary-light));
+}
+.pending .card-icon {
+  background: linear-gradient(135deg, var(--hl-admin-info), #60a5fa);
+}
+.customers .card-icon {
+  background: linear-gradient(135deg, var(--hl-admin-success), #34d399);
+}
+
+.card-content h3 {
+  margin: 0 0 var(--hl-space-sm);
+  font-size: 14px;
+  color: var(--hl-text-muted);
+  font-weight: 500;
+}
+
+.card-content .value {
+  margin: 0;
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--hl-text);
+}
+
+/* Biểu đồ */
+.charts-section {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--hl-admin-grid-gap);
+  margin-bottom: var(--hl-space-lg);
+  width: 100%;
+}
+
+.chart-card {
+  background: var(--hl-admin-card);
+  border-radius: var(--hl-radius-xl);
+  padding: var(--hl-space-lg);
+  box-shadow: var(--hl-shadow-md);
+  border: 1px solid var(--hl-admin-border);
+  min-width: 0;
+  width: 100%;
+  box-sizing: border-box;
+}
+
+.chart-card h3 {
+  margin: 0 0 var(--hl-space-md);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.chart-container {
+  width: 100%;
+  height: 260px;
+  min-height: 220px;
+}
+
+/* Bảng */
+.table-section {
+  background: var(--hl-admin-card);
+  border-radius: var(--hl-radius-xl);
+  padding: var(--hl-space-lg);
+  margin-bottom: var(--hl-space-lg);
+  box-shadow: var(--hl-shadow-md);
+  border: 1px solid var(--hl-admin-border);
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.table-section h3 {
+  margin: 0 0 var(--hl-space-md);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.table-section :deep(.el-table) {
+  min-width: 760px;
+}
+
+/* Thống kê bàn */
+.table-stats-section {
+  background: var(--hl-admin-card);
+  border-radius: var(--hl-radius-xl);
+  padding: var(--hl-space-lg);
+  box-shadow: var(--hl-shadow-md);
+  border: 1px solid var(--hl-admin-border);
+}
+
+.table-stats-section h3 {
+  margin: 0 0 var(--hl-space-md);
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: var(--hl-text);
+}
+
+.table-stats-section .section-note {
+  font-size: 0.875rem;
+  font-weight: 400;
+  color: var(--hl-text-muted);
+}
+
+.table-stats-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: var(--hl-space-md);
+  width: 100%;
+}
+
+.stat-item {
+  padding: var(--hl-space-md);
+  background: var(--hl-admin-bg);
+  border-radius: var(--hl-radius-lg);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  border: 1px solid var(--hl-admin-border);
+}
+
+.stat-item .label {
+  font-size: 14px;
+  color: var(--hl-text-muted);
+}
+
+.stat-item .value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--hl-text);
+}
+
+.stat-item .value.green {
+  color: var(--hl-admin-success);
+}
+.stat-item .value.orange {
+  color: var(--hl-primary);
+}
+.stat-item .value.blue {
+  color: var(--hl-admin-info);
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .filter-section {
+    width: 100%;
+  }
+
+  .filter-section > * {
+    width: 100%;
+  }
+
+  .filter-branch-select {
+    width: 100%;
+  }
+
+  .overview-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .charts-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .charts-section .chart-card {
+    overflow: hidden;
+  }
+
+  .table-section {
+    overflow-x: auto;
+  }
+
+  .table-stats-cards {
+    grid-template-columns: 1fr;
+  }
+}
+</style>

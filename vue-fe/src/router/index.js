@@ -1,81 +1,19 @@
-import { createRouter, createWebHistory } from 'vue-router';
-import AdminLayout from "../layouts/AdminLayout.vue";
-import Home from '../views/Home.vue';
-import AdminDashboard from "../views/admin/AdminDashboard.vue";
-import AdminTables from "../views/admin/AdminTables.vue";
-import AdminKitchen from "../views/admin/AdminKitchen.vue";
-import EmployeeManagement from "../views/admin/EmployeeManagement.vue";
-import CustomerAccounts from "../views/admin/CustomerAccounts.vue";
-import AdminReports from "../views/admin/AdminReports.vue";
-import AdminReviews from "../views/admin/AdminReviews.vue";
-import BranchManagement from "../views/admin/BranchManagement.vue";
-import { getDefaultStaffPath, canAccessRoute, isStaffRole } from '@/utils/auth.js';
+import { createRouter, createWebHistory } from "vue-router";
+import AdminLayout from "@/layouts/AdminLayout.vue";
+import { registerNavigationGuards } from "@/router/guards";
+import { publicChildRoutes } from "@/router/routes/public";
+import { adminChildRoutes } from "@/router/routes/admin";
 
-// Import các view khác nếu cần
-const MenuView = () => import('@/views/MenuView.vue');
-const LoginView = () => import('../views/LoginView.vue');
-const RegisterView = () => import('../views/RegisterView.vue');
-const UserDashboard = () => import('@/views/UserDashboard.vue');
-const UserProfile = () => import('@/views/UserProfile.vue');
-const OrderMenu = () => import('@/views/Ordermenu.vue');
-const Booking = () => import('@/views/Booking.vue');
-const MyTable = () => import('@/views/MyTable.vue');
-const ReservationBill = () => import('@/views/ReservationBillView.vue');
-const TableQr = () => import('@/views/TableQr.vue');
-const AboutView = () => import('@/views/AboutView.vue');
-const SaleView = () => import('@/views/SaleView.vue');
-const NewsView = () => import('@/views/NewsView.vue');
-const ContactView = () => import('@/views/ContactView.vue');
-const BranchesView = () => import('@/views/BranchesView.vue');
-const NearbyBranchesView = () => import('@/views/NearbyBranchesView.vue');
+const LoginView = () => import("@/views/LoginView.vue");
+const RegisterView = () => import("@/views/RegisterView.vue");
 
 const routes = [
+  { path: "/login", name: "Login", component: LoginView },
+  { path: "/register", name: "Register", component: RegisterView },
   {
-    path: '/login',
-    name: 'Login',
-    component: LoginView,
-  },
-  {
-    path: '/register',
-    name: 'Register',
-    component: RegisterView,
-  },
-  {
-    path: '/',
+    path: "/",
     component: AdminLayout,
-    children: [
-      { path: '', name: 'Home', component: Home },
-      { path: 'menu', name: 'Menu', component: MenuView },
-      { path: 'about', name: 'About', component: AboutView },
-      { path: 'branches', name: 'Branches', component: BranchesView },
-      { path: 'branches/nearby', name: 'BranchesNearby', component: NearbyBranchesView },
-      { path: 'sale', name: 'Sale', component: SaleView },
-      { path: 'news', name: 'News', component: NewsView },
-      { path: 'contact', name: 'Contact', component: ContactView },
-      { path: 'booking', name: 'Booking', component: Booking },
-      { path: 'order-menu', name: 'OrderMenu', component: OrderMenu },
-      { path: 'dashboard', name: 'UserDashboard', component: UserDashboard, meta: { requiresAuth: true } },
-      { path: 'profile', name: 'UserProfile', component: UserProfile },
-      {
-        path: 'profile/reservations/:orderId/bill',
-        name: 'ReservationBill',
-        component: ReservationBill,
-        meta: { requiresAuth: true },
-      },
-      { path: 'my-table', name: 'MyTable', component: MyTable, meta: { requiresAuth: true } },
-      { path: 't/:token', name: 'TableQr', component: TableQr },
-      // Routes quản lý: meta.allowedRoles – kitchen chỉ được vào /admin/kitchen
-      { path: 'admin', name: 'AdminDashboard', component: AdminDashboard, meta: { allowedRoles: ['admin', 'waiter'] } },
-      { path: 'admin/tables', name: 'AdminTables', component: AdminTables, meta: { allowedRoles: ['admin', 'waiter'] } },
-      { path: 'admin/kitchen', name: 'AdminKitchen', component: AdminKitchen, meta: { allowedRoles: ['admin', 'kitchen'] } },
-      { path: 'admin/menu', name: 'AdminMenu', component: MenuView, meta: { allowedRoles: ['admin', 'manager', 'waiter'] } },
-      { path: 'admin/employees', name: 'EmployeeManagement', component: EmployeeManagement, meta: { allowedRoles: ['admin'] } },
-      { path: 'admin/customer-accounts', name: 'CustomerAccounts', component: CustomerAccounts, meta: { allowedRoles: ['admin'] } },
-      { path: 'admin/reports', name: 'AdminReports', component: AdminReports, meta: { allowedRoles: ['admin', 'manager'] } },
-      { path: 'admin/reviews', name: 'AdminReviews', component: AdminReviews, meta: { allowedRoles: ['admin', 'manager'] } },
-      { path: 'admin/branches', name: 'AdminBranches', component: BranchManagement, meta: { allowedRoles: ['admin'] } },
-      { path: 'admin/my-branch', name: 'MyBranchManagement', component: BranchManagement, meta: { allowedRoles: ['manager', 'admin'] } },
-    ],
+    children: [...publicChildRoutes, ...adminChildRoutes],
   },
 ];
 
@@ -84,38 +22,6 @@ const router = createRouter({
   routes,
 });
 
-// Navigation guard: phân quyền theo meta.allowedRoles
-router.beforeEach((to, from, next) => {
-  const token = localStorage.getItem('token');
-  const user = JSON.parse(localStorage.getItem('user') || '{}');
-  const role = user?.role || null;
-  const isStaff = isStaffRole(role);
-
-  // Route yêu cầu role (allowedRoles)
-  if (to.meta.allowedRoles) {
-    if (!token) {
-      next('/login');
-      return;
-    }
-    if (!canAccessRoute(role, to.meta)) {
-      next(getDefaultStaffPath(role) || '/admin');
-      return;
-    }
-    next();
-    return;
-  }
-
-  // Staff vào /dashboard hoặc /my-table thì chuyển sang trang quản lý mặc định
-  if (to.path === '/dashboard' && isStaff) {
-    next(getDefaultStaffPath(role));
-    return;
-  }
-  if (to.path === '/my-table' && isStaff) {
-    next(getDefaultStaffPath(role));
-    return;
-  }
-
-  next();
-});
+registerNavigationGuards(router);
 
 export default router;

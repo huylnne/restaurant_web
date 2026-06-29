@@ -13,7 +13,7 @@
 <script setup>
 import { ref, onMounted, onUnmounted, watch, computed } from "vue";
 import { useRoute, useRouter } from "vue-router";
-import Sidebar from "../components/AdminSidebar.vue";
+import Sidebar from "@/features/admin/shared/components/AdminSidebar.vue";
 import Navbar from "../components/UserNavbar.vue";
 import { isStaffRole as checkStaffRole } from "@/utils/auth.js";
 import { connectBranchRealtime } from "@/utils/branchRealtime";

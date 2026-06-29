@@ -1,16 +1,8 @@
-/**
- * UC10 – Trạng thái bàn (4 giá trị, đồng bộ backend):
- * available | pre-ordered | occupied | cleaning
- */
+import shared from "@shared/tableStatus.js";
 
-export const TABLE_STATUS = {
-  AVAILABLE: "available",
-  PRE_ORDERED: "pre-ordered",
-  OCCUPIED: "occupied",
-  CLEANING: "cleaning",
-};
+export const TABLE_STATUS = shared.TABLE_STATUS;
+export const normalizeTableStatus = shared.normalizeTableStatus;
 
-/** Nhãn tiếng Việt theo đồ án UC10 */
 export const TABLE_STATUS_LABELS = {
   [TABLE_STATUS.AVAILABLE]: "Trống",
   [TABLE_STATUS.PRE_ORDERED]: "Đã đặt",
@@ -19,20 +11,11 @@ export const TABLE_STATUS_LABELS = {
   reserved: "Đã đặt",
 };
 
-/** Chuẩn hóa giá trị từ API (reserved → pre-ordered) */
-export function normalizeTableStatus(status) {
-  if (!status) return status;
-  const s = String(status).trim().toLowerCase();
-  if (s === "reserved") return TABLE_STATUS.PRE_ORDERED;
-  return s;
-}
-
 export function getTableStatusLabel(status) {
   const normalized = normalizeTableStatus(status);
   return TABLE_STATUS_LABELS[normalized] ?? status ?? "-";
 }
 
-/** CSS class cho thẻ trạng thái (admin) */
 export function getTableStatusClass(status) {
   const normalized = normalizeTableStatus(status);
   const map = {
@@ -44,7 +27,6 @@ export function getTableStatusClass(status) {
   return map[normalized] ?? "";
 }
 
-/** Element Plus tag type (admin) */
 export function getTableTagType(status) {
   const normalized = normalizeTableStatus(status);
   const map = {

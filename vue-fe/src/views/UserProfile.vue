@@ -103,7 +103,7 @@ import { ref, onMounted, computed } from "vue";
 import { useRouter } from "vue-router";
 import axios from "axios";
 import { ElMessage } from "element-plus";
-import MyReservations from "@/components/MyReservations.vue";
+import MyReservations from "@/features/user/reservations/components/MyReservations.vue";
 import { apiUrl } from "@/config/api";
 
 const DEFAULT_AVATAR = "https://maunhi.com/wp-content/uploads/2025/04/avatar-facebook-mac-dinh-3.jpeg";

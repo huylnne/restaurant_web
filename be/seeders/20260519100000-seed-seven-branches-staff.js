@@ -1,6 +1,6 @@
 'use strict';
 
-const bcrypt = require('bcryptjs');
+const bcrypt = require('bcrypt');
 
 /** Mỗi chi nhánh: 1 quản lý, 2 phục vụ, 1 bếp */
 const STAFF_ROLES = [

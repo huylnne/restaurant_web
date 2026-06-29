@@ -133,12 +133,12 @@
 import { computed, ref, onMounted, onUnmounted } from "vue";
 import { useRoute } from "vue-router";
 import axios from "axios";
-import QRCode from "qrcode";
 import { ElMessage } from "element-plus";
 import { API_ORIGIN } from "@/config/api";
 import { getTableStatusLabel } from "@/constants/tableStatus";
 import BillSummary from "@/components/BillSummary.vue";
 import ReviewDialog from "@/components/ReviewDialog.vue";
+import { useVietQrPayment } from "@/features/payments/composables/useVietQrPayment";
 import {
   hasReviewPromptBeenShown,
   markReviewPromptShown,
@@ -160,16 +160,19 @@ const menuItems = ref([]);
 const menuLoading = ref(false);
 const orderQuantities = ref({});
 const orderSubmitting = ref(false);
-const bankLoading = ref(false);
-const bankQrRaw = ref("");
-const bankQrDataUrl = ref("");
-const bankAmount = ref(0);
-const paymentOrderId = ref(null);
-const paymentCode = ref("");
-const paymentStatus = ref("");
+const {
+  qrDataUrl: bankQrDataUrl,
+  vietqrRaw: bankQrRaw,
+  amount: bankAmount,
+  orderId: paymentOrderId,
+  paymentCode,
+  status: paymentStatus,
+  loading: bankLoading,
+  createPaymentQr,
+  stopPolling: stopPaymentPolling,
+} = useVietQrPayment();
 const reviewDialogVisible = ref(false);
 const reviewOrderId = ref(null);
-let paymentStatusTimer = null;
 let billRefreshTimer = null;
 let reviewCheckTimer = null;
 
@@ -321,62 +324,20 @@ const submitOrder = async () => {
   }
 };
 
-const stopPaymentPolling = () => {
-  if (paymentStatusTimer) {
-    clearInterval(paymentStatusTimer);
-    paymentStatusTimer = null;
-  }
-};
-
-const pollPaymentStatus = async () => {
-  if (!paymentOrderId.value) return;
-  try {
-    const res = await axios.get(`${API_BASE}/api/payments/by-order/${paymentOrderId.value}`);
-    paymentStatus.value = res.data?.status || "";
-    if (paymentStatus.value === "succeeded") {
-      stopPaymentPolling();
-      ElMessage.success("Thanh toán thành công!");
-      await fetchAll();
-      if (paymentOrderId.value) {
-        await checkReviewEligibility(paymentOrderId.value);
-      }
-    }
-  } catch (err) {
-    console.error(err);
-  }
-};
-
-const startPaymentPolling = () => {
-  stopPaymentPolling();
-  pollPaymentStatus();
-  paymentStatusTimer = setInterval(pollPaymentStatus, 3000);
-};
-
 const genBankQr = async () => {
-  bankLoading.value = true;
-  bankQrRaw.value = "";
-  bankQrDataUrl.value = "";
-  bankAmount.value = 0;
-  paymentOrderId.value = null;
-  paymentCode.value = "";
-  paymentStatus.value = "";
-  stopPaymentPolling();
   try {
-    const res = await axios.post(`${API_BASE}/api/payments/vietqr`, { tableToken: token });
-    bankQrRaw.value = res.data?.vietqrRaw || "";
-    bankAmount.value = res.data?.amount || 0;
-    paymentOrderId.value = res.data?.orderId || null;
-    paymentCode.value = res.data?.vietqrContent || res.data?.paymentCode || "";
-    if (bankQrRaw.value) {
-      bankQrDataUrl.value = await QRCode.toDataURL(bankQrRaw.value, { margin: 1, width: 260 });
-      startPaymentPolling();
-    }
+    await createPaymentQr(token, {
+      onSucceeded: async () => {
+        ElMessage.success("Thanh toán thành công!");
+        await fetchAll();
+        if (paymentOrderId.value) {
+          await checkReviewEligibility(paymentOrderId.value);
+        }
+      },
+    });
   } catch (err) {
     console.error(err);
-    const msg = err.response?.data?.error || "Không thể tạo QR ngân hàng.";
-    ElMessage.error(msg);
-  } finally {
-    bankLoading.value = false;
+    ElMessage.error(err.response?.data?.error || "Không thể tạo QR ngân hàng.");
   }
 };
 </script>

@@ -78,6 +78,13 @@ export const SIDEBAR_MENU = [
     roles: ["admin", "kitchen"],
   },
   {
+    key: "operation-logs",
+    label: "Nhật ký thao tác",
+    icon: "Document",
+    route: "/admin/operation-logs",
+    roles: ["admin"],
+  },
+  {
     key: "settings",
     label: "Cài đặt",
     icon: "Setting",

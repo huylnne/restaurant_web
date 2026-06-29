@@ -1,40 +1,15 @@
+import shared from "@shared/branchDisplay.js";
 import { BRAND } from "@/config/siteContent";
 
-/**
- * Tách tên đầy đủ chi nhánh thành tên nhà hàng và tên/địa điểm chi nhánh.
- * Ví dụ: "ABC Restaurant Hà Nội - Cầu Giấy" → { restaurantName, branchName }
- */
+const splitRestaurantAndBranch = (name) =>
+  shared.splitRestaurantAndBranch(name, BRAND.name);
+
 export function getRestaurantAndBranchNames(fullBranchName) {
-  const fallbackRestaurant = BRAND.name;
-  if (!fullBranchName || !String(fullBranchName).trim()) {
-    return { restaurantName: fallbackRestaurant, branchName: "-" };
-  }
-
-  const name = String(fullBranchName).trim();
-
-  if (name.startsWith(fallbackRestaurant)) {
-    const locationPart = name.slice(fallbackRestaurant.length).trim().replace(/^[-–]\s*/, "");
-    return {
-      restaurantName: fallbackRestaurant,
-      branchName: locationPart || name,
-    };
-  }
-
-  const dashIdx = name.indexOf(" - ");
-  if (dashIdx > 0) {
-    const left = name.slice(0, dashIdx).trim();
-    const right = name.slice(dashIdx + 3).trim();
-    const cityMatch = left.match(/^(.+?)\s+(Hà Nội|TP\.HCM|Đà Nẵng|Hồ Chí Minh)$/i);
-    if (cityMatch) {
-      return {
-        restaurantName: cityMatch[1].trim(),
-        branchName: `${cityMatch[2]} - ${right}`,
-      };
-    }
-    return { restaurantName: left, branchName: right };
-  }
-
-  return { restaurantName: fallbackRestaurant, branchName: name };
+  const { restaurant_name, branch_display_name } = splitRestaurantAndBranch(fullBranchName);
+  return {
+    restaurantName: restaurant_name,
+    branchName: branch_display_name || "-",
+  };
 }
 
 export function formatRestaurantNameFromRow(row) {

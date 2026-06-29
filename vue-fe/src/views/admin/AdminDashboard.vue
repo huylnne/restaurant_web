@@ -2,20 +2,12 @@
   <div class="dashboard">
     <div class="dashboard-header">
       <h2>Tổng quan</h2>
-      <el-select
+      <AdminBranchSelect
         v-model="selectedBranchId"
-        placeholder="Chọn chi nhánh"
-        class="branch-select"
+        :branches="branches"
         :disabled="!isSuperAdmin"
         @change="fetchDashboardData"
-      >
-        <el-option
-          v-for="branch in branches"
-          :key="branch.branch_id"
-          :label="branch.name"
-          :value="branch.branch_id"
-        />
-      </el-select>
+      />
     </div>
     <div class="stats">
       <div v-if="showFinancials" class="stat-card">
@@ -62,28 +54,16 @@
     <div class="two_charts">
       <div v-if="showFinancials" class="weekly-stats">
         <h3>Doanh thu 7 ngày gần nhất</h3>
-        <Bar
-          v-if="weeklyLabels.length"
-          :data="{
-            labels: weeklyLabels,
-            datasets: [
-              {
-                label: 'Doanh thu',
-                backgroundColor: '#a16500',
-                data: weeklyData,
-                borderRadius: 8,
-                barPercentage: 0.6,
-              },
-            ],
-          }"
-          :options="chartOptions"
-          style="max-width: 800px; margin: 0 auto"
+        <div
+          v-show="weeklyLabels.length"
+          ref="weeklyChartRef"
+          class="chart-canvas"
         />
       </div>
       <div class="table-status">
         <h3>Tình trạng bàn ăn</h3>
         <div class="status-chart">
-          <canvas id="tableStatusChart"></canvas>
+          <div ref="tableStatusChartRef" class="chart-canvas chart-canvas--donut" />
         </div>
         <ul class="status-list">
           <li>
@@ -137,34 +117,17 @@ import { Money, TrendCharts, User, KnifeFork } from "@element-plus/icons-vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 import { getCurrentRole } from "@/utils/auth.js";
-import {
-  Chart,
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend,
-  ArcElement,
-  DoughnutController,
-} from "chart.js";
-import { Bar } from "vue-chartjs";
-import { getCurrentUser, isSuperAdminUser, getDefaultBranchIdForUser } from "@/utils/adminScope";
+import { loadEcharts } from "@/utils/echartsLoader";
+import { useAdminBranchScope } from "@/features/admin/shared/composables/useAdminBranchScope";
+import AdminBranchSelect from "@/features/admin/shared/components/AdminBranchSelect.vue";
+import { formatCurrency } from "@/utils/format";
 import { API_ORIGIN } from "@/config/api";
-Chart.register(
-  BarElement,
-  CategoryScale,
-  LinearScale,
-  Tooltip,
-  Legend,
-  ArcElement,
-  DoughnutController
-);
 const API_BASE = API_ORIGIN;
-const branches = ref([]);
-const currentUser = getCurrentUser();
-const isSuperAdmin = isSuperAdminUser(currentUser);
-const selectedBranchId = ref(getDefaultBranchIdForUser(currentUser));
-const tableStatusChartInstance = ref(null);
+const { branches, selectedBranchId, isSuperAdmin, fetchBranches } = useAdminBranchScope();
+
+const weeklyChartRef = ref(null);
+const tableStatusChartRef = ref(null);
+const chartInstances = [];
 
 const weeklyLabels = ref([]);
 const weeklyData = ref([]);
@@ -204,14 +167,6 @@ const dishesGrowth = ref("+0%");
 
 const showFinancials = computed(() => getCurrentRole() === "admin");
 
-const formatCurrency = (amount) => {
-  return new Intl.NumberFormat("vi-VN", {
-    style: "currency",
-    currency: "VND",
-  }).format(amount);
-};
-
-// Đổi tên các trường cho đồng bộ với backend
 const tableStatus = ref({
   available: 0,
   occupied: 0,
@@ -219,19 +174,20 @@ const tableStatus = ref({
   cleaning: 0,
 });
 
-const fetchBranches = async () => {
-  try {
-    const res = await axios.get(`${API_BASE}/api/home/branches`);
-    branches.value = Array.isArray(res.data) ? res.data : [];
-    if (!isSuperAdmin && currentUser?.branch_id) {
-      selectedBranchId.value = Number(currentUser.branch_id) || 1;
-    } else if (branches.value.length && !branches.value.some((b) => b.branch_id === selectedBranchId.value)) {
-      selectedBranchId.value = branches.value[0].branch_id;
-    }
-  } catch {
-    branches.value = [];
-  }
-};
+async function renderChart(el, option) {
+  if (!el) return null;
+  const echarts = await loadEcharts();
+  const existing = echarts.getInstanceByDom(el);
+  const chart = existing || echarts.init(el);
+  chart.setOption(option, true);
+  if (!chartInstances.includes(chart)) chartInstances.push(chart);
+  return chart;
+}
+
+function disposeCharts() {
+  chartInstances.forEach((c) => c?.dispose());
+  chartInstances.length = 0;
+}
 
 const fetchDashboardData = async () => {
   try {
@@ -299,58 +255,68 @@ const fetchDashboardData = async () => {
     };
 
     await nextTick();
-    renderTableStatusChart();
+    await drawCharts();
   } catch (error) {
     console.error("Không thể lấy dữ liệu dashboard:", error);
     ElMessage.error("Không thể lấy dữ liệu thống kê");
   }
 };
 
-const renderTableStatusChart = () => {
-  try {
-    const ctx = document.getElementById("tableStatusChart")?.getContext("2d");
-    if (!ctx) return;
+async function drawCharts() {
+  await drawWeeklyChart();
+  await drawTableStatusChart();
+}
 
-    if (tableStatusChartInstance.value) {
-      tableStatusChartInstance.value.destroy();
-    }
+async function drawWeeklyChart() {
+  if (!showFinancials.value || !weeklyChartRef.value || !weeklyLabels.value.length) return;
+  await renderChart(weeklyChartRef.value, {
+    tooltip: {
+      trigger: "axis",
+      formatter: (params) => {
+        const p = params[0];
+        return `${p.name}<br/>${formatCurrency(p.value)}`;
+      },
+    },
+    grid: { left: 48, right: 16, top: 24, bottom: 32 },
+    xAxis: { type: "category", data: weeklyLabels.value },
+    yAxis: {
+      type: "value",
+      axisLabel: { formatter: (v) => `${(v / 1000).toFixed(0)}K` },
+    },
+    series: [
+      {
+        type: "bar",
+        data: weeklyData.value,
+        itemStyle: { color: "#a16500", borderRadius: [8, 8, 0, 0] },
+        barWidth: "50%",
+      },
+    ],
+  });
+}
 
-    tableStatusChartInstance.value = new Chart(ctx, {
-      type: "doughnut",
-      data: {
-        labels: ["Bàn trống", "Đang phục vụ", "Đã đặt", "Chờ dọn"],
-        datasets: [
-          {
-            data: [
-              tableStatus.value.available,
-              tableStatus.value.occupied,
-              tableStatus.value.reserved,
-              tableStatus.value.cleaning,
-            ],
-            backgroundColor: ["#10b981", "#f97316", "#3b82f6", "#94a3b8"],
-            borderWidth: 0,
-          },
+async function drawTableStatusChart() {
+  if (!tableStatusChartRef.value) return;
+  await renderChart(tableStatusChartRef.value, {
+    tooltip: {
+      trigger: "item",
+      formatter: (p) => `${p.name}: ${p.value} bàn`,
+    },
+    series: [
+      {
+        type: "pie",
+        radius: ["45%", "70%"],
+        center: ["50%", "50%"],
+        label: { show: false },
+        data: [
+          { name: "Bàn trống", value: tableStatus.value.available, itemStyle: { color: "#10b981" } },
+          { name: "Đang phục vụ", value: tableStatus.value.occupied, itemStyle: { color: "#f97316" } },
+          { name: "Đã đặt", value: tableStatus.value.reserved, itemStyle: { color: "#3b82f6" } },
+          { name: "Chờ dọn", value: tableStatus.value.cleaning, itemStyle: { color: "#94a3b8" } },
         ],
       },
-      options: {
-        responsive: true,
-        maintainAspectRatio: false,
-        plugins: {
-          legend: { display: false },
-          tooltip: {
-            callbacks: {
-              label: (context) => {
-                return context.label + ": " + context.parsed + " bàn";
-              },
-            },
-          },
-        },
-      },
-    });
-  } catch (error) {
-    console.error("Không thể vẽ biểu đồ trạng thái bàn:", error);
-  }
-};
+    ],
+  });
+}
 
 onMounted(async () => {
   await fetchBranches();
@@ -358,29 +324,8 @@ onMounted(async () => {
 });
 
 onBeforeUnmount(() => {
-  if (tableStatusChartInstance.value) {
-    tableStatusChartInstance.value.destroy();
-    tableStatusChartInstance.value = null;
-  }
+  disposeCharts();
 });
-
-const chartOptions = {
-  responsive: true,
-  plugins: {
-    legend: { display: false },
-    tooltip: {
-      callbacks: { label: (ctx) => ctx.parsed.y.toLocaleString("vi-VN") + "đ" },
-    },
-  },
-  scales: {
-    y: {
-      beginAtZero: true,
-      ticks: {
-        callback: (value) => value.toLocaleString("vi-VN") + "đ",
-      },
-    },
-  },
-};
 </script>
 
 <style scoped>
@@ -396,6 +341,19 @@ const chartOptions = {
   background: var(--hl-admin-bg);
   min-height: 0;
 }
+
+.chart-canvas {
+  width: 100%;
+  max-width: 800px;
+  height: 280px;
+  margin: 0 auto;
+}
+
+.chart-canvas--donut {
+  max-width: 100%;
+  height: 200px;
+}
+
 .dashboard-header {
   display: flex;
   justify-content: space-between;
