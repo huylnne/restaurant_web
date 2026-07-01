@@ -22,7 +22,7 @@ const props = defineProps({
 });
 
 const heroStyle = computed(() => ({
-  backgroundImage: `linear-gradient(105deg, rgba(46, 74, 61, 0.88) 0%, rgba(161, 101, 0, 0.75) 100%), url(${props.image})`,
+  backgroundImage: `var(--hl-gradient-hero), url(${props.image})`,
 }));
 </script>
 
@@ -33,7 +33,16 @@ const heroStyle = computed(() => ({
   border-radius: var(--hl-radius-xl);
   overflow: hidden;
   margin-bottom: var(--hl-space-xl);
-  box-shadow: var(--hl-shadow-md);
+  box-shadow: var(--hl-shadow-lg);
+  position: relative;
+}
+
+.static-hero::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.15) 0%, transparent 40%);
+  pointer-events: none;
 }
 
 .static-hero__inner {
@@ -41,6 +50,8 @@ const heroStyle = computed(() => ({
   margin: 0 auto;
   padding: var(--hl-space-2xl) var(--hl-space-lg);
   color: #fff;
+  position: relative;
+  z-index: 1;
 }
 
 .static-hero__eyebrow {
@@ -52,10 +63,12 @@ const heroStyle = computed(() => ({
 }
 
 .static-hero__title {
-  font-size: clamp(1.75rem, 4vw, 2.25rem);
+  font-family: var(--hl-font-display);
+  font-size: clamp(1.75rem, 4vw, 2.5rem);
   font-weight: 700;
-  line-height: 1.25;
+  line-height: 1.2;
   margin-bottom: var(--hl-space-md);
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.25);
 }
 
 .static-hero__subtitle {

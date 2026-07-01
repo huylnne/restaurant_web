@@ -219,6 +219,9 @@ const changePassword = async () => {
 <style scoped>
 .profile-page {
   background-color: var(--hl-bg-section);
+  background-image:
+    radial-gradient(ellipse at 15% 0%, rgba(161, 101, 0, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 85% 100%, rgba(46, 74, 61, 0.05) 0%, transparent 50%);
   min-height: 100vh;
   padding: var(--hl-space-lg) 0 var(--hl-space-2xl);
 }
@@ -245,12 +248,36 @@ const changePassword = async () => {
 }
 
 .section-title {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--hl-primary);
+  font-family: var(--hl-font-display);
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: var(--hl-secondary);
   margin: 0 0 var(--hl-space-lg) 0;
   padding-bottom: var(--hl-space-md);
-  border-bottom: 1px dashed var(--hl-border);
+  border-bottom: 2px solid var(--hl-border-light);
+  position: relative;
+}
+
+.section-title::after {
+  content: "";
+  position: absolute;
+  bottom: -2px;
+  left: 0;
+  width: 48px;
+  height: 2px;
+  background: var(--hl-gradient-primary);
+  border-radius: 1px;
+}
+
+.user-avatar {
+  width: 140px;
+  height: 140px;
+  object-fit: cover;
+  border-radius: 50%;
+  box-shadow: var(--hl-shadow-md);
+  background-color: var(--hl-bg-muted);
+  border: 4px solid var(--hl-bg-card);
+  outline: 2px solid var(--hl-primary-light);
 }
 
 .profile-card-inner {
@@ -262,15 +289,6 @@ const changePassword = async () => {
 .avatar-block {
   display: flex;
   justify-content: center;
-}
-
-.user-avatar {
-  width: 140px;
-  height: 140px;
-  object-fit: cover;
-  border-radius: 50%;
-  box-shadow: var(--hl-shadow-md);
-  background-color: var(--hl-bg-muted);
 }
 
 .user-name-block {

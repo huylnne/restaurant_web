@@ -1,6 +1,9 @@
 .static-page {
   min-height: 100%;
   background: var(--hl-bg-section);
+  background-image:
+    radial-gradient(ellipse at 10% 0%, rgba(161, 101, 0, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 100%, rgba(46, 74, 61, 0.05) 0%, transparent 50%);
   margin: calc(-1 * var(--hl-space-lg));
   padding: var(--hl-space-lg);
 }
@@ -19,11 +22,23 @@
 }
 
 .section-heading {
-  font-size: 1.35rem;
-  font-weight: 600;
-  color: var(--hl-primary);
+  font-family: var(--hl-font-display);
+  font-size: clamp(1.35rem, 3vw, 1.65rem);
+  font-weight: 700;
+  color: var(--hl-secondary);
   margin-bottom: var(--hl-space-lg);
   text-align: center;
+  position: relative;
+}
+
+.section-heading::after {
+  content: "";
+  display: block;
+  width: 48px;
+  height: 3px;
+  margin: var(--hl-space-sm) auto 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--hl-primary), var(--hl-primary-light));
 }
 
 .static-lead {
@@ -54,12 +69,17 @@
 .value-card {
   text-align: center;
   padding: var(--hl-space-xl) var(--hl-space-lg);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  border-top: 3px solid transparent;
+  background-image: linear-gradient(var(--hl-bg-card), var(--hl-bg-card)),
+    var(--hl-gradient-primary);
+  background-origin: border-box;
+  background-clip: padding-box, border-box;
 }
 
 .value-card:hover {
-  transform: translateY(-4px);
-  box-shadow: var(--hl-shadow-md);
+  transform: translateY(-6px);
+  box-shadow: var(--hl-shadow-lg);
 }
 
 .value-card__icon {
@@ -90,6 +110,13 @@
   border-radius: var(--hl-radius-lg);
   overflow: hidden;
   border: 1px solid var(--hl-border-light);
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  box-shadow: var(--hl-shadow-card);
+}
+
+.branch-card:hover {
+  transform: translateY(-4px);
+  box-shadow: var(--hl-shadow-md);
 }
 
 .branch-card__img {
@@ -139,8 +166,8 @@
 }
 
 .promo-card:hover {
-  box-shadow: var(--hl-shadow-md);
-  transform: translateY(-3px);
+  box-shadow: var(--hl-shadow-lg);
+  transform: translateY(-5px);
 }
 
 .promo-card__media {
@@ -221,8 +248,8 @@
 }
 
 .news-card:hover {
-  box-shadow: var(--hl-shadow-md);
-  transform: translateY(-3px);
+  box-shadow: var(--hl-shadow-lg);
+  transform: translateY(-5px);
 }
 
 .news-card__img {

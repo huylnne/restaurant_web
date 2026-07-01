@@ -10,7 +10,7 @@
       />
     </div>
     <div class="stats">
-      <div v-if="showFinancials" class="stat-card">
+      <div v-if="showFinancials" class="stat-card hl-stat-card">
         <div class="icon-box green">
           <el-icon><Money /></el-icon>
         </div>
@@ -20,7 +20,7 @@
           <p class="growth" :class="getGrowthClass(revenueGrowth)">{{ revenueGrowth }}</p>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card hl-stat-card">
         <div class="icon-box blue">
           <el-icon><TrendCharts /></el-icon>
         </div>
@@ -30,7 +30,7 @@
           <p class="growth" :class="getGrowthClass(ordersGrowth)">{{ ordersGrowth }}</p>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card hl-stat-card">
         <div class="icon-box purple">
           <el-icon><User /></el-icon>
         </div>
@@ -40,7 +40,7 @@
           <p class="growth" :class="getGrowthClass(usersGrowth)">{{ usersGrowth }}</p>
         </div>
       </div>
-      <div class="stat-card">
+      <div class="stat-card hl-stat-card">
         <div class="icon-box orange">
           <el-icon><KnifeFork /></el-icon>
         </div>
@@ -373,10 +373,11 @@ onBeforeUnmount(() => {
   gap: 20px;
 }
 h2 {
-  margin-bottom: var(--hl-space-lg);
-  color: var(--hl-primary);
-  font-weight: 600;
-  font-size: 1.5rem;
+  margin-bottom: 0;
+  color: var(--hl-secondary);
+  font-family: var(--hl-font-display);
+  font-weight: 700;
+  font-size: 1.75rem;
 }
 .stats {
   display: grid;
@@ -387,7 +388,7 @@ h2 {
 }
 .stat-card {
   background: var(--hl-admin-card);
-  border-radius: var(--hl-radius-md);
+  border-radius: var(--hl-radius-lg);
   padding: var(--hl-space-lg);
   display: flex;
   align-items: center;
@@ -395,6 +396,12 @@ h2 {
   box-shadow: var(--hl-shadow-card);
   min-width: 0;
   border: 1px solid var(--hl-admin-border);
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hl-shadow-md);
 }
 .icon-box {
   width: 60px;
@@ -409,16 +416,16 @@ h2 {
   color: white;
 }
 .green {
-  background: var(--hl-admin-success);
+  background: linear-gradient(135deg, var(--hl-admin-success), #34d399);
 }
 .blue {
-  background: var(--hl-admin-info);
+  background: linear-gradient(135deg, var(--hl-admin-info), #3b82f6);
 }
 .purple {
-  background: #6b4c9a;
+  background: linear-gradient(135deg, #6b4c9a, #8b5cf6);
 }
 .orange {
-  background: var(--hl-primary);
+  background: var(--hl-gradient-primary);
 }
 .text h3 {
   font-size: 1rem;
@@ -461,9 +468,10 @@ h2 {
   height: 500px;
 }
 .weekly-stats h3 {
+  font-family: var(--hl-font-display);
   font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--hl-primary);
+  font-weight: 700;
+  color: var(--hl-secondary);
   margin-bottom: var(--hl-space-md);
 }
 .top-dishes {
@@ -475,10 +483,11 @@ h2 {
   border: 1px solid var(--hl-admin-border);
 }
 .top-dishes h3 {
+  font-family: var(--hl-font-display);
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: var(--hl-space-lg);
-  color: var(--hl-primary);
+  color: var(--hl-secondary);
 }
 .top-dishes table {
   width: 100%;
@@ -522,10 +531,11 @@ h2 {
   }
 }
 .table-status h3 {
+  font-family: var(--hl-font-display);
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: var(--hl-space-lg);
-  color: var(--hl-primary);
+  color: var(--hl-secondary);
 }
 .status-chart {
   width: 100%;

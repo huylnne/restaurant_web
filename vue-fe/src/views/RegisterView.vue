@@ -180,14 +180,26 @@ const handleRegister = async () => {
 }
 
 .register-left {
-  width: 40%;
+  width: 42%;
   background-color: var(--hl-bg-section);
+  position: relative;
+  overflow: hidden;
+}
+
+.register-left::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--hl-gradient-hero);
+  opacity: 0.35;
+  pointer-events: none;
 }
 
 .register-image {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  display: block;
 }
 
 .register-right {
@@ -203,11 +215,12 @@ const handleRegister = async () => {
 .register-form-container {
   background: var(--hl-bg-card);
   padding: var(--hl-space-2xl);
-  border-radius: var(--hl-radius-lg);
-  box-shadow: var(--hl-shadow-md);
+  border-radius: var(--hl-radius-xl);
+  box-shadow: var(--hl-shadow-lg);
+  border: 1px solid var(--hl-border-light);
   min-width: 0;
   width: 100%;
-  max-width: 400px;
+  max-width: 420px;
 }
 
 .register-header {
@@ -218,9 +231,10 @@ const handleRegister = async () => {
 }
 
 .register-header h2 {
-  font-size: 1.25rem;
-  font-weight: 600;
-  color: var(--hl-text);
+  font-family: var(--hl-font-display);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--hl-secondary);
 }
 
 .login-link {
@@ -257,21 +271,23 @@ const handleRegister = async () => {
 }
 
 .submit-btn {
-  background-color: var(--hl-primary);
+  background: var(--hl-gradient-primary);
   color: white;
   width: 100%;
   padding: var(--hl-space-md);
   border: none;
   border-radius: var(--hl-radius-md);
   cursor: pointer;
-  font-weight: 600;
+  font-weight: 700;
   margin-top: var(--hl-space-xs);
   margin-bottom: 0;
-  transition: background-color 0.2s ease;
+  transition: transform var(--hl-transition-fast), box-shadow var(--hl-transition-fast);
+  box-shadow: 0 4px 12px rgba(161, 101, 0, 0.25);
 }
 
 .submit-btn:hover:not(:disabled) {
-  background-color: var(--hl-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 6px 16px rgba(161, 101, 0, 0.35);
 }
 
 .submit-btn:disabled {

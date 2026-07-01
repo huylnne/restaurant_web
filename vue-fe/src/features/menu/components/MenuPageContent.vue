@@ -248,9 +248,10 @@ const {
 
 .page-header__title {
   margin: 0 0 var(--hl-space-xs);
+  font-family: var(--hl-font-display);
   font-size: 1.75rem;
   font-weight: 700;
-  color: var(--hl-primary);
+  color: var(--hl-secondary);
 }
 
 .page-header__desc {
@@ -264,20 +265,20 @@ const {
   align-items: center;
   gap: var(--hl-space-sm);
   padding: var(--hl-space-sm) var(--hl-space-lg);
-  background: var(--hl-primary);
+  background: var(--hl-gradient-primary);
   color: #fff;
   border: none;
   border-radius: var(--hl-radius-md);
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s ease, transform 0.15s ease;
-  box-shadow: var(--hl-shadow-sm);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 4px 12px rgba(161, 101, 0, 0.25);
 }
 
 .add-dish-btn:hover {
-  background: var(--hl-primary-hover);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(161, 101, 0, 0.35);
 }
 
 .add-dish-btn .el-icon {
@@ -386,7 +387,7 @@ const {
 }
 
 .dish-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px);
   box-shadow: var(--hl-shadow-lg);
 }
 

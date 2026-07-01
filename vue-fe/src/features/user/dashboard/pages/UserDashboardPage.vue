@@ -42,7 +42,9 @@
           </div>
         </div>
         <div class="featured-dishes">
-          <h2 class="section-title">Món ăn nổi bật</h2>
+          <div class="hl-section-header">
+            <h2 class="section-title section-title--decorated">Món ăn nổi bật</h2>
+          </div>
           <div class="dish-grid-wrapper">
             <button class="scroll-left" @click="scrollLeft">‹</button>
 
@@ -372,6 +374,9 @@ const handleOrderClick = (dish) => {
 
 .home-page_body {
   background-color: var(--hl-bg-section);
+  background-image:
+    radial-gradient(ellipse at 15% 0%, rgba(161, 101, 0, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at 85% 100%, rgba(46, 74, 61, 0.06) 0%, transparent 55%);
   min-height: 100vh;
 }
 
@@ -380,21 +385,25 @@ const handleOrderClick = (dish) => {
 }
 
 .slider-carousel {
-  --slide-width: min(60vw, 100%);
+  --slide-width: min(72vw, 1100px);
   width: var(--slide-width);
   overflow: hidden;
-  margin: 0 auto;
+  margin: var(--hl-space-xl) auto 0;
   position: relative;
-  height: 600px;
+  height: 520px;
   max-width: 100%;
+  border-radius: var(--hl-radius-xl);
+  box-shadow: var(--hl-shadow-lg);
 }
 
 .slider-carousel::before {
   content: "";
   position: absolute;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: linear-gradient(to top, rgba(0, 0, 0, 0.45) 0%, rgba(0, 0, 0, 0.15) 50%, transparent 100%);
   z-index: 1;
+  border-radius: var(--hl-radius-xl);
+  pointer-events: none;
 }
 
 .slider_overlay {
@@ -411,21 +420,27 @@ const handleOrderClick = (dish) => {
 
 .slider_overlay h1 {
   color: #ffffff;
-  font-size: 50px;
+  font-family: var(--hl-font-display);
+  font-size: clamp(2rem, 5vw, 3rem);
   justify-content: center;
+  text-shadow: 0 2px 16px rgba(0, 0, 0, 0.35);
 }
 
 .slider_overlay h2 {
-  color: #ffffff;
-  font-size: 30px;
-  font-weight: 100;
+  color: rgba(255, 255, 255, 0.95);
+  font-size: clamp(1rem, 2.5vw, 1.35rem);
+  font-weight: 400;
   text-align: center;
+  text-shadow: 0 1px 8px rgba(0, 0, 0, 0.3);
+  max-width: 640px;
 }
 
 .slider_overlay span {
-  font-size: 50px;
+  font-family: var(--hl-font-display);
+  font-size: clamp(2rem, 5vw, 3rem);
   color: var(--hl-primary-light);
-  font-weight: bold;
+  font-weight: 700;
+  text-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
 }
 
 .overlay_btn {
@@ -450,27 +465,35 @@ const handleOrderClick = (dish) => {
   height: 100%;
   flex-shrink: 0;
   object-fit: cover;
-  border-radius: 10px;
+  border-radius: var(--hl-radius-xl);
 }
 
 .arrow {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  font-size: 40px;
-  background: rgba(255, 255, 255, 0.85);
-  border: none;
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.5);
   cursor: pointer;
-  padding: 0 12px;
   z-index: 10;
   border-radius: 50%;
-  transition: background 0.2s ease;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
   color: var(--hl-text);
+  box-shadow: var(--hl-shadow-sm);
 }
 
 .arrow:hover {
   background: var(--hl-primary);
   color: white;
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: var(--hl-shadow-md);
 }
 
 .arrow.left {
@@ -514,10 +537,11 @@ const handleOrderClick = (dish) => {
 }
 
 .section-title {
-  font-size: 28px;
-  margin-bottom: 40px;
-  color: var(--hl-primary);
-  font-weight: 600;
+  font-family: var(--hl-font-display);
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+  margin-bottom: 0;
+  color: var(--hl-secondary);
+  font-weight: 700;
 }
 
 .dish-grid {
@@ -532,18 +556,19 @@ const handleOrderClick = (dish) => {
 .dish-card {
   flex: 0 0 calc(20% - 18px);
   flex-shrink: 0;
-  background: var(--hl-bg-page);
+  background: var(--hl-bg-card);
   border-radius: var(--hl-radius-lg);
   box-shadow: var(--hl-shadow-card);
   overflow: hidden;
-  transition: transform 0.2s ease;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--hl-border-light);
 }
 
 .dish-card:hover {
-  transform: translateY(-4px);
+  transform: translateY(-6px);
+  box-shadow: var(--hl-shadow-lg);
 }
 
 .dish-card img {
@@ -564,9 +589,10 @@ const handleOrderClick = (dish) => {
 }
 
 .dish-info h3 {
-  font-size: 20px;
+  font-size: 1.1rem;
   margin-bottom: 8px;
-  color: var(--hl-text);
+  color: var(--hl-secondary);
+  font-weight: 700;
 }
 
 .dish-info p {
@@ -800,7 +826,7 @@ const handleOrderClick = (dish) => {
 }
 
 .order-button {
-  background-color: var(--hl-primary);
+  background: var(--hl-gradient-primary) !important;
   color: white;
   border: none;
   margin-top: auto;
@@ -808,11 +834,13 @@ const handleOrderClick = (dish) => {
   font-weight: 600;
   border-radius: var(--hl-radius-md);
   padding: var(--hl-space-sm);
-  transition: background 0.2s ease;
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
+  box-shadow: 0 2px 8px rgba(161, 101, 0, 0.2);
 }
 
 .order-button:hover {
-  background-color: var(--hl-primary-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(161, 101, 0, 0.3);
 }
 
 .all-dishes .dish-info {

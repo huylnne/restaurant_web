@@ -1,0 +1,108 @@
+/* ========== Shared UI patterns — đồng bộ toàn site ========== */
+
+/* Section headers */
+.hl-section-header {
+  text-align: center;
+  margin-bottom: var(--hl-space-xl);
+}
+
+.hl-section-header .section-title,
+.section-title--decorated {
+  font-family: var(--hl-font-display);
+  font-size: clamp(1.5rem, 3.5vw, 2rem);
+  font-weight: 700;
+  color: var(--hl-secondary);
+  margin: 0 0 var(--hl-space-sm);
+  letter-spacing: -0.02em;
+}
+
+.hl-section-header .section-title::after,
+.section-title--decorated::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 3px;
+  margin: var(--hl-space-sm) auto 0;
+  border-radius: 2px;
+  background: linear-gradient(90deg, var(--hl-primary), var(--hl-primary-light));
+}
+
+.hl-section-header .section-title_desc,
+.section-subtitle {
+  display: block;
+  font-size: clamp(0.95rem, 2vw, 1.1rem);
+  color: var(--hl-text-muted);
+  max-width: 560px;
+  margin: var(--hl-space-sm) auto 0;
+  line-height: 1.65;
+}
+
+/* Carousel controls */
+.hl-carousel-arrow {
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 44px;
+  height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(6px);
+  border: 1px solid rgba(255, 255, 255, 0.6);
+  cursor: pointer;
+  z-index: 10;
+  border-radius: 50%;
+  transition: background 0.2s ease, color 0.2s ease, transform 0.15s ease, box-shadow 0.2s ease;
+  color: var(--hl-text);
+  box-shadow: var(--hl-shadow-sm);
+}
+
+.hl-carousel-arrow:hover {
+  background: var(--hl-primary);
+  color: #fff;
+  transform: translateY(-50%) scale(1.05);
+  box-shadow: var(--hl-shadow-md);
+}
+
+/* Dish cards — dùng chung Home & Dashboard */
+.hl-dish-card {
+  background: var(--hl-bg-card);
+  border-radius: var(--hl-radius-lg);
+  box-shadow: var(--hl-shadow-card);
+  overflow: hidden;
+  transition: transform 0.25s ease, box-shadow 0.25s ease;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--hl-border-light);
+}
+
+.hl-dish-card:hover {
+  transform: translateY(-6px);
+  box-shadow: var(--hl-shadow-lg);
+}
+
+.hl-dish-card img {
+  width: 100%;
+  height: 200px;
+  object-fit: cover;
+}
+
+/* Admin stat card hover */
+.hl-stat-card {
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.hl-stat-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--hl-shadow-md);
+}
+
+/* Decorative page background */
+.hl-bg-pattern {
+  background-color: var(--hl-bg-section);
+  background-image:
+    radial-gradient(ellipse at 10% 0%, rgba(161, 101, 0, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 90% 100%, rgba(46, 74, 61, 0.05) 0%, transparent 50%);
+}

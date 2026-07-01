@@ -238,6 +238,9 @@ const getAvatarUrl = (path) => {
   width: 100%;
   max-width: 100%;
   flex-shrink: 0;
+  box-shadow: var(--hl-shadow-header);
+  position: relative;
+  z-index: 100;
 }
 
 .header-wrapper--admin {
@@ -339,14 +342,17 @@ const getAvatarUrl = (path) => {
 }
 .nav-menu {
   display: flex;
-  gap: var(--hl-space-xl);
+  gap: var(--hl-space-lg);
   margin-top: var(--hl-space-sm);
-  font-weight: bold;
+  font-weight: 600;
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
   padding-top: var(--hl-space-sm);
   min-height: var(--hl-nav-height);
   align-items: center;
   flex-wrap: wrap;
   row-gap: var(--hl-space-sm);
+  border-top: 1px solid var(--hl-border-light);
 }
 .nav-menu a,
 .nav-menu .dropdown > span {
@@ -422,7 +428,25 @@ const getAvatarUrl = (path) => {
 .router-link-exact-active,
 .nav-link.active {
   color: var(--hl-primary);
-  border-bottom: 2px solid var(--hl-primary);
+  position: relative;
+}
+
+.nav-menu .nav-link.active::after,
+.nav-menu .nav-link.router-link-exact-active::after {
+  content: "";
+  position: absolute;
+  bottom: -6px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: var(--hl-gradient-primary);
+  border-radius: 1px;
+}
+
+.nav-menu .nav-link {
+  position: relative;
+  padding-bottom: 4px;
+  transition: color var(--hl-transition-fast);
 }
 
 .nav-menu .nav-cta-branches {
@@ -430,21 +454,22 @@ const getAvatarUrl = (path) => {
   align-items: center;
   gap: 6px;
   margin-left: auto;
-  padding: 8px 16px;
-  background: var(--hl-primary);
+  padding: 9px 18px;
+  background: var(--hl-gradient-primary);
   color: #fff !important;
   text-decoration: none;
-  font-weight: 600;
+  font-weight: 700;
   font-size: 13px;
-  border-radius: var(--hl-radius-md);
+  border-radius: 999px;
   border: none !important;
   white-space: nowrap;
-  transition: background 0.2s ease, transform 0.15s ease;
+  box-shadow: 0 4px 12px rgba(161, 101, 0, 0.3);
+  transition: transform var(--hl-transition-fast), box-shadow var(--hl-transition-fast);
 }
 
 .nav-cta-branches:hover {
-  background: var(--hl-primary-hover, #3d624f);
-  transform: translateY(-1px);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(161, 101, 0, 0.35);
 }
 
 .nav-cta-branches--active {

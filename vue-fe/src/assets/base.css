@@ -1,5 +1,9 @@
 /* ========== ABC Restaurant Design System ========== */
 :root {
+  /* Typography */
+  --hl-font-body: "Plus Jakarta Sans", "Segoe UI", -apple-system, BlinkMacSystemFont, Roboto, sans-serif;
+  --hl-font-display: "Playfair Display", Georgia, "Times New Roman", serif;
+
   /* Backgrounds */
   --hl-bg-page: #fffaf3;
   --hl-bg-section: #f0e9dc;
@@ -50,10 +54,20 @@
   --hl-info: #1e5a8e;
 
   /* Shadow */
-  --hl-shadow-sm: 0 2px 6px rgba(0, 0, 0, 0.06);
-  --hl-shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
-  --hl-shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.12);
-  --hl-shadow-card: 0 4px 12px rgba(0, 0, 0, 0.05);
+  --hl-shadow-sm: 0 2px 8px rgba(46, 36, 20, 0.06);
+  --hl-shadow-md: 0 6px 20px rgba(46, 36, 20, 0.1);
+  --hl-shadow-lg: 0 12px 32px rgba(46, 36, 20, 0.14);
+  --hl-shadow-card: 0 4px 16px rgba(46, 36, 20, 0.06);
+  --hl-shadow-header: 0 2px 16px rgba(46, 36, 20, 0.08);
+
+  /* Gradients */
+  --hl-gradient-primary: linear-gradient(135deg, var(--hl-primary) 0%, #c17a0a 100%);
+  --hl-gradient-hero: linear-gradient(105deg, rgba(46, 74, 61, 0.9) 0%, rgba(161, 101, 0, 0.82) 100%);
+  --hl-gradient-sidebar: linear-gradient(180deg, #92400e 0%, #78350f 50%, #5c2a0a 100%);
+
+  /* Motion */
+  --hl-transition-fast: 0.15s ease;
+  --hl-transition-base: 0.25s ease;
 
   /* Radius */
   --hl-radius-sm: 6px;
@@ -129,16 +143,7 @@ body {
   color: var(--hl-text);
   background: var(--hl-bg-page);
   line-height: 1.6;
-  font-family:
-    "Segoe UI",
-    -apple-system,
-    BlinkMacSystemFont,
-    Roboto,
-    Oxygen,
-    Ubuntu,
-    Cantarell,
-    "Helvetica Neue",
-    sans-serif;
+  font-family: var(--hl-font-body);
   font-size: 15px;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -165,17 +170,28 @@ a:hover {
   border-radius: var(--hl-radius-lg);
   box-shadow: var(--hl-shadow-card);
   padding: var(--hl-space-lg);
+  border: 1px solid var(--hl-border-light);
+  transition: box-shadow var(--hl-transition-base), transform var(--hl-transition-base);
 }
+
+.hl-card:hover {
+  box-shadow: var(--hl-shadow-md);
+}
+
 .hl-title {
+  font-family: var(--hl-font-display);
   color: var(--hl-text);
   font-size: 1.5rem;
-  font-weight: 600;
+  font-weight: 700;
   margin-bottom: var(--hl-space-sm);
+  letter-spacing: -0.02em;
 }
+
 .hl-title-primary {
+  font-family: var(--hl-font-display);
   color: var(--hl-primary);
   font-size: 1.25rem;
-  font-weight: 600;
+  font-weight: 700;
 }
 .hl-btn-primary {
   background-color: var(--hl-primary);

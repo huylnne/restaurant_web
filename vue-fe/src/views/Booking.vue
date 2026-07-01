@@ -307,6 +307,9 @@ const submitForm = async () => {
 
 .booking_grid {
   background-color: var(--hl-bg-section);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(161, 101, 0, 0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 100%, rgba(46, 74, 61, 0.05) 0%, transparent 50%);
   min-height: 100vh;
   padding: var(--hl-space-xl) var(--hl-space-md);
 }
@@ -327,9 +330,10 @@ const submitForm = async () => {
 .title {
   text-align: center;
   margin-bottom: var(--hl-space-sm);
-  color: var(--hl-primary);
-  font-size: 1.5rem;
-  font-weight: 600;
+  font-family: var(--hl-font-display);
+  color: var(--hl-secondary);
+  font-size: 1.75rem;
+  font-weight: 700;
 }
 
 .booking-branch-hint {

@@ -2,7 +2,7 @@
   <section class="home-nearby">
     <div class="home-nearby__header">
       <div>
-        <h2 class="section-title">Chi nhánh gần bạn</h2>
+        <h2 class="section-title section-title--decorated">Chi nhánh gần bạn</h2>
         <p class="home-nearby__desc">
           Cho phép truy cập vị trí để gợi ý chi nhánh {{ BRAND.name }} gần nhất.
         </p>
@@ -111,8 +111,17 @@ onMounted(async () => {
 }
 
 .home-nearby .section-title {
+  font-family: var(--hl-font-display);
   text-align: left;
   margin-bottom: var(--hl-space-sm);
+  color: var(--hl-secondary);
+  font-weight: 700;
+  font-size: clamp(1.35rem, 3vw, 1.75rem);
+}
+
+.home-nearby .section-title::after {
+  margin-left: 0;
+  margin-right: auto;
 }
 
 .home-nearby__desc {
@@ -151,12 +160,14 @@ onMounted(async () => {
   color: inherit;
   border: 1px solid var(--hl-border-light);
   border-radius: var(--hl-radius-lg);
-  transition: box-shadow 0.2s ease, transform 0.2s ease;
+  transition: box-shadow 0.25s ease, transform 0.25s ease, border-color 0.2s ease;
+  background: var(--hl-bg-card);
 }
 
 .home-nearby__card:hover {
-  transform: translateY(-3px);
-  box-shadow: var(--hl-shadow-md);
+  transform: translateY(-5px);
+  box-shadow: var(--hl-shadow-lg);
+  border-color: var(--hl-primary-light);
 }
 
 .home-nearby__badge {

@@ -43,6 +43,7 @@
   flex-shrink: 0;
   background: var(--hl-bg-card);
   border-bottom: 1px solid var(--hl-admin-border);
+  box-shadow: var(--hl-shadow-header);
 }
 
 .admin-compact-header {
@@ -69,9 +70,10 @@
 }
 
 .admin-compact-header__title {
-  font-size: 1rem;
+  font-family: var(--hl-font-display);
+  font-size: 1.1rem;
   font-weight: 700;
-  color: var(--hl-primary);
+  color: var(--hl-secondary);
   white-space: nowrap;
 }
 
