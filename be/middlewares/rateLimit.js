@@ -42,10 +42,20 @@ const reservationCreateLimiter = rateLimit({
   message: jsonMessage('Quá nhiều yêu cầu đặt bàn. Vui lòng thử lại sau 1 giờ.'),
 });
 
+const tableQrOrderLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 8,
+  standardHeaders: true,
+  legacyHeaders: false,
+  keyGenerator: (req) => `${req.ip || "unknown"}:${req.params?.token || ""}`,
+  message: jsonMessage('Quá nhiều lần gọi món. Vui lòng thử lại sau một phút.'),
+});
+
 module.exports = {
   loginLimiter,
   registerLimiter,
   checkPhoneLimiter,
   captchaChallengeLimiter,
   reservationCreateLimiter,
+  tableQrOrderLimiter,
 };

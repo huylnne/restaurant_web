@@ -1,6 +1,6 @@
 const { Table, Order, OrderItem, sequelize } = require("../../models");
 const billService = require("../bill.service");
-const { TABLE_STATUS, isBookableTableStatus } = require("../../utils/tableStatus");
+const { TABLE_STATUS, isTableOrderableViaQr, isBookableTableStatus } = require("../../utils/tableStatus");
 const { ACTIVE_SESSION_STATUSES, RESERVATION_STATUS } = require("../../utils/reservationStatus");
 const { ORDER_STATUS } = require("../../utils/orderStatus");
 const { Op } = require("sequelize");
@@ -8,6 +8,10 @@ const { buildOrderItemPayloads } = require("../../utils/orderItemFactory");
 const { findActiveOrderByTableId } = require("../../utils/orderTableLinks");
 const realtimeHub = require("../../realtimeHub");
 const sharedReviewService = require("../review.service");
+const {
+  signTableOrderAccessToken,
+  verifyTableOrderAccessToken,
+} = require("../../utils/tableQrAccess");
 
 async function getTableByToken(token) {
   if (!token) return null;
@@ -15,7 +19,46 @@ async function getTableByToken(token) {
     where: { qr_token: token },
     attributes: ["table_id", "table_number", "capacity", "status", "branch_id", "qr_token"],
   });
-  return table ? table.toJSON() : null;
+  if (!table) return null;
+
+  const activeOrder = await findActiveOrderByTableId(table.table_id);
+  const canOrder = Boolean(activeOrder && isTableOrderableViaQr(table.status));
+
+  return {
+    ...table.toJSON(),
+    can_order: canOrder,
+    order_access_token: canOrder
+      ? signTableOrderAccessToken({
+          table_id: table.table_id,
+          order_id: activeOrder.order_id,
+        })
+      : null,
+  };
+}
+
+async function resolveOrderAccessForTable({ accessToken, tableId, transaction }) {
+  if (!accessToken) throw new Error("ORDER_ACCESS_REQUIRED");
+
+  let payload;
+  try {
+    payload = verifyTableOrderAccessToken(accessToken);
+  } catch {
+    throw new Error("ORDER_ACCESS_INVALID");
+  }
+
+  if (payload.table_id !== Number(tableId)) throw new Error("ORDER_ACCESS_INVALID");
+
+  const order = await Order.findOne({
+    where: {
+      order_id: payload.order_id,
+      table_id: tableId,
+      status: { [Op.in]: ACTIVE_SESSION_STATUSES },
+    },
+    transaction,
+  });
+  if (!order) throw new Error("NO_ACTIVE_SESSION");
+
+  return order;
 }
 
 async function getBillByToken(token) {
@@ -79,7 +122,7 @@ async function checkinByToken({ token, userId, numberOfGuests }) {
   };
 }
 
-async function addOrderItemsByToken({ token, items = [], note = null }) {
+async function addOrderItemsByToken({ token, accessToken, items = [], note = null }) {
   if (!Array.isArray(items) || items.length === 0) throw new Error("INVALID_ITEMS");
 
   const orderNote =
@@ -93,34 +136,17 @@ async function addOrderItemsByToken({ token, items = [], note = null }) {
     });
     if (!table) throw new Error("TABLE_NOT_FOUND");
     if (table.status === TABLE_STATUS.CLEANING) throw new Error("TABLE_CLEANING");
+    if (!isTableOrderableViaQr(table.status)) throw new Error("TABLE_NOT_ACTIVE");
 
-    const orderItemsPayload = await buildOrderItemPayloads(items, transaction);
-
-    let order = await Order.findOne({
-      where: {
-        table_id: table.table_id,
-        status: { [Op.in]: ACTIVE_SESSION_STATUSES },
-      },
-      order: [["created_at", "DESC"]],
+    const order = await resolveOrderAccessForTable({
+      accessToken,
+      tableId: table.table_id,
       transaction,
     });
 
-    if (!order) {
-      order = await Order.create(
-        {
-          branch_id: table.branch_id,
-          table_id: table.table_id,
-          arrival_time: new Date(),
-          number_of_guests: 1,
-          status: ORDER_STATUS.IN_PROGRESS,
-          order_type: "dine_in",
-          payment_status: "unpaid",
-          note: orderNote,
-          created_at: new Date(),
-        },
-        { transaction }
-      );
-    } else if (orderNote && !order.note) {
+    const orderItemsPayload = await buildOrderItemPayloads(items, transaction);
+
+    if (orderNote && !order.note) {
       await order.update({ note: orderNote }, { transaction });
     }
 
@@ -138,10 +164,6 @@ async function addOrderItemsByToken({ token, items = [], note = null }) {
 
     if ([ORDER_STATUS.PENDING, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PRE_ORDERED].includes(order.status)) {
       await order.update({ status: ORDER_STATUS.IN_PROGRESS }, { transaction });
-    }
-
-    if (table.status !== TABLE_STATUS.OCCUPIED) {
-      await table.update({ status: TABLE_STATUS.OCCUPIED }, { transaction });
     }
 
     return {

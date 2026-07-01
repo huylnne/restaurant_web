@@ -51,6 +51,7 @@ exports.addOrderItemsByToken = async (req, res) => {
   try {
     const data = await service.addOrderItemsByToken({
       token: req.params.token,
+      accessToken: req.headers["x-table-order-token"],
       items: req.body?.items,
       note: req.body?.note,
     });
@@ -64,9 +65,23 @@ exports.addOrderItemsByToken = async (req, res) => {
     const map = {
       TABLE_NOT_FOUND: 404,
       TABLE_CLEANING: 400,
+      TABLE_NOT_ACTIVE: 400,
+      NO_ACTIVE_SESSION: 400,
+      ORDER_ACCESS_REQUIRED: 401,
+      ORDER_ACCESS_INVALID: 403,
       INVALID_ITEMS: 400,
     };
-    res.status(map[e.message] || 500).json({ message: e.message });
+    const messageMap = {
+      TABLE_CLEANING: "Bàn đang chờ dọn, chưa thể gọi món.",
+      TABLE_NOT_ACTIVE: "Bàn chưa mở phiên phục vụ. Vui lòng đợi nhân viên tiếp nhận.",
+      NO_ACTIVE_SESSION: "Phiên phục vụ đã kết thúc. Không thể gọi thêm món.",
+      ORDER_ACCESS_REQUIRED: "Phiên gọi món không hợp lệ. Vui lòng tải lại trang.",
+      ORDER_ACCESS_INVALID: "Phiên gọi món đã hết hạn. Vui lòng tải lại trang.",
+      INVALID_ITEMS: "Danh sách món không hợp lệ.",
+    };
+    res.status(map[e.message] || 500).json({
+      message: messageMap[e.message] || e.message || "Lỗi server",
+    });
   }
 };
 

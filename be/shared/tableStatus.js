@@ -39,6 +39,11 @@ function shouldEndTableSession(status) {
   return s === TABLE_STATUS.AVAILABLE || s === TABLE_STATUS.CLEANING;
 }
 
+function isTableOrderableViaQr(status) {
+  const s = normalizeTableStatus(status);
+  return s === TABLE_STATUS.OCCUPIED || s === TABLE_STATUS.PRE_ORDERED;
+}
+
 module.exports = {
   TABLE_STATUS,
   TABLE_STATUS_VALUES,
@@ -47,4 +52,5 @@ module.exports = {
   isBookableTableStatus,
   isCheckInableTableStatus,
   shouldEndTableSession,
+  isTableOrderableViaQr,
 };

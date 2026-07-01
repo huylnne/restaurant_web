@@ -3,12 +3,14 @@ const router = express.Router();
 const ctrl = require("../../controllers/public/tables.controller");
 const { verifyToken } = require("../../middlewares/auth");
 const { auditLog } = require("../../middlewares/operationLog");
+const { tableQrOrderLimiter } = require("../../middlewares/rateLimit");
 
 router.get("/by-token/:token", ctrl.getTableByToken);
 router.get("/by-token/:token/bill", ctrl.getBillByToken);
 
 router.post(
   "/by-token/:token/orders",
+  tableQrOrderLimiter,
   auditLog({
     action: "TABLE_QR_ORDER_CREATE",
     module: "orders",

@@ -59,6 +59,15 @@
         </div>
 
         <div v-if="menuLoading" class="muted">Đang tải thực đơn...</div>
+        <el-alert
+          v-else-if="!canOrder"
+          type="info"
+          :closable="false"
+          show-icon
+          title="Chưa thể gọi món"
+          description="Bàn chưa mở phiên phục vụ hoặc phiên đã kết thúc. Vui lòng đợi nhân viên tiếp nhận hoặc tải lại trang khi đã ngồi bàn."
+          class="order-blocked-alert"
+        />
         <el-empty v-else-if="!menuItems.length" description="Chi nhánh này chưa có thực đơn." />
         <div v-else class="menu-list">
           <article v-for="item in menuItems" :key="item.item_id" class="menu-item">
@@ -78,14 +87,14 @@
           </article>
         </div>
 
-        <div class="submit-order-bar">
+        <div v-if="canOrder" class="submit-order-bar">
           <div class="muted" v-if="selectedItems.length">
             Tổng món chọn thêm: <strong>{{ selectedItems.length }}</strong>
           </div>
           <el-button
             type="primary"
             size="large"
-            :disabled="!selectedItems.length || orderSubmitting"
+            :disabled="!selectedItems.length || orderSubmitting || !orderAccessToken"
             :loading="orderSubmitting"
             @click="submitOrder"
           >
@@ -160,6 +169,7 @@ const menuItems = ref([]);
 const menuLoading = ref(false);
 const orderQuantities = ref({});
 const orderSubmitting = ref(false);
+const orderAccessToken = ref("");
 const {
   qrDataUrl: bankQrDataUrl,
   vietqrRaw: bankQrRaw,
@@ -184,6 +194,7 @@ const fetchAll = async () => {
   try {
     const tRes = await axios.get(`${API_BASE}/api/public/tables/by-token/${token}`);
     tableInfo.value = tRes.data || null;
+    orderAccessToken.value = tRes.data?.order_access_token || "";
     await Promise.all([refreshBill(), loadMenu()]);
   } catch (err) {
     console.error(err);
@@ -260,6 +271,8 @@ const selectedItems = computed(() =>
 
 const tableStatusText = computed(() => getTableStatusLabel(tableInfo.value?.status));
 
+const canOrder = computed(() => Boolean(tableInfo.value?.can_order));
+
 const refreshBill = async () => {
   billLoading.value = true;
   try {
@@ -271,6 +284,20 @@ const refreshBill = async () => {
   } finally {
     billLoading.value = false;
     maybePromptReviewFromBill();
+    if (!bill.value || isOrderPaidOrCompleted(bill.value)) {
+      await syncTableSession();
+    }
+  }
+};
+
+const syncTableSession = async () => {
+  try {
+    const tRes = await axios.get(`${API_BASE}/api/public/tables/by-token/${token}`);
+    tableInfo.value = tRes.data || tableInfo.value;
+    orderAccessToken.value = tRes.data?.order_access_token || "";
+  } catch (err) {
+    if (err.response?.status !== 404) console.error(err);
+    orderAccessToken.value = "";
   }
 };
 
@@ -306,18 +333,29 @@ const submitOrder = async () => {
     ElMessage.warning("Chọn ít nhất một món.");
     return;
   }
+  if (!orderAccessToken.value) {
+    ElMessage.warning("Phiên gọi món chưa sẵn sàng. Vui lòng tải lại trang.");
+    await fetchAll();
+    return;
+  }
 
   orderSubmitting.value = true;
   try {
-    const res = await axios.post(`${API_BASE}/api/public/tables/by-token/${token}/orders`, {
-      items: selectedItems.value,
-    });
+    const res = await axios.post(
+      `${API_BASE}/api/public/tables/by-token/${token}/orders`,
+      { items: selectedItems.value },
+      { headers: { "X-Table-Order-Token": orderAccessToken.value } }
+    );
     bill.value = res.data?.bill || bill.value;
     resetSelectedItems();
     ElMessage.success("Đã gửi món cho nhà hàng.");
     await refreshBill();
   } catch (err) {
     console.error(err);
+    const status = err.response?.status;
+    if (status === 401 || status === 403 || status === 400) {
+      await fetchAll();
+    }
     ElMessage.error(err.response?.data?.message || "Không thể gửi món.");
   } finally {
     orderSubmitting.value = false;
@@ -413,6 +451,9 @@ const genBankQr = async () => {
   border-radius: 999px;
   font-size: 0.85rem;
   white-space: nowrap;
+}
+.order-blocked-alert {
+  margin-bottom: var(--hl-space-md);
 }
 .divider {
   height: 1px;
