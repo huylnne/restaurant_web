@@ -84,6 +84,10 @@ function groupKitchenItemsByTable(itemRows) {
       map.set(key, {
         table_id: row.table_id ?? null,
         table_number: row.table_number ?? null,
+        table_numbers: row.table_numbers ?? (row.table_number != null ? [row.table_number] : []),
+        table_label:
+          row.table_label ??
+          (row.table_number != null ? String(row.table_number) : null),
         order_id: order?.order_id ?? row.order_id ?? null,
         booking_group_id: order?.booking_group_id ?? null,
         number_of_guests: order?.number_of_guests ?? null,

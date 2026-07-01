@@ -1,4 +1,4 @@
-const { Order, OrderItem, Table, MenuItem, sequelize } = require('../../models');
+const { Order, OrderItem, Table, MenuItem, OrderTable, sequelize } = require('../../models');
 
 const { Op } = require('sequelize');
 
@@ -177,6 +177,13 @@ const waiterService = {
         {
           model: OrderItem,
           include: [{ model: MenuItem }],
+        },
+        { model: Table, attributes: ['table_id', 'table_number'] },
+        {
+          model: OrderTable,
+          attributes: ['table_id', 'is_primary'],
+          required: false,
+          include: [{ model: Table, attributes: ['table_id', 'table_number'] }],
         },
       ],
     });

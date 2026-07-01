@@ -15,7 +15,7 @@ const { Op } = require('sequelize');
 const { OrderItem, MenuItem, Order, Table } = db;
 
 const { ACTIVE_SESSION_STATUSES } = require('../../utils/reservationStatus');
-const { findActiveOrderByTableId } = require('../../utils/orderTableLinks');
+const { findActiveOrderByTableId, buildRealtimeTablePayload, getTablesForOrder } = require('../../utils/orderTableLinks');
 
 
 
@@ -53,22 +53,23 @@ const waiterController = {
 
       try {
 
-        const t = await Table.findByPk(table_id, { attributes: ['branch_id', 'table_number'] });
+        const orderId = result?.order?.order_id ?? result?.order_id;
+        const tables = orderId ? await getTablesForOrder(orderId) : [];
+        const primaryTable = tables[0] || (await Table.findByPk(table_id, { attributes: ['branch_id', 'table_number', 'table_id'] }));
+        const branchId = primaryTable?.branch_id;
 
-        if (t?.branch_id) {
+        if (branchId) {
+          const orderPlain = {
+            table_id,
+            Table: primaryTable,
+            OrderTables: tables.map((t) => ({ Table: t })),
+          };
 
-          realtimeHub.notifyBranch(t.branch_id, {
-
+          realtimeHub.notifyBranch(branchId, {
             type: 'order_flow',
-
             reason: 'waiter_new_order',
-
-            table_id: Number(table_id),
-
-            table_number: t.table_number ?? null,
-
+            ...buildRealtimeTablePayload(orderPlain),
           });
-
         }
 
       } catch (_) {}
@@ -131,7 +132,15 @@ const waiterController = {
 
             attributes: ['order_id', 'table_id', 'branch_id'],
 
-            include: [{ model: Table, attributes: ['table_id', 'table_number'] }],
+            include: [
+              { model: Table, attributes: ['table_id', 'table_number'] },
+              {
+                model: db.OrderTable,
+                attributes: ['table_id', 'is_primary'],
+                required: false,
+                include: [{ model: Table, attributes: ['table_id', 'table_number'] }],
+              },
+            ],
 
           },
 
@@ -149,8 +158,6 @@ const waiterController = {
 
         if (branchId) {
 
-          const tbl = plain.Order?.Table;
-
           realtimeHub.notifyBranch(branchId, {
 
             type: 'order_item_status',
@@ -159,9 +166,7 @@ const waiterController = {
 
             status: 'served',
 
-            table_id: tbl?.table_id ?? plain.Order?.table_id ?? null,
-
-            table_number: tbl?.table_number ?? null,
+            ...buildRealtimeTablePayload(plain.Order),
 
             menu_name: plain.MenuItem?.name ?? null,
 

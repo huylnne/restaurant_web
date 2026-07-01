@@ -187,6 +187,8 @@ function groupLegacyFlatItems(items) {
       map.set(tid, {
         table_id: item.table_id,
         table_number: item.table_number,
+        table_numbers: item.table_numbers ?? (item.table_number != null ? [item.table_number] : []),
+        table_label: item.table_label ?? (item.table_number != null ? String(item.table_number) : null),
         serve_mode: item.serve_context?.serve_mode || "active",
         serve_label: item.serve_context?.serve_label || "Đang phục vụ",
         serve_at: item.serve_context?.serve_at_iso,
@@ -218,6 +220,10 @@ const groupKey = (group) =>
   `${group.table_id ?? "x"}-${group.order_id ?? ""}-${group.items?.[0]?.order_item_id ?? ""}`;
 
 const formatTableNumber = (group) => {
+  if (group.table_label) return group.table_label;
+  if (Array.isArray(group.table_numbers) && group.table_numbers.length) {
+    return group.table_numbers.join(", ");
+  }
   if (group.table_number != null && group.table_number !== "") return group.table_number;
   if (group.table_id != null) return `#${group.table_id}`;
   return "?";

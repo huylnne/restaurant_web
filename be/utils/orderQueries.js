@@ -1,5 +1,6 @@
 const { Op } = require("sequelize");
-const { OrderItem, MenuItem, Order, Table } = require("../models");
+const { OrderItem, MenuItem, Order, Table, OrderTable } = require("../models");
+const { resolveOrderTableNumbersFromPlain } = require("./orderTableLinks");
 const {
   activeOrderStatusWhere,
   notTerminalOrderStatusWhere,
@@ -44,6 +45,18 @@ function orderTableInclude() {
           attributes: ["table_id", "table_number", "branch_id"],
           required: false,
         },
+        {
+          model: OrderTable,
+          attributes: ["table_id", "is_primary"],
+          required: false,
+          include: [
+            {
+              model: Table,
+              attributes: ["table_id", "table_number", "branch_id"],
+              required: false,
+            },
+          ],
+        },
       ],
     },
   ];
@@ -79,7 +92,7 @@ async function findKitchenOrderItems({ itemStatus, branchId = 1 }) {
 function mapKitchenItemRow(item) {
   const plain = item.toJSON();
   const order = plain.Order ?? null;
-  const resolvedTable = order?.Table ?? null;
+  const tableInfo = resolveOrderTableNumbersFromPlain(order);
   const serve_context = resolveKitchenServeContext(order);
   const ordered_at = plain.ordered_at ?? order?.created_at ?? null;
 
@@ -88,8 +101,10 @@ function mapKitchenItemRow(item) {
     ordered_at,
     order_id: order?.order_id ?? plain.order_id,
     order_created_at: ordered_at,
-    table_id: resolvedTable?.table_id ?? order?.table_id ?? null,
-    table_number: resolvedTable?.table_number ?? null,
+    table_id: tableInfo.table_id,
+    table_number: tableInfo.table_number,
+    table_numbers: tableInfo.table_numbers,
+    table_label: tableInfo.table_label,
     serve_context,
   };
 }

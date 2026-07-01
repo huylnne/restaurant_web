@@ -149,6 +149,54 @@ async function orderHasMultipleTables(orderId, { transaction } = {}) {
   return count > 1;
 }
 
+/** Số bàn hiển thị từ order (ưu tiên order_tables, fallback bàn chính). */
+function resolveOrderTableNumbersFromPlain(order) {
+  if (!order) {
+    return {
+      table_id: null,
+      table_ids: [],
+      table_number: null,
+      table_numbers: [],
+      table_label: null,
+    };
+  }
+
+  const linkedTables = (order.OrderTables || [])
+    .map((link) => link.Table)
+    .filter((t) => t && t.table_number != null);
+
+  let tables = linkedTables.length > 0 ? linkedTables : [];
+  if (!tables.length && order.Table) {
+    tables = [order.Table];
+  }
+
+  tables = [...tables].sort((a, b) => (a.table_number ?? 0) - (b.table_number ?? 0));
+  const table_numbers = tables.map((t) => t.table_number);
+  const table_ids = tables.map((t) => t.table_id);
+  const primary =
+    tables.find((t) => t.table_id === order.table_id) || tables[0] || null;
+
+  return {
+    table_id: primary?.table_id ?? order.table_id ?? null,
+    table_ids,
+    table_number: primary?.table_number ?? null,
+    table_numbers,
+    table_label: table_numbers.length ? table_numbers.join(", ") : null,
+  };
+}
+
+function buildRealtimeTablePayload(order) {
+  const plain = order?.toJSON ? order.toJSON() : order;
+  const info = resolveOrderTableNumbersFromPlain(plain);
+  return {
+    table_id: info.table_id,
+    table_ids: info.table_ids,
+    table_number: info.table_number,
+    table_numbers: info.table_numbers,
+    table_label: info.table_label,
+  };
+}
+
 module.exports = {
   BOOKING_ORDER_TYPES,
   linkTablesToOrder,
@@ -158,4 +206,6 @@ module.exports = {
   hasOverlappingBooking,
   findActiveOrderByTableId,
   orderHasMultipleTables,
+  resolveOrderTableNumbersFromPlain,
+  buildRealtimeTablePayload,
 };

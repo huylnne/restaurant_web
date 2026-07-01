@@ -250,8 +250,18 @@ export function useAdminTablesPage() {
     }
   }
 
+  function tableNumbersFromOrder(order) {
+    const linked = (order?.OrderTables || []).map((link) => link.Table).filter(Boolean);
+    const tables = linked.length ? linked : order?.Table ? [order.Table] : [];
+    return tables
+      .map((t) => t.table_number)
+      .filter((n) => n != null && n !== "")
+      .sort((a, b) => a - b);
+  }
+
   function notifyDishJustDoneFromOrders(ordersAfter) {
     for (const order of ordersAfter || []) {
+      const tableNumbers = tableNumbersFromOrder(order);
       for (const oi of order.OrderItems || []) {
         const id = oi.order_item_id;
         if (id == null) continue;
@@ -260,7 +270,11 @@ export function useAdminTablesPage() {
         if (st === "done" && prev && prev !== "done") {
           notifyKitchenDishDone({
             dishName: oi.MenuItem?.name,
-            tableNumber: selectedTable.value?.table_number,
+            tableNumbers: tableNumbers.length
+              ? tableNumbers
+              : selectedTable.value?.table_number != null
+                ? [selectedTable.value.table_number]
+                : [],
             orderItemId: id,
           });
         }

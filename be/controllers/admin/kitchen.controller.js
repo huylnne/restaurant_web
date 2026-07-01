@@ -1,5 +1,6 @@
 const kitchenService = require('../../services/admin/kitchen.service');
 const { resolveBranchId } = require('../../utils/branchScope');
+const { buildRealtimeTablePayload } = require('../../utils/orderTableLinks');
 const realtimeHub = require('../../realtimeHub');
 
 const kitchenController = {
@@ -26,13 +27,11 @@ const kitchenController = {
       const branchIdNum = Number(branchId);
       try {
         const plain = updated.toJSON ? updated.toJSON() : updated;
-        const resolvedTable = plain.Order?.Table ?? null;
         realtimeHub.notifyBranch(branchIdNum, {
           type: 'order_item_status',
           order_item_id: Number(id),
           status: plain.status,
-          table_id: resolvedTable?.table_id ?? plain.Order?.table_id ?? null,
-          table_number: resolvedTable?.table_number ?? null,
+          ...buildRealtimeTablePayload(plain.Order),
           menu_name: plain.MenuItem?.name ?? null,
         });
       } catch (_) {
