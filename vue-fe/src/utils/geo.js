@@ -1,11 +1,11 @@
 /** Bật chỉ khi cần test bằng một tọa độ giả lập. */
-export const USE_FIXED_USER_LOCATION = false;
+export const USE_FIXED_USER_LOCATION = true;
 
-/** Preset Hà Nội dùng cho test/chọn thủ công, không dùng mặc định cho người dùng thật. */
+/** Vị trí demo mặc định — bỏ qua GPS trình duyệt khi USE_FIXED_USER_LOCATION = true. */
 export const FIXED_USER_LOCATION = {
-  lat: 21.006323402004778,
-  lng: 105.84309850970723,
-  label: "ABC Restaurant – Đại học Bách khoa Hà Nội",
+  lat: 20.833045053382488,
+  lng: 105.84194514066971,
+  label: "Vị trí demo",
 };
 
 /** Tâm khu vực — dùng khi chọn thủ công Hà Nội / TP.HCM */
