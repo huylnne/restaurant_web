@@ -1,3 +1,8 @@
+/**
+ * UTIL GHÉP BÀN — thuật toán chọn bàn đơn hoặc ghép bàn liền kề theo table_number.
+ * Ctrl+F: ghép bàn, planTableAllocation, bàn liền kề, ADJACENCY
+ * Dùng bởi: reservation.service.js khi đặt bàn
+ */
 /** Hai bàn được coi là "gần nhau" nếu số bàn chênh lệch tối đa bằng giá trị này (1 = liền kề). */
 const ADJACENCY_GAP = 1;
 

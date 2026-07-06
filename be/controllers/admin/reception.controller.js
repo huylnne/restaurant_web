@@ -1,6 +1,12 @@
+/**
+ * CONTROLLER TIẾP NHẬN — HTTP cho lễ tân / check-in trên admin.
+ * Ctrl+F: reception controller, confirmArrival, walk-in
+ * Luồng demo: Phần 3 — Bước 3.2
+ */
 const receptionService = require("../../services/admin/reception.service");
 const { resolveBranchId } = require("../../utils/branchScope");
 
+/** [TIẾP NHẬN] GET — danh sách khách sắp đến. Ctrl+F: listUpcomingArrivals */
 exports.listUpcomingArrivals = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -12,6 +18,7 @@ exports.listUpcomingArrivals = async (req, res) => {
   }
 };
 
+/** [TIẾP NHẬN] GET — tìm khách theo SĐT/tên/mã đặt. Ctrl+F: searchArrivals */
 exports.searchArrivals = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -24,6 +31,10 @@ exports.searchArrivals = async (req, res) => {
   }
 };
 
+/**
+ * [CHECK-IN] POST — nút Tiếp nhận / Check-in trên sơ đồ bàn (/admin/tables).
+ * Luồng demo: Phần 3 — Bước 3.2. Ctrl+F: confirmArrival
+ */
 exports.confirmArrival = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.body.branch_id || req.query.branchId, 1);
@@ -55,6 +66,7 @@ exports.confirmArrival = async (req, res) => {
   }
 };
 
+/** [WALK-IN] POST — xếp khách vãng lai không đặt trước. Ctrl+F: walkInCheckIn */
 exports.walkInCheckIn = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.body.branch_id || req.query.branchId, 1);
@@ -101,6 +113,7 @@ exports.walkInCheckIn = async (req, res) => {
   }
 };
 
+/** [WALK-IN] GET — bàn trống cho khách vãng lai. Ctrl+F: getWalkInTables */
 exports.getWalkInTables = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);

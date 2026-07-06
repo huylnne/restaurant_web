@@ -1,5 +1,10 @@
+/**
+ * CONTROLLER QR BÀN (PUBLIC) — HTTP cho /t/{token}: bill, gọi món, đánh giá.
+ * Ctrl+F: QR controller, public tables, /t/
+ */
 const service = require("../../services/public/tableQr.service");
 
+/** [QR] GET — thông tin bàn + can_order. Ctrl+F: getTableByToken */
 exports.getTableByToken = async (req, res) => {
   try {
     const table = await service.getTableByToken(req.params.token);
@@ -11,6 +16,7 @@ exports.getTableByToken = async (req, res) => {
   }
 };
 
+/** [QR] GET — bill tạm tính không đăng nhập. Ctrl+F: getBillByToken */
 exports.getBillByToken = async (req, res) => {
   try {
     const bill = await service.getBillByToken(req.params.token);
@@ -22,6 +28,7 @@ exports.getBillByToken = async (req, res) => {
   }
 };
 
+/** [QR] POST — check-in qua QR (luồng phụ). Ctrl+F: checkinByToken */
 exports.checkinByToken = async (req, res) => {
   try {
     const userId = req.userId;
@@ -47,6 +54,7 @@ exports.checkinByToken = async (req, res) => {
   }
 };
 
+/** [QR] POST — khách gọi món qua QR. Ctrl+F: addOrderItemsByToken */
 exports.addOrderItemsByToken = async (req, res) => {
   try {
     const data = await service.addOrderItemsByToken({
@@ -85,6 +93,7 @@ exports.addOrderItemsByToken = async (req, res) => {
   }
 };
 
+/** [QR] GET — kiểm tra được phép đánh giá chưa. Ctrl+F: getReviewEligibility */
 exports.getReviewEligibility = async (req, res) => {
   try {
     const orderId = req.query.order_id ? Number(req.query.order_id) : null;
@@ -110,6 +119,7 @@ const reviewErrorMessage = (err) => {
   return map[err.message] || "Không thể gửi đánh giá";
 };
 
+/** [QR] POST — gửi đánh giá qua token. Ctrl+F: createReviewByToken */
 exports.createReviewByToken = async (req, res) => {
   try {
     const review = await service.createReviewByToken({

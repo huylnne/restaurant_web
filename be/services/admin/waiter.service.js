@@ -1,3 +1,9 @@
+/**
+ * SERVICE PHỤC VỤ (WAITER) — gọi món tại bàn, đánh dấu đã bưng, cập nhật trạng thái bàn.
+ * Ctrl+F: gọi món, phục vụ, served, waiter createOrder
+ * Luồng demo: Phần 3 — Bước 3.3 (gọi món), 3.5 (đánh dấu served)
+ * API: POST /api/admin/waiter/orders, PATCH .../serve
+ */
 const { Order, OrderItem, Table, MenuItem, OrderTable, sequelize } = require('../../models');
 
 const { Op } = require('sequelize');
@@ -27,6 +33,10 @@ const { findActiveOrderByTableId } = require('../../utils/orderTableLinks');
 
 const waiterService = {
 
+  /**
+   * [PHỤC VỤ] Tìm order đang active trên bàn hoặc tạo phiên walk_in mới khi gọi món.
+   * Ctrl+F: findOrCreateSessionOrder, phiên bàn
+   */
   async findOrCreateSessionOrder({ table_id, branch_id, user_id, transaction }) {
 
     const existing = await findActiveOrderByTableId(table_id, { transaction });
@@ -65,6 +75,10 @@ const waiterService = {
 
 
 
+  /**
+   * [GỌI MÓN] Phục vụ thêm món vào bàn — tạo OrderItem, đẩy bếp (status in_progress).
+   * Luồng demo: Phần 3 — Bước 3.3. Ctrl+F: waiter createOrder, gọi món phục vụ
+   */
   async createOrder({ table_id, items = [], note = null, createdBy = null }) {
 
     const orderNote =
@@ -163,6 +177,10 @@ const waiterService = {
 
 
 
+  /**
+   * [PHỤC VỤ] Lấy order + danh sách món của bàn (dialog chi tiết bàn trên /admin/tables).
+   * Ctrl+F: getOrdersByTable, order theo bàn
+   */
   async getOrdersByTable(table_id) {
     const active = await findActiveOrderByTableId(table_id, {
       itemInclude: {
@@ -192,6 +210,10 @@ const waiterService = {
 
 
 
+  /**
+   * [PHỤC VỤ] Đánh dấu món đã bưng ra (served) — sau khi bếp hoàn thành.
+   * Luồng demo: Phần 3 — Bước 3.5. Ctrl+F: markItemServed, đã phục vụ, served
+   */
   async markItemServed(orderItemId) {
 
     const item = await OrderItem.findByPk(orderItemId);
@@ -208,6 +230,10 @@ const waiterService = {
 
 
 
+  /**
+   * [QUẢN LÝ BÀN] Đổi trạng thái bàn (trống/chờ dọn/...) — nếu kết thúc phiên thì complete order.
+   * Ctrl+F: updateTableStatus, chờ dọn, cleaning
+   */
   async updateTableStatus(table_id, status) {
 
     if (!isValidTableStatus(status)) {

@@ -1,3 +1,8 @@
+/**
+ * CONTROLLER ĐẶT BÀN (KHÁCH) — HTTP layer cho booking, hủy, yêu cầu thanh toán.
+ * Ctrl+F: đặt bàn controller, /booking, requestBill
+ * Luồng demo: Phần 2, Phần 4 — Bước 4.3
+ */
 const db = require("../../models");
 const Order = db.Order;
 const Table = db.Table;
@@ -21,6 +26,7 @@ const MIN_ADVANCE_MS = 30 * 60 * 1000;
 const MAX_ADVANCE_MS = 14 * 24 * 60 * 60 * 1000;
 const CANCELLATION_MIN_HOURS = 2;
 
+/** Map order → response có reservation_id alias (tương thích FE). */
 function mapOrderResponse(order) {
   if (!order) return null;
   const json = order.toJSON ? order.toJSON() : order;
@@ -31,6 +37,10 @@ function mapOrderResponse(order) {
   };
 }
 
+/**
+ * [ĐẶT BÀN] POST — validate giờ (30 phút–14 ngày, giờ mở cửa) rồi gọi createReservation.
+ * Trang FE: /booking. Ctrl+F: createReservation controller
+ */
 const createReservation = async (req, res) => {
   try {
     const user_id = req.userId;
@@ -120,6 +130,10 @@ const createReservation = async (req, res) => {
   }
 };
 
+/**
+ * [ĐẶT BÀN] GET — kiểm tra còn bàn trước khi submit form (preview).
+ * Ctrl+F: getAvailableTables, kiểm tra bàn trống
+ */
 const getAvailableTables = async (req, res) => {
   try {
     const { reservation_time, guests } = req.query;
@@ -181,6 +195,7 @@ const getAvailableTables = async (req, res) => {
   }
 };
 
+/** [LỊCH SỬ] GET — danh sách đặt bàn của khách (đơn giản, không bill). Ctrl+F: getUserReservations */
 const getUserReservations = async (req, res) => {
   try {
     const userId = req.userId;
@@ -233,6 +248,10 @@ const getUserReservations = async (req, res) => {
   }
 };
 
+/**
+ * [HỦY ĐẶT BÀN] DELETE — hủy khi chưa check-in, còn ≥2h trước giờ đến.
+ * Ctrl+F: cancelReservation
+ */
 const cancelReservation = async (req, res) => {
   try {
     const { id } = req.params;
@@ -296,6 +315,10 @@ const cancelReservation = async (req, res) => {
   }
 };
 
+/**
+ * [YÊU CẦU THANH TOÁN] POST — khách bấm nút từ /my-table hoặc QR, order → waiting_payment.
+ * Luồng demo: Phần 4 — Bước 4.3. Ctrl+F: requestBill, yêu cầu thanh toán
+ */
 const requestBill = async (req, res) => {
   try {
     const userId = req.userId;

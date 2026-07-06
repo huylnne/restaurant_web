@@ -1,3 +1,9 @@
+/**
+ * SERVICE TIẾP NHẬN / LỄ TÂN — check-in khách đặt trước, khách vãng lai (walk-in).
+ * Ctrl+F: check-in, tiếp nhận, walk-in, confirmArrival, lễ tân
+ * Luồng demo: Phần 3 — Bước 3.2 (waiter check-in trên sơ đồ bàn)
+ * API: POST /api/admin/reception/confirm, /api/admin/reception/walk-in
+ */
 const { Order, Table, User, OrderItem, OrderTable, sequelize } = require("../../models");
 const { Op } = require("sequelize");
 const tableSummaryService = require("./tableSummary.service");
@@ -24,6 +30,7 @@ const PENDING_RECEPTION_STATUSES = [
   ORDER_STATUS.PRE_ORDERED,
 ];
 
+/** [TIẾP NHẬN] Map Order DB → DTO hiển thị danh sách khách sắp đến (canCheckIn, hasPreOrder). Ctrl+F: mapArrivalRow */
 function mapArrivalRow(o, { groupTables } = {}) {
   const data = o.toJSON();
   const checkedIn = isOrderCheckedIn(data);
@@ -78,7 +85,7 @@ function mapArrivalRow(o, { groupTables } = {}) {
   };
 }
 
-/** Gộp các đặt bàn cùng booking_group_id thành một dòng tiếp nhận. */
+/** [TIẾP NHẬN] Gộp nhiều order cùng booking_group_id thành 1 dòng trên UI. Ctrl+F: dedupeArrival, nhóm đặt bàn */
 function dedupeArrivalRows(rows) {
   const seenGroups = new Set();
   const result = [];
@@ -137,6 +144,7 @@ const arrivalIncludes = [
   },
 ];
 
+/** [TIẾP NHẬN] Khung thời gian lọc khách sắp đến: từ hôm qua −2h đến +7 ngày. Ctrl+F: arrivalTimeWindow */
 function arrivalTimeWindow() {
   const now = new Date();
   const windowStart = new Date(now);
@@ -146,6 +154,10 @@ function arrivalTimeWindow() {
   return { windowStart, windowEnd };
 }
 
+/**
+ * [TIẾP NHẬN] Danh sách khách sắp đến theo chi nhánh — màn lễ tân / sơ đồ bàn.
+ * Ctrl+F: listUpcomingArrivals, khách sắp đến
+ */
 async function listUpcomingArrivals(branchId) {
   await tableSummaryService.expireReservationsForBranch(branchId);
   const { windowStart, windowEnd } = arrivalTimeWindow();
@@ -166,6 +178,10 @@ async function listUpcomingArrivals(branchId) {
   return dedupeArrivalRows(rows);
 }
 
+/**
+ * [TIẾP NHẬN] Tìm khách theo SĐT, tên, mã đặt bàn — ô search trên sơ đồ bàn.
+ * Ctrl+F: searchArrivals, tìm khách demo_khach
+ */
 async function searchArrivals(branchId, query) {
   const q = String(query || "").trim();
   if (!q) return [];
@@ -205,6 +221,10 @@ async function searchArrivals(branchId, query) {
   return dedupeArrivalRows(rows);
 }
 
+/**
+ * [CHECK-IN] Xác nhận khách đã tới — set checked_in_at, bàn → occupied, status pre_ordered nếu có món trước.
+ * Luồng demo: Phần 3 — Bước 3.2 (nút Tiếp nhận / Check-in). Ctrl+F: confirmArrival, check-in
+ */
 async function confirmArrival(orderId, branchId) {
   await tableSummaryService.expireReservationsForBranch(branchId);
 
@@ -315,11 +335,16 @@ async function confirmArrival(orderId, branchId) {
   };
 }
 
+/** [WALK-IN] Chuẩn hóa mảng table_id từ request (1 hoặc nhiều bàn ghép). Ctrl+F: normalizeTableIds */
 function normalizeTableIds(tableIds, tableId) {
   const source = Array.isArray(tableIds) && tableIds.length ? tableIds : [tableId];
   return [...new Set(source.map((id) => Number(id)).filter((id) => Number.isInteger(id) && id > 0))];
 }
 
+/**
+ * [WALK-IN] Check-in khách không đặt trước — tạo order walk_in, chiếm bàn ngay.
+ * Ctrl+F: walkInCheckIn, khách vãng lai, xếp bàn
+ */
 async function walkInCheckIn({ branchId, tableId, tableIds, numberOfGuests, staffUserId }) {
   const guests = Number(numberOfGuests);
   if (!Number.isFinite(guests) || guests < 1) {
@@ -460,6 +485,10 @@ async function walkInCheckIn({ branchId, tableId, tableIds, numberOfGuests, staf
   };
 }
 
+/**
+ * [WALK-IN] Bàn trống có thể xếp khách vãng lai (loại bàn có đặt trước sắp tới).
+ * Ctrl+F: getWalkInTables, bàn walk-in
+ */
 async function getWalkInTables(branchId) {
   await tableSummaryService.expireReservationsForBranch(branchId);
 

@@ -1,7 +1,11 @@
+/**
+ * CONTROLLER KHÁCH HÀNG — hồ sơ, dashboard, bàn của tôi, bill, đánh giá.
+ * Ctrl+F: user controller, profile, my-table, dashboard
+ */
 const userService = require("../../services/user.service");
 const billService = require("../../services/bill.service");
 
-//  Lấy profile
+/** [HỒ SƠ] GET /api/user/profile — trang /profile. Ctrl+F: getProfile */
 exports.getProfile = async (req, res) => {
   try {
     const profile = await userService.getProfile(req.userId);
@@ -12,7 +16,7 @@ exports.getProfile = async (req, res) => {
   }
 };
 
-//  Cập nhật profile
+/** [HỒ SƠ] PUT — cập nhật thông tin cá nhân. Ctrl+F: updateProfile */
 exports.updateProfile = async (req, res) => {
   try {
     const user = await userService.updateProfile(req.userId, req.body);
@@ -23,7 +27,7 @@ exports.updateProfile = async (req, res) => {
   }
 };
 
-//  Đổi mật khẩu
+/** [HỒ SƠ] PUT — đổi mật khẩu. Ctrl+F: changePassword */
 exports.changePassword = async (req, res) => {
   try {
     await userService.changePassword(
@@ -38,7 +42,10 @@ exports.changePassword = async (req, res) => {
   }
 };
 
-//  Lấy lịch sử đặt bàn
+/**
+ * [DASHBOARD] GET — lịch sử đặt bàn đầy đủ (món, bill). Trang /dashboard.
+ * Luồng demo: Phần 2, Phần 4 — Bước 4.5. Ctrl+F: getReservationsWithOrders
+ */
 exports.getReservationsWithOrders = async (req, res) => {
   try {
     const userId = req.userId;
@@ -50,7 +57,7 @@ exports.getReservationsWithOrders = async (req, res) => {
   }
 };
 
-//  Chi tiết hóa đơn một lượt đặt bàn
+/** [LỊCH SỬ] GET — chi tiết hóa đơn 1 lượt đặt. Ctrl+F: getReservationBill */
 exports.getReservationBill = async (req, res) => {
   try {
     const bill = await userService.getReservationBill(req.userId, req.params.orderId);
@@ -67,7 +74,10 @@ exports.getReservationBill = async (req, res) => {
   }
 };
 
-//  Lấy bàn/đơn hiện tại của user (phiên đang dùng)
+/**
+ * [BÀN CỦA TÔI] GET — phiên đang phục vụ. Trang /my-table.
+ * Luồng demo: Phần 4 — Bước 4.1. Ctrl+F: getCurrentTableSession
+ */
 exports.getCurrentTableSession = async (req, res) => {
   try {
     const userId = req.userId;
@@ -82,7 +92,7 @@ exports.getCurrentTableSession = async (req, res) => {
   }
 };
 
-//  Hóa đơn tạm tính hiện tại của user (bao gồm mọi món từ user & waiter)
+/** [BÀN CỦA TÔI] GET — bill tạm tính phiên hiện tại. Ctrl+F: getCurrentBill */
 exports.getCurrentBill = async (req, res) => {
   try {
     const userId = req.userId;
@@ -97,7 +107,7 @@ exports.getCurrentBill = async (req, res) => {
   }
 };
 
-// UC13 - Gửi đánh giá dịch vụ
+/** [ĐÁNH GIÁ] GET — popup nhắc đánh giá sau bữa ăn. Ctrl+F: getPendingReview */
 exports.getPendingReview = async (req, res) => {
   try {
     const data = await userService.getPendingReview(req.userId);
@@ -108,7 +118,7 @@ exports.getPendingReview = async (req, res) => {
   }
 };
 
-// UC13 - Gửi đánh giá dịch vụ
+/** [ĐÁNH GIÁ] POST — gửi đánh giá từ dashboard. Ctrl+F: createReview */
 exports.createReview = async (req, res) => {
   try {
     const review = await userService.createReservationReview(req.userId, req.body);

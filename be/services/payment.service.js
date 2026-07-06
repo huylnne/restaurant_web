@@ -1,3 +1,9 @@
+/**
+ * SERVICE THANH TOÁN — tạo phiên thanh toán, MoMo/SePay/VietQR, xác nhận tiền mặt, webhook.
+ * Ctrl+F: thanh toán, payment, tiền mặt, MoMo, VietQR, hóa đơn
+ * Luồng demo: Phần 4 — Bước 4.3 (yêu cầu TT), 4.4 (phục vụ xác nhận)
+ * API: POST /api/payments/session, POST /api/admin/waiter/tables/:id/payment
+ */
 const axios = require("axios");
 const { Payment, Order, Table, sequelize } = require("../models");
 const { QueryTypes, Op } = require("sequelize");
@@ -29,6 +35,7 @@ const OFFLINE_METHODS = new Set([
 ]);
 const now = () => new Date();
 
+/** [THANH TOÁN] Tính tổng tiền món từ order_items (fallback khi chưa sync bill). Ctrl+F: getOrderAmount */
 async function getOrderAmount(orderId) {
   const rows = await sequelize.query(
     `SELECT COALESCE(SUM(oi.quantity * COALESCE(oi.price, mi.price, 0)), 0) AS amount
@@ -40,16 +47,19 @@ async function getOrderAmount(orderId) {
   return Number(rows[0]?.amount || 0);
 }
 
+/** [THANH TOÁN] Chuẩn hóa phương thức (COD→CASH). Ctrl+F: normalizeMethod */
 function normalizeMethod(method) {
   if (!method) return method;
   if (method === PAYMENT_METHODS.COD) return PAYMENT_METHODS.CASH;
   return method;
 }
 
+/** [THANH TOÁN] Tiền mặt/chuyển khoản/thẻ — không redirect gateway. Ctrl+F: isOfflineMethod, tiền mặt */
 function isOfflineMethod(method) {
   return OFFLINE_METHODS.has(method);
 }
 
+/** [HÓA ĐƠN] Sinh mã invoice_no khi thanh toán thành công. Ctrl+F: generateInvoiceNo, INV- */
 function generateInvoiceNo(paymentId) {
   const stamp = new Date().toISOString().slice(0, 10).replace(/-/g, "");
   return `INV-${stamp}-${paymentId}`;
@@ -119,6 +129,10 @@ async function getAmountByOrder(sessionOrderId) {
   return { amount, order, bill };
 }
 
+/**
+ * [THANH TOÁN] Tạo/cập nhật phiên thanh toán cho order — offline= pending, online= requires_action.
+ * Ctrl+F: createOrUpdatePaymentForOrder
+ */
 async function createOrUpdatePaymentForOrder({ orderId, amount, method }) {
   const normalizedMethod = normalizeMethod(method);
   let payment = await Payment.findOne({ where: { order_id: orderId } });
@@ -198,6 +212,10 @@ async function createMomoSessionForOrder({ orderId, amount, returnUrl, cancelUrl
   return resp.data;
 }
 
+/**
+ * [THANH TOÁN] Khởi tạo phiên thanh toán — tiền mặt / MoMo / VietQR theo method.
+ * Gọi từ khách (QR) hoặc phục vụ. Ctrl+F: createSession, payment session
+ */
 async function createSession({ orderId, reservationId, tableToken, method, returnUrl, cancelUrl }) {
   const normalizedMethod = normalizeMethod(method);
   if (!ALLOWED_METHODS.includes(normalizedMethod)) throw new Error("UNSUPPORTED_METHOD");
@@ -286,7 +304,10 @@ async function resolvePaidSessionTargets(sessionOrderId) {
   return { order, orderIds, tableIds };
 }
 
-/** Idempotent: đóng phiên + chuyển bàn sang chờ dọn sau khi thanh toán thành công. */
+/**
+ * [THANH TOÁN] Sau khi thanh toán OK: complete order, bàn → chờ dọn (cleaning), notify realtime.
+ * Luồng demo: Phần 4 — Bước 4.4. Ctrl+F: onPaymentSucceededByOrder, chờ dọn
+ */
 async function onPaymentSucceededByOrder(sessionOrderId) {
   const targets = await resolvePaidSessionTargets(sessionOrderId);
   if (!targets) return;
@@ -328,6 +349,10 @@ async function onPaymentSucceededByOrder(sessionOrderId) {
   }
 }
 
+/**
+ * [THANH TOÁN] Phục vụ xác nhận thanh toán tại bàn (tiền mặt/chuyển khoản) — demo chính.
+ * Luồng demo: Phần 4 — Bước 4.4 dialog Thanh toán. Ctrl+F: finalizeReservationPayment, xác nhận thanh toán
+ */
 async function finalizeReservationPayment({ reservationId, orderId, tableId, method, transactionRef }) {
   const normalizedMethod = normalizeMethod(method);
   if (!ALLOWED_METHODS.includes(normalizedMethod)) throw new Error("UNSUPPORTED_METHOD");
@@ -361,6 +386,7 @@ async function finalizeReservationPayment({ reservationId, orderId, tableId, met
   return payment;
 }
 
+/** [THANH TOÁN] Webhook IPN từ MoMo sau khi khách trả qua ví. Ctrl+F: handleMomoWebhook, MoMo */
 async function handleMomoWebhook(payload, verifyOk = true) {
   if (!verifyOk) throw new Error("INVALID_SIGNATURE");
 
@@ -391,6 +417,7 @@ async function handleMomoWebhook(payload, verifyOk = true) {
   return true;
 }
 
+/** [THANH TOÁN] Webhook chuyển khoản SePay/VietQR — khớp mã DH{orderId}. Ctrl+F: handleSePayWebhook, SePay */
 async function handleSePayWebhook(payload, verifyOk = true) {
   if (!verifyOk) throw new Error("INVALID_SIGNATURE");
   if (String(payload.transferType || "").toLowerCase() !== "in") {

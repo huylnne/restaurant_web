@@ -1,3 +1,8 @@
+/**
+ * SERVICE KHÁCH HÀNG — hồ sơ, lịch sử đặt bàn, bàn hiện tại, đánh giá.
+ * Ctrl+F: hồ sơ, profile, dashboard, bàn của tôi, lịch sử đặt bàn
+ * Luồng demo: Phần 1 (hồ sơ), Phần 2 (dashboard), Phần 4 (my-table)
+ */
 const db = require("../models/db");
 const User = db.User;
 const { Order, OrderItem, MenuItem, Table, Payment, Review, Branch, OrderTable } = require("../models");
@@ -7,6 +12,7 @@ const { computeItemsTotal } = require("./bill.service");
 const DEFAULT_AVATAR_URL =
   "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
 
+/** [HỒ SƠ] Lấy thông tin cá nhân khách — trang /profile. Ctrl+F: getProfile */
 exports.getProfile = async (userId) => {
   const user = await User.findByPk(userId, {
     attributes: ["full_name", "avatar_url", "phone"],
@@ -19,6 +25,7 @@ exports.getProfile = async (userId) => {
   };
 };
 
+/** [HỒ SƠ] Cập nhật tên, SĐT, avatar. Ctrl+F: updateProfile */
 exports.updateProfile = async (userId, data) => {
   const { full_name, phone, avatar_url } = data;
   const user = await User.findByPk(userId);
@@ -32,6 +39,7 @@ exports.updateProfile = async (userId, data) => {
   return user;
 };
 
+/** [HỒ SƠ] Đổi mật khẩu (xác minh mật khẩu cũ). Ctrl+F: changePassword */
 exports.changePassword = async (userId, currentPassword, newPassword) => {
   const bcrypt = require("bcrypt");
   const user = await User.findByPk(userId);
@@ -48,6 +56,7 @@ exports.changePassword = async (userId, currentPassword, newPassword) => {
   return true;
 };
 
+/** [LỊCH SỬ] Map order DB → DTO hiển thị dashboard (bill, bàn ghép). Ctrl+F: mapOrderForHistory */
 function mapOrderForHistory(row, billTotals = null) {
   const json = row.toJSON ? row.toJSON() : row;
   const { restaurant_name, branch_display_name } = splitRestaurantAndBranch(json.Branch?.name);
@@ -146,6 +155,7 @@ async function loadReservationOrdersForBill(userId, orderId) {
   return groupOrders.length ? groupOrders : [order];
 }
 
+/** [LỊCH SỬ] Load order + nhóm booking để xem chi tiết hóa đơn 1 lượt đặt. Ctrl+F: getReservationBill */
 exports.getReservationBill = async (userId, orderId) => {
   const orders = await loadReservationOrdersForBill(userId, orderId);
   if (!orders?.length) {
@@ -178,6 +188,10 @@ exports.getReservationBill = async (userId, orderId) => {
   };
 };
 
+/**
+ * [DASHBOARD] Lịch sử tất cả lượt đặt bàn + món + thanh toán — /dashboard.
+ * Luồng demo: Phần 2 — Bước 2.3, Phần 4 — Bước 4.5. Ctrl+F: getReservationsWithOrders
+ */
 exports.getReservationsWithOrders = async (userId) => {
   try {
     const orders = await Order.findAll({
@@ -214,6 +228,7 @@ exports.getReservationsWithOrders = async (userId) => {
 
 const reviewService = require("./review.service");
 
+/** [ĐÁNH GIÁ] Khách gửi đánh giá từ dashboard (đã đăng nhập). Ctrl+F: createReservationReview */
 exports.createReservationReview = async (userId, body) => {
   return reviewService.createOrderReview({
     orderId: body.order_id || body.reservation_id,
@@ -223,8 +238,13 @@ exports.createReservationReview = async (userId, body) => {
   });
 };
 
+/** [ĐÁNH GIÁ] Popup nhắc đánh giá sau khi ăn xong. Ctrl+F: getPendingReview */
 exports.getPendingReview = async (userId) => reviewService.getPendingReviewForUser(userId);
 
+/**
+ * [BÀN CỦA TÔI] Phiên đang phục vụ của khách — trang /my-table (món, tiến độ bếp).
+ * Luồng demo: Phần 4 — Bước 4.1. Ctrl+F: getCurrentTableSession, my-table
+ */
 exports.getCurrentTableSession = async (userId) => {
   try {
     const order = await Order.findOne({

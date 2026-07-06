@@ -1,3 +1,8 @@
+/**
+ * CONTROLLER XÁC THỰC — đăng ký, đăng nhập, CAPTCHA, kiểm tra SĐT.
+ * Ctrl+F: đăng ký, register, login, CAPTCHA
+ * Luồng demo: Phần 1 — /register, /login
+ */
 const { Op } = require("sequelize");
 const bcrypt = require("bcrypt");
 const db = require("../../models/db");
@@ -8,6 +13,10 @@ const { PHONE_REGEX } = require("../../middlewares/validateAuthInput");
 
 const DEFAULT_AVATAR_URL = "https://tse3.mm.bing.net/th/id/OIP.aCwqDO1MIaS3qzA7DyFPdAHaHa?pid=Api&P=0&h=180";
 
+/**
+ * [ĐĂNG KÝ] POST /api/auth/register — tạo user role=user, ghi nhật ký audit.
+ * Luồng demo: Phần 1 — Bước 1.2 (demo_khach01). Ctrl+F: register
+ */
 const register = async (req, res) => {
   try {
     const { username, password, full_name, phone } = req.body;
@@ -67,6 +76,10 @@ const register = async (req, res) => {
   }
 };
 
+/**
+ * [ĐĂNG NHẬP] POST /api/auth/login — JWT token, phân quyền role (user/waiter/admin...).
+ * Ctrl+F: login, đăng nhập
+ */
 const login = async (req, res) => {
   try {
     const { username, password } = req.body;
@@ -126,6 +139,7 @@ const login = async (req, res) => {
   }
 };
 
+/** [ĐĂNG KÝ] GET — kiểm tra SĐT chưa dùng (validate form realtime). Ctrl+F: checkPhone */
 const checkPhone = async (req, res) => {
   try {
     const phone = String(req.query.phone || "").trim();

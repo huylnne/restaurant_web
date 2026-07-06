@@ -1,3 +1,8 @@
+/**
+ * SERVICE TÍNH BILL — hóa đơn tạm tính, tổng tiền món đã gọi (có giảm giá sale_price).
+ * Ctrl+F: bill, hóa đơn, tạm tính, total_amount, buildBill
+ * Luồng demo: Phần 4 — QR /t/{token}, Bàn của tôi, dialog thanh toán
+ */
 const { Order, OrderItem, MenuItem, Table } = require("../models");
 const { Op } = require("sequelize");
 const { activeOrderStatusWhere } = require("../utils/orderStatus");
@@ -14,6 +19,7 @@ const orderItemInclude = {
   include: [{ model: MenuItem, attributes: ["item_id", "name", "price", "sale_price"] }],
 };
 
+/** [BILL] Order chính để tính tiền khi ghép nhóm booking_group. Ctrl+F: resolvePrimaryBillingOrder */
 async function resolvePrimaryBillingOrder(orderOrId) {
   const order =
     typeof orderOrId === "object" && orderOrId?.order_id
@@ -48,6 +54,10 @@ function collectOrderItems(orders) {
   return (orders || []).flatMap((o) => o.OrderItems || []);
 }
 
+/**
+ * [BÀN CỦA TÔI] Tìm phiên đang phục vụ của khách đăng nhập — trang /my-table.
+ * Ctrl+F: findActiveOrderByUser, getCurrentTableSession, bàn của tôi
+ */
 async function findActiveOrderByUser(userId) {
   const orders = await Order.findAll({
     where: {
@@ -73,10 +83,12 @@ async function findActiveOrderByUser(userId) {
   return orders[0];
 }
 
+/** [BILL] Tìm order active trên 1 bàn (theo table_id). Ctrl+F: findActiveOrderByTable */
 async function findActiveOrderByTable(tableId) {
   return findActiveOrderByTableId(tableId, { itemInclude: orderItemInclude });
 }
 
+/** [BILL] Gộp order_items, tính subtotal/discount/total (sale_price). Ctrl+F: computeItemsTotal */
 async function computeItemsTotal(orderItems) {
   const aggregated = {};
   let totalAmount = 0;
@@ -148,6 +160,10 @@ async function computeItemsTotal(orderItems) {
   };
 }
 
+/**
+ * [BILL] Dựng object bill đầy đủ: bàn, món, tổng tiền — dùng QR, phục vụ, khách.
+ * Ctrl+F: buildBill, bill tạm tính
+ */
 async function buildBill({ order, tableId }) {
   if (!order && !tableId) return null;
 
@@ -245,12 +261,14 @@ async function buildBill({ order, tableId }) {
   };
 }
 
+/** [BÀN CỦA TÔI] Bill cho khách đang ngồi bàn. Ctrl+F: getBillForUser */
 async function getBillForUser(userId) {
   const order = await findActiveOrderByUser(userId);
   if (!order) return null;
   return buildBill({ order, tableId: null });
 }
 
+/** [QR BÀN] Bill theo table_id hoặc token QR. Ctrl+F: getBillByTable */
 async function getBillByTable(tableId) {
   return buildBill({ order: null, tableId });
 }

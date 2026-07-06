@@ -1,3 +1,9 @@
+/**
+ * SERVICE QR TẠI BÀN — trang /t/{token}: xem bill, gọi món, đánh giá không cần app.
+ * Ctrl+F: QR bàn, table token, /t/, quét QR
+ * Luồng demo: Phần 3 — Bước 3.6, Phần 4 — Bước 4.2
+ * API: GET /api/public/tables/:token, POST .../items
+ */
 const { Table, Order, OrderItem, sequelize } = require("../../models");
 const billService = require("../bill.service");
 const { TABLE_STATUS, isTableOrderableViaQr, isBookableTableStatus } = require("../../utils/tableStatus");
@@ -13,6 +19,10 @@ const {
   verifyTableOrderAccessToken,
 } = require("../../utils/tableQrAccess");
 
+/**
+ * [QR BÀN] Lấy thông tin bàn + order_access_token nếu đang phục vụ (gọi món được).
+ * Ctrl+F: getTableByToken, qr_token
+ */
 async function getTableByToken(token) {
   if (!token) return null;
   const table = await Table.findOne({
@@ -36,6 +46,7 @@ async function getTableByToken(token) {
   };
 }
 
+/** [QR BÀN] Xác thực token gọi món (header x-table-order-token). Ctrl+F: resolveOrderAccessForTable */
 async function resolveOrderAccessForTable({ accessToken, tableId, transaction }) {
   if (!accessToken) throw new Error("ORDER_ACCESS_REQUIRED");
 
@@ -61,6 +72,7 @@ async function resolveOrderAccessForTable({ accessToken, tableId, transaction })
   return order;
 }
 
+/** [QR BÀN] Bill tạm tính qua token — không cần đăng nhập. Ctrl+F: getBillByToken */
 async function getBillByToken(token) {
   const table = await Table.findOne({ where: { qr_token: token }, attributes: ["table_id"] });
   if (!table) return null;
@@ -68,7 +80,8 @@ async function getBillByToken(token) {
 }
 
 /**
- * Tạo phiên bàn (Order) khi khách check-in qua QR.
+ * [QR CHECK-IN] Khách tự check-in qua QR (luồng phụ — demo chính dùng confirmArrival).
+ * Ctrl+F: checkinByToken, check-in QR
  */
 async function checkinByToken({ token, userId, numberOfGuests }) {
   const table = await Table.findOne({
@@ -122,6 +135,10 @@ async function checkinByToken({ token, userId, numberOfGuests }) {
   };
 }
 
+/**
+ * [QR GỌI MÓN] Khách gọi thêm món qua /t/{token} — notify bếp realtime.
+ * Luồng demo: Phần 4 — Bước 4.2. Ctrl+F: addOrderItemsByToken, gọi món QR
+ */
 async function addOrderItemsByToken({ token, accessToken, items = [], note = null }) {
   if (!Array.isArray(items) || items.length === 0) throw new Error("INVALID_ITEMS");
 
@@ -189,6 +206,7 @@ async function addOrderItemsByToken({ token, accessToken, items = [], note = nul
   };
 }
 
+/** [QR ĐÁNH GIÁ] Kiểm tra khách có được đánh giá trên bàn này không. Ctrl+F: getReviewEligibilityByToken */
 async function getReviewEligibilityByToken(token, orderId = null) {
   const table = await Table.findOne({
     where: { qr_token: token },
@@ -216,6 +234,7 @@ async function getReviewEligibilityByToken(token, orderId = null) {
   return sharedReviewService.getReviewStatusForOrder(order.order_id);
 }
 
+/** [QR ĐÁNH GIÁ] Gửi đánh giá qua token bàn. Ctrl+F: createReviewByToken */
 async function createReviewByToken({ token, order_id, rating, comment }) {
   const table = await Table.findOne({
     where: { qr_token: token },

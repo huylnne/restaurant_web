@@ -1,9 +1,18 @@
+/**
+ * CONTROLLER ĐẶT MÓN TRƯỚC — gắn món vào order đặt bàn ngay khi booking (pre-order).
+ * Ctrl+F: đặt món trước, pre-order, pre_ordered
+ * Luồng demo: Phần 2 — Bước 2.3 (bật Đặt món trước)
+ */
 const db = require("../../models/db");
 const Order = db.Order;
 const OrderItem = db.OrderItem;
 const realtimeHub = require("../../realtimeHub");
 const { buildOrderItemPayloads } = require("../../utils/orderItemFactory");
 
+/**
+ * [ĐẶT MÓN TRƯỚC] POST — thêm OrderItem vào reservation, notify bếp (chưa check-in).
+ * Ctrl+F: createOrder pre-order
+ */
 const createOrder = async (req, res) => {
   try {
     const orderId = req.body.order_id || req.body.reservation_id;

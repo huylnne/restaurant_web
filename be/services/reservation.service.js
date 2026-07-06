@@ -1,3 +1,9 @@
+/**
+ * SERVICE ĐẶT BÀN — logic nghiệp vụ đặt bàn online, gán bàn, ghép bàn, hủy đặt.
+ * Ctrl+F gợi ý: đặt bàn, ghép bàn, buffer 2 giờ, bàn trống, tối đa 2 lượt, cancelReservation
+ * Luồng demo: Phần 2 (đặt bàn), Phần 4 (hủy nếu cần)
+ * API: POST /api/reservations, GET /api/reservations/available-tables
+ */
 const db = require("../models");
 const { Order, Table, Branch, User } = db;
 const sequelize = db.sequelize;
@@ -20,6 +26,7 @@ const { ORDER_STATUS } = require("../utils/orderStatus");
 const RESERVATION_BUFFER_MS = 2 * 60 * 60 * 1000;
 const FUTURE_ACTIVE_LIMIT = 2;
 
+/** [ĐẶT BÀN] Tính khung giữ bàn: từ giờ đến + buffer 2 giờ (RESERVATION_BUFFER_MS). Ctrl+F: buffer, time window */
 function getTimeWindow(arrivalTime) {
   const t = new Date(arrivalTime);
   return {
@@ -28,11 +35,13 @@ function getTimeWindow(arrivalTime) {
   };
 }
 
+/** [ĐẶT BÀN] Lấy danh sách table_id đã bị chiếm trong khung giờ (trùng lịch). Ctrl+F: conflict, trùng lịch */
 async function getConflictTableIds(branch_id, arrivalTime, { transaction } = {}) {
   const { windowStart, windowEnd } = getTimeWindow(arrivalTime);
   return getLinkedConflictTableIds(branch_id, windowStart, windowEnd, { transaction });
 }
 
+/** [ĐẶT BÀN] Kiểm tra một bàn cụ thể có đặt trùng khung giờ không. Ctrl+F: overlap, trùng bàn */
 async function hasOverlappingBooking(table_id, branch_id, arrivalTime, { transaction } = {}) {
   const { windowStart, windowEnd } = getTimeWindow(arrivalTime);
   return hasLinkedOverlappingBooking(table_id, branch_id, windowStart, windowEnd, {
@@ -40,6 +49,7 @@ async function hasOverlappingBooking(table_id, branch_id, arrivalTime, { transac
   });
 }
 
+/** [ĐẶT BÀN] Liệt kê bàn status=available, không conflict, dùng khi preview/ghép bàn. Ctrl+F: bàn trống, available tables */
 async function getAvailableTablesForSlot(branch_id, arrivalTime, excludeTableIds = [], { transaction } = {}) {
   const conflictIds = await getConflictTableIds(branch_id, arrivalTime, { transaction });
   const exclude = new Set([...conflictIds, ...excludeTableIds]);
@@ -64,6 +74,10 @@ async function getAvailableTablesForSlot(branch_id, arrivalTime, excludeTableIds
   return free;
 }
 
+/**
+ * [ĐẶT BÀN] Sinh thông báo lỗi khi không còn bàn: thiếu chỗ, không ghép liền kề, đã kín slot.
+ * Ctrl+F: không còn bàn, kín bàn, ghép bàn liền kề
+ */
 async function resolveNoTableMessage(branch_id, guests, arrivalTime, conflictIds, { transaction } = {}) {
   const available = await getAvailableTablesForSlot(branch_id, arrivalTime, conflictIds, {
     transaction,
@@ -116,6 +130,10 @@ async function resolveNoTableMessage(branch_id, guests, arrivalTime, conflictIds
   };
 }
 
+/**
+ * [ĐẶT BÀN] Chọn bàn (hoặc ghép bàn) cho khách — không lock DB, dùng GET available-tables.
+ * Ctrl+F: pickAvailableTable, kiểm tra bàn trống, preview đặt bàn
+ */
 async function pickAvailableTable(branch_id, number_of_guests, arrivalTime) {
   await tableSummaryService.expireReservationsForBranch(branch_id);
 
@@ -136,6 +154,10 @@ async function pickAvailableTable(branch_id, number_of_guests, arrivalTime) {
   return { message: fallback.message };
 }
 
+/**
+ * [ĐẶT BÀN] Chọn bàn có row-lock trong transaction — tránh race khi nhiều khách đặt cùng lúc.
+ * Ctrl+F: pickAvailableTableWithLock, lock bàn, ghép bàn
+ */
 async function pickAvailableTableWithLock(branch_id, number_of_guests, arrivalTime, transaction) {
   const guests = Number(number_of_guests);
   const triedTableIds = new Set();
@@ -208,7 +230,11 @@ async function pickAvailableTableWithLock(branch_id, number_of_guests, arrivalTi
   }
 }
 
-/** Tạo đặt bàn — một order; ghép bàn liền kề qua order_tables. */
+/**
+ * [ĐẶT BÀN] Tạo lượt đặt bàn — tạo Order type=reservation, gán bàn, link order_tables nếu ghép.
+ * Ràng buộc: tối đa 2 lượt tương lai/khách, tài khoản active, chi nhánh mở.
+ * Luồng demo: Phần 2 — Bước 2.3 (/booking). Ctrl+F: createReservation, đặt bàn thành công
+ */
 async function createReservation({ user_id, branch_id, reservation_time, number_of_guests, note }) {
   const guests = Number(number_of_guests);
   const arrivalDate = new Date(reservation_time);
@@ -311,6 +337,10 @@ async function createReservation({ user_id, branch_id, reservation_time, number_
   });
 }
 
+/**
+ * [HỦY ĐẶT BÀN] Hủy một order hoặc cả nhóm booking_group_id, set status=cancelled.
+ * Ctrl+F: cancelReservation, hủy đặt bàn
+ */
 async function cancelReservationGroup(orderRow, { transaction } = {}) {
   const groupId = orderRow.booking_group_id;
   if (groupId) {

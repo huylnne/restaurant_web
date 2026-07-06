@@ -1,3 +1,8 @@
+/**
+ * CONTROLLER PHỤC VỤ (WAITER) — gọi món, served, thanh toán, xuất PDF hóa đơn.
+ * Ctrl+F: waiter controller, finalizePayment, getInvoicePdf
+ * Luồng demo: Phần 3 (gọi món, served), Phần 4 — Bước 4.4 (thanh toán)
+ */
 const waiterService = require('../../services/admin/waiter.service');
 
 const billService = require('../../services/bill.service');
@@ -27,6 +32,10 @@ async function getActiveSessionOrder(tableId) {
 
 const waiterController = {
 
+  /**
+   * [GỌI MÓN] POST — phục vụ thêm món cho bàn, notify bếp WebSocket.
+   * Luồng demo: Phần 3 — Bước 3.3. Ctrl+F: waiter createOrder
+   */
   async createOrder(req, res) {
 
     try {
@@ -90,6 +99,7 @@ const waiterController = {
 
 
 
+  /** [PHỤC VỤ] GET — order + món của bàn (dialog bàn). Ctrl+F: listOrdersByTable */
   async listOrdersByTable(req, res) {
 
     try {
@@ -114,6 +124,10 @@ const waiterController = {
 
 
 
+  /**
+   * [PHỤC VỤ] PATCH — đánh dấu món đã bưng (served).
+   * Luồng demo: Phần 3 — Bước 3.5. Ctrl+F: serveOrderItem
+   */
   async serveOrderItem(req, res) {
 
     try {
@@ -190,6 +204,7 @@ const waiterController = {
 
 
 
+  /** [QUẢN LÝ BÀN] PATCH — đổi trạng thái bàn (trống/chờ dọn). Ctrl+F: updateTableStatus */
   async updateTableStatus(req, res) {
 
     try {
@@ -216,6 +231,7 @@ const waiterController = {
 
 
 
+  /** [THANH TOÁN] GET — bill trước khi thu tiền. Ctrl+F: getTableBill */
   async getTableBill(req, res) {
 
     try {
@@ -242,6 +258,7 @@ const waiterController = {
 
 
 
+  /** [THANH TOÁN] GET — trạng thái payment hiện tại của bàn. Ctrl+F: getTablePayment */
   async getTablePayment(req, res) {
 
     try {
@@ -282,6 +299,10 @@ const waiterController = {
 
 
 
+  /**
+   * [THANH TOÁN] POST — phục vụ xác nhận tiền mặt/chuyển khoản, đóng phiên.
+   * Luồng demo: Phần 4 — Bước 4.4. Ctrl+F: finalizePayment, xác nhận thanh toán
+   */
   async finalizePayment(req, res) {
 
     try {
@@ -348,6 +369,7 @@ const waiterController = {
 
 
 
+  /** [HÓA ĐƠN] GET — xuất PDF sau thanh toán. Ctrl+F: getInvoicePdf, invoice PDF */
   async getInvoicePdf(req, res) {
 
     try {

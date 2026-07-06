@@ -1,3 +1,8 @@
+/**
+ * SERVICE ĐÁNH GIÁ — khách đánh giá sau thanh toán, cửa sổ 4 giờ, 1 lần/order.
+ * Ctrl+F: đánh giá, review, rating, sao
+ * Luồng demo: Phần 4 — Bước 4.6, Phần 5 — quản lý đánh giá admin
+ */
 const { Op } = require("sequelize");
 const { Order, Payment, Review, OrderTable } = require("../models");
 const { ORDER_STATUS } = require("../utils/orderStatus");
@@ -5,6 +10,7 @@ const { getTableIdsForOrder } = require("../utils/orderTableLinks");
 
 const REVIEW_WINDOW_MS = 4 * 60 * 60 * 1000;
 
+/** [ĐÁNH GIÁ] Validate order_id, rating 1-5, comment 5-1000 ký tự. Ctrl+F: normalizeReviewInput */
 function normalizeReviewInput({ order_id, reservation_id, rating, comment }) {
   const sessionOrderId = Number(order_id || reservation_id);
   const normalizedRating = Number(rating);
@@ -26,6 +32,7 @@ function normalizeReviewInput({ order_id, reservation_id, rating, comment }) {
   return { sessionOrderId, normalizedRating, normalizedComment };
 }
 
+/** [ĐÁNH GIÁ] Order đủ điều kiện khi completed hoặc payment succeeded. Ctrl+F: isOrderReviewable */
 async function isOrderReviewable(order) {
   if (!order) return false;
   const isCompleted = String(order.status || "").toLowerCase() === ORDER_STATUS.COMPLETED;
@@ -38,6 +45,7 @@ async function isOrderReviewable(order) {
   return order.payment_status === "succeeded" || !!payment;
 }
 
+/** [ĐÁNH GIÁ QR] Tìm order vừa thanh toán trên bàn (trong 4h) để hiện form đánh giá. Ctrl+F: findRecentReviewableOrderForTable */
 async function findRecentReviewableOrderForTable(tableId) {
   const since = new Date(Date.now() - REVIEW_WINDOW_MS);
   const linkedRows = await OrderTable.findAll({
@@ -73,11 +81,13 @@ async function findRecentReviewableOrderForTable(tableId) {
   return null;
 }
 
+/** [ĐÁNH GIÁ] Kiểm tra order thuộc bàn (kể cả ghép bàn). Ctrl+F: orderBelongsToTable */
 async function orderBelongsToTable(orderId, tableId) {
   const tableIds = await getTableIdsForOrder(orderId);
   return tableIds.includes(Number(tableId));
 }
 
+/** [ĐÁNH GIÁ] Trạng thái: can_review / already_reviewed cho 1 order. Ctrl+F: getReviewStatusForOrder */
 async function getReviewStatusForOrder(orderId) {
   const review = await Review.findOne({
     where: { order_id: orderId },
@@ -91,6 +101,10 @@ async function getReviewStatusForOrder(orderId) {
   };
 }
 
+/**
+ * [ĐÁNH GIÁ] Tạo review — từ khách đăng nhập hoặc QR (không cần userId).
+ * Luồng demo: Phần 4 — Bước 4.6. Ctrl+F: createOrderReview, gửi đánh giá
+ */
 async function createOrderReview({ orderId, userId = null, tableId = null, rating, comment }) {
   const { sessionOrderId, normalizedRating, normalizedComment } = normalizeReviewInput({
     order_id: orderId,
@@ -144,6 +158,7 @@ async function createOrderReview({ orderId, userId = null, tableId = null, ratin
   }
 }
 
+/** [ĐÁNH GIÁ] Popup nhắc khách đánh giá sau bữa ăn (dashboard). Ctrl+F: getPendingReviewForUser, pending review */
 async function getPendingReviewForUser(userId) {
   const since = new Date(Date.now() - REVIEW_WINDOW_MS);
   const orders = await Order.findAll({
