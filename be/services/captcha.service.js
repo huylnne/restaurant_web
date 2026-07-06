@@ -1,9 +1,15 @@
+/**
+ * SERVICE CAPTCHA — sinh/verify CAPTCHA nội bộ cho form đăng ký/đặt bàn.
+ * Ctrl+F: captcha service, createCodeChallenge, verifyRegistrationCaptcha, CAPTCHA
+ * Luồng demo: Phần 1 — đăng ký khách có CAPTCHA chống spam.
+ */
 const crypto = require('crypto');
 
 const CHALLENGE_TTL_MS = 10 * 60 * 1000;
 const challengeStore = new Map();
 const CAPTCHA_CHARS = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
 
+/** [CAPTCHA] Dọn challenge hết hạn khỏi memory store. Ctrl+F: pruneChallengeStore */
 function pruneChallengeStore() {
   const now = Date.now();
   for (const [id, entry] of challengeStore.entries()) {
@@ -11,14 +17,17 @@ function pruneChallengeStore() {
   }
 }
 
+/** [CAPTCHA] Provider hiện tại là code nội bộ, giữ hook nếu sau này đổi reCAPTCHA. Ctrl+F: detectProvider */
 function detectProvider() {
   return 'code';
 }
 
+/** [CAPTCHA] Config public để frontend biết cần render CAPTCHA. Ctrl+F: getPublicConfig */
 function getPublicConfig() {
   return { provider: 'code', siteKey: null, enabled: true };
 }
 
+/** [CAPTCHA] Sinh mã ký tự dễ đọc, bỏ các ký tự dễ nhầm. Ctrl+F: createCaptchaCode */
 function createCaptchaCode(length = 5) {
   let code = '';
   for (let i = 0; i < length; i += 1) {
@@ -27,6 +36,7 @@ function createCaptchaCode(length = 5) {
   return code;
 }
 
+/** [CAPTCHA] Vẽ SVG base64 có noise/rotate để chống bot đơn giản. Ctrl+F: createCaptchaSvg */
 function createCaptchaSvg(code) {
   const width = 150;
   const height = 48;
@@ -57,6 +67,7 @@ function createCaptchaSvg(code) {
 </svg>`.trim();
 }
 
+/** [CAPTCHA] Tạo challenge dạng ảnh SVG + captchaId, lưu đáp án 10 phút. Ctrl+F: createCodeChallenge */
 function createCodeChallenge() {
   pruneChallengeStore();
   const code = createCaptchaCode();
@@ -73,6 +84,7 @@ function createCodeChallenge() {
   };
 }
 
+/** [CAPTCHA] Challenge toán học dự phòng nếu cần đổi UI. Ctrl+F: createMathChallenge */
 function createMathChallenge() {
   pruneChallengeStore();
   const a = crypto.randomInt(2, 12);
@@ -90,6 +102,7 @@ function createMathChallenge() {
   };
 }
 
+/** [CAPTCHA] Verify một lần rồi xóa challenge để tránh reuse. Ctrl+F: verifyStoredChallenge */
 function verifyStoredChallenge(captchaId, captchaAnswer) {
   pruneChallengeStore();
   const entry = challengeStore.get(String(captchaId || ''));
@@ -105,6 +118,7 @@ function verifyStoredChallenge(captchaId, captchaAnswer) {
   return { ok: true };
 }
 
+/** [ĐĂNG KÝ] Verify CAPTCHA trong request register. Ctrl+F: verifyRegistrationCaptcha */
 async function verifyRegistrationCaptcha(payload) {
   return verifyStoredChallenge(payload.captcha_id, payload.captcha_answer);
 }

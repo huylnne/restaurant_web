@@ -1,5 +1,10 @@
 'use strict';
 
+/**
+ * SCRIPT CLEANUP DEMO ORDERS — dọn các order/bàn đang treo trước khi quay demo.
+ * Ctrl+F: cleanup demo orders, cleanup-active-demo-orders, no active session
+ * Chạy: npm run cleanup:demo-orders -- --yes
+ */
 require('dotenv').config();
 
 const db = require('../models');

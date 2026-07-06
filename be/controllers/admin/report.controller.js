@@ -1,7 +1,13 @@
+/**
+ * CONTROLLER ADMIN REPORT — HTTP layer cho báo cáo doanh thu/thống kê/xuất file.
+ * Ctrl+F: report controller, parseReportQuery, exportReport, revenue-by-day
+ * Luồng demo: Phần 5 — Bước 5.6 báo cáo & thống kê.
+ */
 const reportService = require('../../services/admin/report.service');
 const reportExportService = require('../../services/admin/reportExport.service');
 const { resolveBranchId } = require('../../utils/branchScope');
 
+/** [BÁO CÁO] Chuẩn hóa branchId, khoảng ngày, days/months/limit từ query. Ctrl+F: parseReportQuery */
 function parseReportQuery(req) {
   const branchId = resolveBranchId(req, req.query.branchId, 1);
   const startDate = req.query.startDate || null;
@@ -16,6 +22,7 @@ function parseReportQuery(req) {
   };
 }
 
+/** [BÁO CÁO] Tổng quan doanh thu/đơn/khách trong khoảng ngày. Ctrl+F: getOverviewStats */
 exports.getOverviewStats = async (req, res) => {
   try {
     const { branchId, startDate, endDate } = parseReportQuery(req);
@@ -27,6 +34,7 @@ exports.getOverviewStats = async (req, res) => {
   }
 };
 
+/** [BÁO CÁO] Doanh thu theo ngày. Ctrl+F: getRevenueByDay */
 exports.getRevenueByDay = async (req, res) => {
   try {
     const { branchId, startDate, endDate, days } = parseReportQuery(req);
@@ -38,6 +46,7 @@ exports.getRevenueByDay = async (req, res) => {
   }
 };
 
+/** [BÁO CÁO] Món bán chạy nhất. Ctrl+F: getTopSellingItems */
 exports.getTopSellingItems = async (req, res) => {
   try {
     const { branchId, startDate, endDate, limit } = parseReportQuery(req);
@@ -49,6 +58,7 @@ exports.getTopSellingItems = async (req, res) => {
   }
 };
 
+/** [BÁO CÁO] Doanh thu theo danh mục món. Ctrl+F: getRevenueByCategory */
 exports.getRevenueByCategory = async (req, res) => {
   try {
     const { branchId, startDate, endDate } = parseReportQuery(req);
@@ -60,6 +70,7 @@ exports.getRevenueByCategory = async (req, res) => {
   }
 };
 
+/** [BÁO CÁO] Số order theo giờ để tìm giờ cao điểm. Ctrl+F: getOrdersByHour */
 exports.getOrdersByHour = async (req, res) => {
   try {
     const { branchId, startDate, endDate } = parseReportQuery(req);
@@ -71,6 +82,7 @@ exports.getOrdersByHour = async (req, res) => {
   }
 };
 
+/** [BÁO CÁO] Top khách hàng theo chi tiêu/số đơn. Ctrl+F: getTopCustomers */
 exports.getTopCustomers = async (req, res) => {
   try {
     const { branchId, startDate, endDate, limit } = parseReportQuery(req);
@@ -82,6 +94,7 @@ exports.getTopCustomers = async (req, res) => {
   }
 };
 
+/** [BÁO CÁO] Thống kê hiệu suất bàn. Ctrl+F: getTableStats */
 exports.getTableStats = async (req, res) => {
   try {
     const { branchId } = parseReportQuery(req);
@@ -93,6 +106,7 @@ exports.getTableStats = async (req, res) => {
   }
 };
 
+/** [BÁO CÁO] Doanh thu theo tháng. Ctrl+F: getMonthlyRevenue */
 exports.getMonthlyRevenue = async (req, res) => {
   try {
     const { branchId, startDate, endDate, months } = parseReportQuery(req);
@@ -104,7 +118,7 @@ exports.getMonthlyRevenue = async (req, res) => {
   }
 };
 
-/** GET /export?format=xlsx|pdf&branchId=&startDate=&endDate=&days=&months=&limit= */
+/** [BÁO CÁO] Xuất Excel/PDF: GET /export?format=xlsx|pdf&branchId=&startDate=&endDate=. Ctrl+F: exportReport */
 exports.exportReport = async (req, res) => {
   try {
     const format = String(req.query.format || 'xlsx').toLowerCase();

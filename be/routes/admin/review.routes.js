@@ -1,9 +1,14 @@
+/**
+ * ROUTES ADMIN REVIEW — API quản lý đánh giá khách hàng theo chi nhánh.
+ * Ctrl+F: review routes, /admin/reviews, review summary
+ * Luồng demo: Phần 5 — Bước 5.7 Admin xem đánh giá vừa gửi.
+ */
 const express = require("express");
 const router = express.Router();
 const reviewController = require("../../controllers/admin/review.controller");
 const { verifyToken, authorizeRole } = require("../../middlewares/auth");
 
-// Manager chỉ được xem đúng chi nhánh của mình
+// [PHÂN QUYỀN CHI NHÁNH] Manager chỉ được xem đúng chi nhánh của mình.
 const enforceReviewBranchScope = (req, res, next) => {
   const role = req.userRole || req.user?.role;
   if (role !== "manager") return next();
@@ -29,8 +34,11 @@ const enforceReviewBranchScope = (req, res, next) => {
   return next();
 };
 
+// [ĐÁNH GIÁ] Admin/manager xem review, manager bị ép branch_id.
 router.use(verifyToken, authorizeRole("admin", "manager"), enforceReviewBranchScope);
+// [ĐÁNH GIÁ] Danh sách review có filter ngày/rating/search.
 router.get("/", reviewController.getReviews);
+// [ĐÁNH GIÁ] Tổng hợp số sao/trung bình review.
 router.get("/summary", reviewController.getReviewSummary);
 
 module.exports = router;

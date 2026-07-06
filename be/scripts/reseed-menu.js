@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 /**
- * Seed lại toàn bộ menu_items cho các chi nhánh (ảnh + mô tả đa dạng).
+ * SCRIPT RESEED MENU — seed lại toàn bộ menu_items cho các chi nhánh (ảnh + mô tả đa dạng).
+ * Ctrl+F: reseed menu, buildMenuRowsForBranch, menu_items
  * Chạy: node scripts/reseed-menu.js
  * Hoặc: node scripts/reseed-menu.js --branch 1   (chỉ 1 chi nhánh)
  */

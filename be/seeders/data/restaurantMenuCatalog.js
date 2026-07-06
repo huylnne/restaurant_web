@@ -1,5 +1,10 @@
 'use strict';
 
+/**
+ * SEED DATA CATALOG MENU — catalog món mẫu dùng để build menu_items cho từng chi nhánh.
+ * Ctrl+F: restaurant menu catalog, RESTAURANT_MENU_CATALOG, buildMenuRowsForBranch
+ * Dùng bởi: reseed-menu.js và seeder reseed-menu-items.
+ */
 /** Ảnh Pexels — CDN ổn định, crop 800px */
 function img(photoId) {
   return `https://images.pexels.com/photos/${photoId}/pexels-photo-${photoId}.jpeg?auto=compress&cs=tinysrgb&w=800`;

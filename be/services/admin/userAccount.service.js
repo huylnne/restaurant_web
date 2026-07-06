@@ -1,3 +1,8 @@
+/**
+ * SERVICE ADMIN USER ACCOUNT — logic tìm kiếm, xem chi tiết, khóa/mở tài khoản khách.
+ * Ctrl+F: user account service, listUsers, getUserDetail, updateAccountStatus
+ * Luồng demo: Phần 5 — Bước 5.2 tìm demo_khach01.
+ */
 const { Op } = require('sequelize');
 const db = require('../../models');
 const { splitRestaurantAndBranch } = require('../../utils/branchDisplay');
@@ -5,6 +10,7 @@ const { splitRestaurantAndBranch } = require('../../utils/branchDisplay');
 const STAFF_ROLES = ['admin', 'waiter', 'kitchen', 'manager'];
 
 class UserAccountService {
+  /** [TÀI KHOẢN KHÁCH] Build where search username/full_name/phone + role + trạng thái. Ctrl+F: buildWhere user account */
   buildWhere({ search = '', role = 'user', accountStatus = 'all' }) {
     const where = {};
 
@@ -33,6 +39,7 @@ class UserAccountService {
     return where;
   }
 
+  /** [TÀI KHOẢN KHÁCH] Danh sách có phân trang + số lượt đặt reservation_count. Ctrl+F: listUsers user account */
   async listUsers({ page = 1, limit = 10, search = '', role = 'user', accountStatus = 'all' }) {
     const offset = (Math.max(1, Number(page)) - 1) * Number(limit);
     const where = this.buildWhere({ search, role, accountStatus });
@@ -85,6 +92,7 @@ class UserAccountService {
     };
   }
 
+  /** [TÀI KHOẢN KHÁCH] Chi tiết khách + lịch sử đặt gần đây + thống kê chi tiêu. Ctrl+F: getUserDetail */
   async getUserDetail(userId) {
     const user = await db.User.findByPk(userId, {
       attributes: [
@@ -158,6 +166,7 @@ class UserAccountService {
     };
   }
 
+  /** [TÀI KHOẢN KHÁCH] Summary tổng active/locked/inactive cho card admin. Ctrl+F: getSummaryStats */
   async getSummaryStats() {
     const [totalCustomers, lockedCount, inactiveCount, staffCount] = await Promise.all([
       db.User.count({ where: { role: 'user' } }),
@@ -174,6 +183,7 @@ class UserAccountService {
     };
   }
 
+  /** [TÀI KHOẢN KHÁCH] Admin khóa/mở/vô hiệu hóa, không cho tự khóa chính mình. Ctrl+F: updateAccountStatus service */
   async updateAccountStatus(targetUserId, adminUserId, { is_active, locked }) {
     if (Number(targetUserId) === Number(adminUserId)) {
       throw new Error('Không thể thay đổi trạng thái tài khoản của chính bạn');

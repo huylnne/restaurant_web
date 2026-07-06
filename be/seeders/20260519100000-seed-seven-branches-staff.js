@@ -1,5 +1,10 @@
 'use strict';
 
+/**
+ * SEED SEVEN BRANCHES STAFF — tạo nhân viên cho 7 chi nhánh.
+ * Ctrl+F: seed seven branches staff, STAFF_ROLES, waiter, kitchen, manager
+ * Mỗi chi nhánh: manager, waiter, kitchen để demo phân quyền.
+ */
 const bcrypt = require('bcrypt');
 
 /** Mỗi chi nhánh: 1 quản lý, 2 phục vụ, 1 bếp */

@@ -1,3 +1,8 @@
+/**
+ * CONTROLLER PUBLIC MENU — HTTP layer cho khách xem thực đơn, món nổi bật, best sellers.
+ * Ctrl+F: public menu controller, getFeaturedMenuItems, getMenuHighlights, getAllMenuItems
+ * Luồng demo: Phần 2 — Bước 2.1 khách xem thực đơn theo chi nhánh.
+ */
 const db = require("../../models/db");
 const MenuItem = db.MenuItem;
 const {
@@ -5,6 +10,7 @@ const {
   formatMenuItem,
 } = require("../../services/menuHighlight.service");
 
+/** [THỰC ĐƠN] Món được admin đánh dấu is_featured và còn bán. Ctrl+F: getFeaturedMenuItems */
 const getFeaturedMenuItems = async (req, res) => {
     try {
       const branch_id = parseInt(req.query.branch_id || req.query.branchId, 10) || 1;
@@ -26,6 +32,7 @@ const getFeaturedMenuItems = async (req, res) => {
   };
 
 
+/** [THỰC ĐƠN] Gợi ý món sale/bán chạy theo chi nhánh. Ctrl+F: getMenuHighlights */
 const getMenuHighlights = async (req, res) => {
   try {
     const branch_id = parseInt(req.query.branch_id || req.query.branchId, 10) || 1;
@@ -39,6 +46,7 @@ const getMenuHighlights = async (req, res) => {
   }
 };
 
+/** [THỰC ĐƠN] Danh sách món public có phân trang/filter category/branch. Ctrl+F: getAllMenuItems */
 const getAllMenuItems = async (req, res) => {
   try {
     // Lấy query params: ?page=1&limit=8&category=starter

@@ -1,15 +1,18 @@
 /**
- * Filter API response theo role. Waiter/kitchen không được xem dữ liệu tài chính.
+ * UTIL ROLE RESPONSE — lọc API response theo role để tránh lộ dữ liệu tài chính.
+ * Ctrl+F: role response, filterSummaryForRole, waiter kitchen không xem doanh thu
  * Admin: full data. Waiter/kitchen: chỉ nghiệp vụ (bàn, món, đơn, không doanh thu/lợi nhuận).
  */
 const ADMIN = 'admin';
 
+/** [PHÂN QUYỀN] Role admin được xem full dữ liệu. Ctrl+F: isAdmin */
 function isAdmin(role) {
   return role === ADMIN;
 }
 
 /**
- * Dashboard summary: bỏ doanh thu, chỉ giữ số lượng đơn/khách/món cho waiter/kitchen.
+ * [DASHBOARD] Bỏ doanh thu, chỉ giữ số lượng đơn/khách/món cho waiter/kitchen.
+ * Ctrl+F: filterSummaryForRole
  */
 function filterSummaryForRole(role, data) {
   if (!data) return data;
@@ -26,7 +29,8 @@ function filterSummaryForRole(role, data) {
 }
 
 /**
- * Top dishes: bỏ revenue cho waiter/kitchen.
+ * [DASHBOARD] Top dishes: bỏ revenue cho waiter/kitchen.
+ * Ctrl+F: filterTopDishesForRole
  */
 function filterTopDishesForRole(role, list) {
   if (!Array.isArray(list)) return list;
@@ -40,7 +44,8 @@ function filterTopDishesForRole(role, list) {
 }
 
 /**
- * Weekly revenue: trả về mảng rỗng cho waiter/kitchen.
+ * [DASHBOARD] Weekly revenue: trả về mảng rỗng cho waiter/kitchen.
+ * Ctrl+F: filterWeeklyRevenueForRole
  */
 function filterWeeklyRevenueForRole(role, data) {
   if (isAdmin(role)) return data;
@@ -48,7 +53,8 @@ function filterWeeklyRevenueForRole(role, data) {
 }
 
 /**
- * Danh sách bàn: admin và waiter được xem totalRevenue (hóa đơn tạm tính) để phục vụ; chỉ kitchen bỏ.
+ * [SƠ ĐỒ BÀN] Admin/waiter được xem totalRevenue để thanh toán; kitchen không thấy tiền.
+ * Ctrl+F: filterTableListForRole
  */
 function filterTableListForRole(role, tables) {
   if (!Array.isArray(tables)) return tables;
@@ -60,7 +66,8 @@ function filterTableListForRole(role, tables) {
 }
 
 /**
- * Table summary: bỏ currentRevenue cho waiter/kitchen.
+ * [SƠ ĐỒ BÀN] Table summary: bỏ currentRevenue cho waiter/kitchen.
+ * Ctrl+F: filterTableSummaryForRole
  */
 function filterTableSummaryForRole(role, data) {
   if (!data) return data;

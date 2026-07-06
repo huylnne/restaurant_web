@@ -1,5 +1,7 @@
 /**
- * Migrations nhẹ — idempotent, chạy mỗi lần start server hoặc qua npm run migrate.
+ * SCRIPT APPLY MIGRATIONS — migrations nhẹ/idempotent cho schema runtime.
+ * Ctrl+F: apply migrations, idempotent migration, expected_end_time, order_tables
+ * Chạy tự động từ index.js hoặc qua npm run migrate.
  * Bỏ qua lỗi từng câu lệnh (đã áp dụng / không áp dụng được).
  */
 async function applyMigrations(sequelize) {

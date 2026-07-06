@@ -1,8 +1,14 @@
+/**
+ * SERVICE MENU HIGHLIGHT — gom món sale và món bán chạy cho trang public menu/home.
+ * Ctrl+F: menu highlight service, getHighlights, getBestsellers, getOnSaleItems
+ * Luồng demo: Phần 2 — khách xem thực đơn và món nổi bật theo chi nhánh.
+ */
 const { Op } = require("sequelize");
 const db = require("../models/db");
 const { MenuItem } = db;
 const reportService = require("./admin/report.service");
 
+/** [THỰC ĐƠN] Chuẩn hóa giá hiển thị, sale_price, discount_percent cho frontend. Ctrl+F: formatMenuItem */
 function formatMenuItem(row) {
   const price = Number(row.price) || 0;
   const salePrice =
@@ -29,6 +35,7 @@ function formatMenuItem(row) {
   };
 }
 
+/** [THỰC ĐƠN] Lấy món đang giảm giá hợp lệ (sale_price < price). Ctrl+F: getOnSaleItems */
 async function getOnSaleItems(branchId, limit = 8) {
   const rows = await MenuItem.findAll({
     where: {
@@ -46,6 +53,7 @@ async function getOnSaleItems(branchId, limit = 8) {
   return rows.map((r) => formatMenuItem(r.get({ plain: true })));
 }
 
+/** [THỰC ĐƠN] Lấy món bán chạy từ report; fallback món featured/còn bán nếu chưa có đơn. Ctrl+F: getBestsellers */
 async function getBestsellers(branchId, limit = 8, days = 30) {
   const end = new Date();
   const start = new Date();
@@ -94,6 +102,7 @@ async function getBestsellers(branchId, limit = 8, days = 30) {
   return anyActive.map((r) => formatMenuItem(r.get({ plain: true })));
 }
 
+/** [THỰC ĐƠN] Payload highlights gồm bestsellers + on_sale cho một chi nhánh. Ctrl+F: getHighlights */
 async function getHighlights(branchId = 1, options = {}) {
   const limit = Math.min(Math.max(Number(options.limit) || 8, 1), 20);
   const days = Math.min(Math.max(Number(options.days) || 30, 7), 365);

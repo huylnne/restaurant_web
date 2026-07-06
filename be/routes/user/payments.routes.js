@@ -1,8 +1,14 @@
+/**
+ * ROUTES PAYMENT — API tạo phiên thanh toán, webhook MoMo/SePay, VietQR, tra cứu payment.
+ * Ctrl+F: payment routes, /session, /webhook/momo, /webhook/sepay, /vietqr
+ * Luồng demo: Phần 4 — thanh toán tiền mặt nhanh, online dùng khi cần mở rộng.
+ */
 const express = require('express');
 const router = express.Router();
 const ctrl = require('../../controllers/user/payments.controller');
 const { auditLog } = require('../../middlewares/operationLog');
 
+// [THANH TOÁN] Tạo payment session cho order/reservation/tableToken.
 router.post(
   '/session',
   auditLog({
@@ -19,6 +25,7 @@ router.post(
   ctrl.createSession
 );
 
+// [MOMO] Webhook IPN từ MoMo, verify chữ ký trong controller/service.
 router.post(
   '/webhook/momo',
   express.json({ type: '*/*' }),
@@ -35,6 +42,7 @@ router.post(
   ctrl.momoWebhook
 );
 
+// [SEPAY] Webhook chuyển khoản ngân hàng, khớp nội dung DH{orderId}.
 router.post(
   '/webhook/sepay',
   auditLog({
@@ -51,10 +59,14 @@ router.post(
   ctrl.sepayWebhook
 );
 
+// [THANH TOÁN ONLINE] Trang return sau redirect payment gateway.
 router.get('/return', ctrl.paymentReturn);
+// [TRA CỨU] Payment theo order_id.
 router.get('/by-order/:id', ctrl.getPaymentByOrder);
+// [TRA CỨU] Alias payment theo reservation_id.
 router.get('/by-reservation/:id', ctrl.getPaymentByReservation);
 
+// [VIETQR] Sinh mã QR chuyển khoản cho phiên bàn/order.
 router.post(
   '/vietqr',
   auditLog({

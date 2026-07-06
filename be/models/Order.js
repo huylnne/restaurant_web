@@ -1,3 +1,8 @@
+/**
+ * MODEL ORDER — bảng orders lưu cả đặt bàn online, khách vãng lai, phiên đang phục vụ.
+ * Ctrl+F: Order model, orders.status, reservation, walk_in, payment_status
+ * Luồng nghiệp vụ: pending/confirmed → check-in → in_progress/waiting_payment → completed.
+ */
 module.exports = (sequelize, DataTypes) => {
 
   const Order = sequelize.define(
@@ -18,6 +23,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [KHÁCH/NHÂN VIÊN] user_id là khách đặt bàn; với walk_in có thể là nhân viên tạo phiên.
       user_id: {
 
         type: DataTypes.INTEGER,
@@ -28,6 +34,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [CHI NHÁNH] Chi nhánh phục vụ order, dùng phân quyền và báo cáo.
       branch_id: {
 
         type: DataTypes.INTEGER,
@@ -38,6 +45,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [BÀN CHÍNH] Bàn chính của phiên; bàn ghép nằm thêm trong order_tables.
       table_id: {
 
         type: DataTypes.INTEGER,
@@ -48,6 +56,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [ĐẶT BÀN] Giờ khách dự kiến đến hoặc giờ tạo phiên walk-in.
       arrival_time: {
 
         type: DataTypes.DATE,
@@ -56,6 +65,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [ĐẶT BÀN] Mốc hết giữ bàn để kiểm tra trùng lịch.
       expected_end_time: {
 
         type: DataTypes.DATE,
@@ -66,6 +76,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [ĐẶT BÀN] Số khách để chọn bàn/ghép bàn.
       number_of_guests: {
 
         type: DataTypes.INTEGER,
@@ -74,6 +85,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [VÒNG ĐỜI PHIÊN] Trạng thái chính điều khiển check-in, bếp, bill, thanh toán.
       status: {
 
         type: DataTypes.STRING(20),
@@ -88,6 +100,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [BILL] Tổng tiền đồng bộ từ order_items, phục vụ dashboard/báo cáo.
       total_amount: {
 
         type: DataTypes.DECIMAL(10, 2),
@@ -96,6 +109,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [GHI CHÚ] Ghi chú của khách/phục vụ, ví dụ cần bàn yên tĩnh.
       note: {
 
         type: DataTypes.STRING(200),
@@ -104,6 +118,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [LOẠI PHIÊN] reservation=đặt online, walk_in=khách vãng lai, dine_in=QR/check-in phụ.
       order_type: {
 
         type: DataTypes.STRING(15),
@@ -116,6 +131,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [THANH TOÁN] Trạng thái tiền của phiên, độc lập với orders.status.
       payment_status: {
 
         type: DataTypes.STRING(16),
@@ -128,6 +144,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [GHÉP BÀN] Nhóm nhiều order/bàn nếu cần gom bill hoặc lịch sử theo group.
       booking_group_id: {
 
         type: DataTypes.STRING(36),
@@ -136,6 +153,7 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [CHECK-IN] Thời điểm nhân viên xác nhận khách đã tới.
       checked_in_at: {
 
         type: DataTypes.DATE,
@@ -170,6 +188,7 @@ module.exports = (sequelize, DataTypes) => {
 
 
 
+  // [QUAN HỆ] Order nối với chi nhánh, bàn, khách, món, thanh toán, đánh giá.
   Order.associate = (models) => {
 
     Order.belongsTo(models.Branch, { foreignKey: 'branch_id' });

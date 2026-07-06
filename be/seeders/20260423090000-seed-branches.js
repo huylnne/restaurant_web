@@ -1,5 +1,10 @@
 'use strict';
 
+/**
+ * SEED BRANCHES — tạo dữ liệu 7 chi nhánh ABC Restaurant.
+ * Ctrl+F: seed branches, ABC Restaurant Hà Nội, branch_id 1
+ * Luồng demo: Chi nhánh 1 — Hà Nội, Cầu Giấy.
+ */
 const BRANCHES = [
   {
     branch_id: 1,

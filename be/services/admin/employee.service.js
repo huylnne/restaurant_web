@@ -1,8 +1,13 @@
+/**
+ * SERVICE ADMIN EMPLOYEE — logic quản lý nhân viên theo chi nhánh.
+ * Ctrl+F: employee service, getEmployeesByBranch, createEmployee, getEmployeeStats
+ * Luồng demo: Phần 5 — Bước 5.5 lọc waiter1/kitchen1/manager theo chi nhánh.
+ */
 const { Employee, User } = require('../../models');
 const { Op } = require('sequelize');
 
 class EmployeeService {
-  // Lấy danh sách nhân viên theo chi nhánh
+  /** [NHÂN VIÊN] Lấy danh sách nhân viên theo chi nhánh, phân trang/search. Ctrl+F: getEmployeesByBranch */
   async getEmployeesByBranch(branchId, page = 1, limit = 10, search = '') {
     const offset = (page - 1) * limit;
     
@@ -38,7 +43,7 @@ class EmployeeService {
     };
   }
 
-  // Lấy thông tin 1 nhân viên
+  /** [NHÂN VIÊN] Lấy thông tin 1 nhân viên kèm User. Ctrl+F: getEmployeeById service */
   async getEmployeeById(employeeId) {
     const employee = await Employee.findByPk(employeeId, {
       include: [{
@@ -54,7 +59,7 @@ class EmployeeService {
     return employee;
   }
 
-  // Thêm nhân viên mới
+  /** [NHÂN VIÊN] Thêm nhân viên mới, kiểm tra user chưa thuộc employee. Ctrl+F: createEmployee service */
   async createEmployee(data) {
     const { user_id, branch_id, position, salary, hire_date, status } = data;
 
@@ -76,7 +81,7 @@ class EmployeeService {
     return await this.getEmployeeById(employee.employee_id);
   }
 
-  // Cập nhật thông tin nhân viên
+  /** [NHÂN VIÊN] Cập nhật branch/position/salary/status. Ctrl+F: updateEmployee service */
   async updateEmployee(employeeId, data) {
     const employee = await Employee.findByPk(employeeId);
     if (!employee) {
@@ -96,7 +101,7 @@ class EmployeeService {
     return await this.getEmployeeById(employeeId);
   }
 
-  // Xóa nhân viên
+  /** [NHÂN VIÊN] Xóa nhân viên khỏi bảng employees. Ctrl+F: deleteEmployee service */
   async deleteEmployee(employeeId) {
     const employee = await Employee.findByPk(employeeId);
     if (!employee) {
@@ -107,7 +112,7 @@ class EmployeeService {
     return { message: 'Xóa nhân viên thành công' };
   }
 
-  // Lấy thống kê nhân viên
+  /** [NHÂN VIÊN] Thống kê tổng/active/inactive và nhóm theo position. Ctrl+F: getEmployeeStats */
   async getEmployeeStats(branchId) {
     const totalEmployees = await Employee.count({ where: { branch_id: branchId } });
     

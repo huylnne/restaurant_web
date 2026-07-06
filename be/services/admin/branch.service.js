@@ -1,8 +1,14 @@
+/**
+ * SERVICE ADMIN BRANCH — logic quản lý chi nhánh, giờ mở cửa, trạng thái hoạt động.
+ * Ctrl+F: branch service, listBranches, createBranch, updateMyBranch
+ * Luồng demo: Phần 5 — quản lý chi nhánh và manager chi nhánh.
+ */
 const db = require("../../models/db");
 
 const Branch = db.Branch;
 const User = db.User;
 
+/** [CHI NHÁNH] Các field được phép update, tránh ghi nhầm field hệ thống. Ctrl+F: MUTABLE_FIELDS */
 const MUTABLE_FIELDS = [
   "name",
   "address",
@@ -15,6 +21,7 @@ const MUTABLE_FIELDS = [
   "is_active",
 ];
 
+/** [CHI NHÁNH] Lọc payload update chỉ giữ field hợp lệ. Ctrl+F: sanitizePayload branch */
 function sanitizePayload(payload = {}) {
   const clean = {};
   for (const key of MUTABLE_FIELDS) {
@@ -25,16 +32,19 @@ function sanitizePayload(payload = {}) {
   return clean;
 }
 
+/** [CHI NHÁNH] Danh sách toàn bộ chi nhánh cho super admin. Ctrl+F: listBranches */
 async function listBranches() {
   return Branch.findAll({
     order: [["branch_id", "ASC"]],
   });
 }
 
+/** [CHI NHÁNH] Chi tiết chi nhánh theo id. Ctrl+F: getBranchById service */
 async function getBranchById(branchId) {
   return Branch.findByPk(branchId);
 }
 
+/** [CHI NHÁNH] Tạo chi nhánh mới, bắt buộc name/address. Ctrl+F: createBranch service */
 async function createBranch(data) {
   if (!data.name || !data.address) {
     throw new Error("Tên và địa chỉ chi nhánh là bắt buộc");
@@ -52,6 +62,7 @@ async function createBranch(data) {
   });
 }
 
+/** [CHI NHÁNH] Cập nhật thông tin vận hành chi nhánh. Ctrl+F: updateBranch service */
 async function updateBranch(branchId, data) {
   const branch = await Branch.findByPk(branchId);
   if (!branch) throw new Error("Không tìm thấy chi nhánh");
@@ -61,6 +72,7 @@ async function updateBranch(branchId, data) {
   return branch;
 }
 
+/** [CHI NHÁNH] Tạm ngưng chi nhánh bằng is_active=false. Ctrl+F: deactivateBranch service */
 async function deactivateBranch(branchId) {
   const branch = await Branch.findByPk(branchId);
   if (!branch) throw new Error("Không tìm thấy chi nhánh");
@@ -68,6 +80,7 @@ async function deactivateBranch(branchId) {
   return { message: "Đã vô hiệu hóa chi nhánh", branch_id: branchId };
 }
 
+/** [MANAGER] Lấy chi nhánh manager đang phụ trách theo users.branch_id. Ctrl+F: getBranchByManager */
 async function getBranchByManager(userId) {
   const manager = await User.findByPk(userId, {
     attributes: ["user_id", "role", "branch_id"],
@@ -80,6 +93,7 @@ async function getBranchByManager(userId) {
   return branch;
 }
 
+/** [MANAGER] Manager cập nhật chi nhánh của mình, không được đổi branch khác. Ctrl+F: updateMyBranch service */
 async function updateMyBranch(userId, data) {
   const branch = await getBranchByManager(userId);
   const payload = sanitizePayload(data);

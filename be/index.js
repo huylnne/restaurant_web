@@ -1,3 +1,8 @@
+/**
+ * BACKEND ENTRYPOINT — khởi động Express API, mount routes, WebSocket realtime, quét no-show.
+ * Ctrl+F: backend entrypoint, startServer, runReservationExpirySweep, /api/admin/waiter
+ * Luồng demo: chạy `npm run dev`, REST API + WebSocket phục vụ toàn bộ vòng đặt bàn/bếp/thanh toán.
+ */
 const express = require('express');
 const app = express();
 const cors = require('cors');
@@ -17,6 +22,7 @@ app.use("/uploads", express.static(path.join(__dirname, "uploads")));
 const db = require('./models/db');
 require('./models/index');
 
+/** [KHỞI ĐỘNG] Authenticate DB, optionally sync alter, rồi apply migrations. Ctrl+F: initDatabase */
 async function initDatabase() {
   await db.sequelize.authenticate();
   console.log('✅ Kết nối DB thành công');
@@ -133,6 +139,7 @@ let reservationExpiryRunning = false;
 
 const RESERVATION_EXPIRY_SWEEP_MS = 60 * 1000;
 
+/** [NO-SHOW] Quét định kỳ đặt bàn quá grace 15 phút để no_show/giải phóng bàn/khóa khách. Ctrl+F: runReservationExpirySweep */
 async function runReservationExpirySweep(source = 'timer') {
   if (reservationExpiryRunning) return;
   reservationExpiryRunning = true;
@@ -154,6 +161,7 @@ async function runReservationExpirySweep(source = 'timer') {
   }
 }
 
+/** [NO-SHOW] Scheduler chạy mỗi 60s sau khi server start. Ctrl+F: startReservationExpiryScheduler */
 function startReservationExpiryScheduler() {
   if (reservationExpiryTimer) return;
 
@@ -164,6 +172,7 @@ function startReservationExpiryScheduler() {
   );
 }
 
+/** [KHỞI ĐỘNG] Validate JWT_SECRET, init DB, listen PORT, attach WebSocket. Ctrl+F: startServer */
 async function startServer() {
   try {
     assertJwtSecretConfigured();

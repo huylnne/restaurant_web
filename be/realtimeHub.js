@@ -1,4 +1,6 @@
 /**
+ * REALTIME HUB — WebSocket theo chi nhánh để đồng bộ bếp ↔ phục vụ ↔ sơ đồ bàn.
+ * Ctrl+F: realtimeHub, attachToHttpServer, notifyBranch, WebSocket realtime
  * UC08 – Đồng bộ realtime: WebSocket theo chi nhánh (bếp ↔ phục vụ).
  * Client: ws://host/ws/realtime?token=JWT&branchId=1
  */
@@ -9,6 +11,7 @@ const STAFF_ROLES = new Set(['admin', 'waiter', 'kitchen', 'manager']);
 
 let wss = null;
 
+/** [WEBSOCKET] Gắn upgrade handler vào HTTP server, verify JWT/role/branch trước khi subscribe. Ctrl+F: attachToHttpServer */
 function attachToHttpServer(server) {
   if (wss) return wss;
 
@@ -73,6 +76,9 @@ function attachToHttpServer(server) {
 }
 
 /**
+ * [WEBSOCKET] Broadcast payload cho tất cả client đang subscribe cùng branch.
+ * Ctrl+F: notifyBranch, order_item_status, order_flow
+ *
  * @param {number|string} branchId
  * @param {Record<string, unknown>} payload
  */

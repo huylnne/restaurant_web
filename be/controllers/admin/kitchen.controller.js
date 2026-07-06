@@ -1,9 +1,15 @@
+/**
+ * CONTROLLER KITCHEN — HTTP layer cho màn bếp và notify realtime khi đổi trạng thái món.
+ * Ctrl+F: kitchen controller, listOrderItems, changeOrderItemStatus
+ * Luồng demo: Phần 3 — Bước 3.4 bếp cập nhật pending/processing/done.
+ */
 const kitchenService = require('../../services/admin/kitchen.service');
 const { resolveBranchId } = require('../../utils/branchScope');
 const { buildRealtimeTablePayload } = require('../../utils/orderTableLinks');
 const realtimeHub = require('../../realtimeHub');
 
 const kitchenController = {
+  /** [BẾP] Lấy hàng đợi món theo status và chi nhánh. Ctrl+F: listOrderItems */
   async listOrderItems(req, res) {
     try {
       const status = req.query.status || 'pending';
@@ -16,6 +22,7 @@ const kitchenController = {
     }
   },
 
+  /** [BẾP] Đổi trạng thái món và bắn WebSocket cho phục vụ/khách. Ctrl+F: changeOrderItemStatus */
   async changeOrderItemStatus(req, res) {
     try {
       const id = req.params.id;

@@ -1,8 +1,13 @@
+/**
+ * CONTROLLER ADMIN EMPLOYEE — HTTP layer quản lý nhân viên/staff account.
+ * Ctrl+F: employee controller, getEmployees, createEmployee, getEmployeeStats
+ * Luồng demo: Phần 5 — Bước 5.5 quản lý nhân viên.
+ */
 const employeeService = require('../../services/admin/employee.service');
 const { resolveBranchId } = require('../../utils/branchScope');
 
 class EmployeeController {
-  // GET /api/admin/employees?branch_id=1&page=1&limit=10&search=
+  /** [NHÂN VIÊN] GET /api/admin/employees?branch_id=1&page=1&limit=10&search=. Ctrl+F: getEmployees */
   async getEmployees(req, res) {
     try {
       const { page = 1, limit = 10, search = '' } = req.query;
@@ -22,7 +27,7 @@ class EmployeeController {
     }
   }
 
-  // GET /api/admin/employees/:id
+  /** [NHÂN VIÊN] Chi tiết một nhân viên. Ctrl+F: getEmployeeById */
   async getEmployeeById(req, res) {
     try {
       const { id } = req.params;
@@ -34,7 +39,7 @@ class EmployeeController {
     }
   }
 
-  // POST /api/admin/employees
+  /** [NHÂN VIÊN] Tạo nhân viên mới + user đăng nhập. Ctrl+F: createEmployee */
   async createEmployee(req, res) {
     try {
       const payload = {
@@ -53,7 +58,7 @@ class EmployeeController {
     }
   }
 
-  // PUT /api/admin/employees/:id
+  /** [NHÂN VIÊN] Cập nhật hồ sơ/chức vụ/chi nhánh nhân viên. Ctrl+F: updateEmployee */
   async updateEmployee(req, res) {
     try {
       const { id } = req.params;
@@ -69,7 +74,7 @@ class EmployeeController {
     }
   }
 
-  // DELETE /api/admin/employees/:id
+  /** [NHÂN VIÊN] Xóa nhân viên. Ctrl+F: deleteEmployee */
   async deleteEmployee(req, res) {
     try {
       const { id } = req.params;
@@ -81,7 +86,7 @@ class EmployeeController {
     }
   }
 
-  // GET /api/admin/employees/stats/:branch_id
+  /** [NHÂN VIÊN] Thống kê nhân viên theo chi nhánh. Ctrl+F: getEmployeeStats */
   async getEmployeeStats(req, res) {
     try {
       const branch_id = resolveBranchId(req, req.params.branch_id, 1);

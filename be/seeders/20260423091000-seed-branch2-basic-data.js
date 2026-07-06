@@ -1,5 +1,9 @@
 'use strict';
 
+/**
+ * SEED BRANCH 2 BASIC DATA — tạo bàn/menu/user cơ bản cho chi nhánh 2.
+ * Ctrl+F: seed branch2 basic data, branch_id 2, bàn chi nhánh 2
+ */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date();

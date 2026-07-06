@@ -1,10 +1,15 @@
+/**
+ * ROUTES ADMIN MENU — API quản lý món ăn theo chi nhánh.
+ * Ctrl+F: admin menu routes, /admin/menu, MENU_CREATE, MENU_UPDATE
+ * Luồng demo: Phần 5 — Bước 5.4 Admin xem/quản lý món ăn.
+ */
 const express = require("express");
 const router = express.Router();
 const adminMenuController = require("../../controllers/admin/menu.controller");
 const { verifyToken, authorizeRole } = require("../../middlewares/auth");
 const { auditLog } = require("../../middlewares/operationLog");
 
-// Manager chỉ CRUD/xem menu đúng chi nhánh được gán (không override branchId qua query/body)
+// [PHÂN QUYỀN CHI NHÁNH] Manager chỉ CRUD/xem menu đúng chi nhánh được gán.
 const enforceMenuBranchScope = (req, res, next) => {
   const role = req.userRole || req.user?.role;
   if (role !== "manager") return next();
@@ -35,6 +40,7 @@ const enforceMenuBranchScope = (req, res, next) => {
   return next();
 };
 
+// [QUẢN LÝ MÓN] Danh sách món theo chi nhánh, admin/waiter/manager được xem.
 router.get(
   "/",
   verifyToken,
@@ -42,6 +48,7 @@ router.get(
   enforceMenuBranchScope,
   adminMenuController.getAll
 );
+// [QUẢN LÝ MÓN] Chi tiết một món.
 router.get(
   "/:id",
   verifyToken,
@@ -50,6 +57,7 @@ router.get(
   adminMenuController.getById
 );
 
+// [QUẢN LÝ MÓN] Admin/manager thêm món mới.
 router.post(
   "/",
   verifyToken,
@@ -64,6 +72,7 @@ router.post(
   adminMenuController.create
 );
 
+// [QUẢN LÝ MÓN] Admin/manager cập nhật món, giá, sale, trạng thái bán.
 router.put(
   "/:id",
   verifyToken,
@@ -78,6 +87,7 @@ router.put(
   adminMenuController.update
 );
 
+// [QUẢN LÝ MÓN] Admin/manager xóa món.
 router.delete(
   "/:id",
   verifyToken,

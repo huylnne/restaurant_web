@@ -1,3 +1,8 @@
+/**
+ * SERVICE ADMIN DASHBOARD — SQL tổng hợp số liệu nhanh cho trang /admin.
+ * Ctrl+F: dashboard service, getSummary, getWeeklyRevenue, getTopDishes, peak hours
+ * Luồng demo: Phần 5 — dashboard tổng quan doanh thu/lượt phục vụ/món bán chạy.
+ */
 const { Sequelize } = require("sequelize");
 const db = require("../../models/db");
 const tableSummaryService = require("./tableSummary.service");
@@ -7,6 +12,7 @@ const { orderItemLineRevenueSumExpr } = require("../../utils/revenueSql");
 const lineRevenueSum = orderItemLineRevenueSumExpr();
 
 const dashboardService = {
+  /** [DASHBOARD] Tổng quan hôm nay/hôm qua: doanh thu, đơn, khách, món. Ctrl+F: getSummary dashboard service */
   async getSummary(branchId = 1) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
@@ -144,6 +150,7 @@ const dashboardService = {
     };
   },
 
+  /** [DASHBOARD] Doanh thu theo 7 ngày gần nhất cho biểu đồ tuần. Ctrl+F: getWeeklyRevenue dashboard service */
   async getWeeklyRevenue(branchId = 1) {
     const endDate = new Date();
     endDate.setHours(23, 59, 59, 999);
@@ -206,6 +213,7 @@ const dashboardService = {
     return output;
   },
 
+  /** [DASHBOARD] Top món bán chạy theo số lượng và doanh thu. Ctrl+F: getTopDishes dashboard service */
   async getTopDishes(branchId = 1) {
     const query = `
       SELECT 
@@ -236,6 +244,7 @@ const dashboardService = {
     }));
   },
 
+  /** [DASHBOARD] Trạng thái bàn từ tableSummaryService để số liệu khớp sơ đồ bàn. Ctrl+F: getTableStatus dashboard service */
   async getTableStatus(branchId = tableSummaryService.DEFAULT_BRANCH_ID) {
     const summary = await tableSummaryService.getTableSummary(branchId);
     const {
@@ -259,6 +268,7 @@ const dashboardService = {
     };
   },
 
+  /** [DASHBOARD] Thống kê giờ cao điểm theo số order hoàn thành. Ctrl+F: getPeakHours dashboard service */
   async getPeakHours(branchId = 1) {
     const query = `
       SELECT 

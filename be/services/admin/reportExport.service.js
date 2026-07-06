@@ -1,3 +1,8 @@
+/**
+ * SERVICE REPORT EXPORT — gom dữ liệu và render báo cáo Excel/PDF.
+ * Ctrl+F: report export service, gatherReportData, buildExcel, buildPdf
+ * Luồng demo: Phần 5 — Bước 5.6 xuất Excel/PDF báo cáo.
+ */
 const ExcelJS = require('exceljs');
 const pdfMake = require('pdfmake');
 const vfsFonts = require('pdfmake/build/vfs_fonts');
@@ -5,10 +10,12 @@ const reportService = require('./report.service');
 
 pdfMake.setUrlAccessPolicy(() => false);
 
+/** [XUẤT BÁO CÁO] Format tiền VND cho PDF/Excel. Ctrl+F: formatMoneyVN report export */
 function formatMoneyVN(n) {
   return new Intl.NumberFormat('vi-VN', { style: 'currency', currency: 'VND' }).format(Number(n) || 0);
 }
 
+/** [XUẤT EXCEL] Chuẩn hóa ngày thành YYYY-MM-DD cho cell báo cáo. Ctrl+F: formatDateCell */
 function formatDateCell(v) {
   if (!v) return '';
   if (v instanceof Date) return v.toISOString().slice(0, 10);
@@ -17,7 +24,8 @@ function formatDateCell(v) {
 }
 
 /**
- * Gom dữ liệu báo cáo (cùng tham số với trang AdminReports).
+ * [XUẤT BÁO CÁO] Gom dữ liệu báo cáo (cùng tham số với trang AdminReports).
+ * Ctrl+F: gatherReportData
  */
 async function gatherReportData({ branchId, startDate, endDate, days, months, limit }) {
   const [
@@ -59,6 +67,7 @@ async function gatherReportData({ branchId, startDate, endDate, days, months, li
   };
 }
 
+/** [XUẤT EXCEL] Render workbook nhiều sheet: tổng quan, doanh thu ngày, top món, danh mục, khách, bàn. Ctrl+F: buildExcel */
 async function buildExcel(data) {
   const wb = new ExcelJS.Workbook();
   wb.creator = 'ABC Restaurant Admin';
@@ -181,6 +190,7 @@ async function buildExcel(data) {
   return Buffer.from(buf);
 }
 
+/** [XUẤT PDF] Nạp font pdfmake để báo cáo tiếng Việt không lỗi font. Ctrl+F: ensurePdfFontsLoaded report */
 function ensurePdfFontsLoaded() {
   for (const k of Object.keys(vfsFonts)) {
     pdfMake.virtualfs.writeFileSync(k, vfsFonts[k], 'base64');
@@ -195,10 +205,12 @@ function ensurePdfFontsLoaded() {
   });
 }
 
+/** [XUẤT PDF] Tạo body table có header cho pdfmake. Ctrl+F: tableBody */
 function tableBody(headerRow, rows) {
   return [headerRow, ...rows];
 }
 
+/** [XUẤT PDF] Render báo cáo PDF gồm tổng quan, doanh thu, top món, khách, bàn. Ctrl+F: buildPdf */
 async function buildPdf(data) {
   ensurePdfFontsLoaded();
 

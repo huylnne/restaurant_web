@@ -1,3 +1,8 @@
+/**
+ * UTIL ORDER QUERIES — query dùng chung cho bếp/phục vụ để lấy món, bàn, chi nhánh, sync status order.
+ * Ctrl+F: order queries, findKitchenOrderItems, syncOrderStatusFromItems, orderTableInclude
+ * Luồng demo: Phần 3 — bếp realtime và phục vụ đánh dấu món.
+ */
 const { Op } = require("sequelize");
 const { OrderItem, MenuItem, Order, Table, OrderTable } = require("../models");
 const { resolveOrderTableNumbersFromPlain } = require("./orderTableLinks");
@@ -11,7 +16,7 @@ const { ORDER_ITEM_STATUS } = require("./orderItemStatus");
 const { KITCHEN_QUEUE_STATUSES } = require("./orderItemStatus");
 const { resolveKitchenServeContext } = require("./kitchenQueue");
 
-/** Chi nhánh của đơn: bàn trực tiếp → fallback menu */
+/** [CHI NHÁNH] Resolve branch của món/order: order.branch_id → table.branch_id → menu.branch_id. Ctrl+F: resolveOrderBranchId */
 function resolveOrderBranchId(plain) {
   return (
     plain.Order?.branch_id ??
@@ -21,7 +26,7 @@ function resolveOrderBranchId(plain) {
   );
 }
 
-/** Include chuẩn: order → bàn */
+/** [QUERY BẾP] Include chuẩn: OrderItem → Order → Table/OrderTable để biết món thuộc bàn nào. Ctrl+F: orderTableInclude */
 function orderTableInclude() {
   return [
     {
@@ -63,7 +68,8 @@ function orderTableInclude() {
 }
 
 /**
- * Hàng đợi bếp: món pending/processing + đơn chưa đóng + đúng chi nhánh.
+ * [BẾP] Hàng đợi bếp: món pending/processing + đơn chưa đóng + đúng chi nhánh.
+ * Ctrl+F: findKitchenOrderItems, hàng đợi bếp
  */
 async function findKitchenOrderItems({ itemStatus, branchId = 1 }) {
   const statuses = itemStatus
@@ -89,6 +95,7 @@ async function findKitchenOrderItems({ itemStatus, branchId = 1 }) {
     .map(mapKitchenItemRow);
 }
 
+/** [BẾP] Map OrderItem DB thành row có table_label, serve_context để UI bếp render. Ctrl+F: mapKitchenItemRow */
 function mapKitchenItemRow(item) {
   const plain = item.toJSON();
   const order = plain.Order ?? null;
@@ -109,7 +116,7 @@ function mapKitchenItemRow(item) {
   };
 }
 
-/** Đơn phiên đang hoạt động theo bàn */
+/** [PHIÊN BÀN] Where order active theo bàn, dùng ở sơ đồ bàn/phục vụ. Ctrl+F: buildActiveOrdersByTableWhere */
 function buildActiveOrdersByTableWhere(table_id) {
   return {
     table_id,
@@ -117,7 +124,10 @@ function buildActiveOrdersByTableWhere(table_id) {
   };
 }
 
-/** Khi bếp bắt đầu làm món → đơn chuyển pre-ordered/confirmed → in_progress */
+/**
+ * [BẾP] Khi bếp bắt đầu làm món → đơn chuyển pre-ordered/confirmed/pending → in_progress.
+ * Ctrl+F: syncOrderStatusFromItems, sync order status
+ */
 async function syncOrderStatusFromItems(orderId, { transaction } = {}) {
   if (!orderId) return;
   const order = await Order.findByPk(orderId, { transaction });

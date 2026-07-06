@@ -1,4 +1,10 @@
 'use strict';
+
+/**
+ * SEED DEMO USERS — tạo admin, waiter, kitchen, manager và khách demo.
+ * Ctrl+F: seed demo users, admin, waiter1, kitchen1, manager1
+ * Mật khẩu seed mặc định: 123456.
+ */
 const bcrypt = require('bcrypt');
 
 module.exports = {

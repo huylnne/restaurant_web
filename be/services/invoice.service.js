@@ -1,8 +1,14 @@
+/**
+ * SERVICE INVOICE — dựng PDF hóa đơn thanh toán sau khi payment succeeded.
+ * Ctrl+F: invoice service, buildInvoicePdf, hóa đơn PDF, invoice_no
+ * Luồng demo: Phần 4 — Bước 4.4 phục vụ có thể xuất hóa đơn PDF.
+ */
 const pdfMake = require("pdfmake");
 const vfsFonts = require("pdfmake/build/vfs_fonts");
 
 pdfMake.setUrlAccessPolicy(() => false);
 
+/** [HÓA ĐƠN] Nạp font Roboto từ pdfmake vfs để PDF render tiếng Việt ổn định. Ctrl+F: ensurePdfFontsLoaded */
 function ensurePdfFontsLoaded() {
   for (const k of Object.keys(vfsFonts)) {
     pdfMake.virtualfs.writeFileSync(k, vfsFonts[k], "base64");
@@ -17,18 +23,21 @@ function ensurePdfFontsLoaded() {
   });
 }
 
+/** [HÓA ĐƠN] Format tiền VND. Ctrl+F: formatMoneyVN invoice */
 function formatMoneyVN(n) {
   return new Intl.NumberFormat("vi-VN", { style: "currency", currency: "VND" }).format(
     Number(n) || 0
   );
 }
 
+/** [HÓA ĐƠN] Format ngày giờ theo vi-VN. Ctrl+F: formatDateTime invoice */
 function formatDateTime(v) {
   if (!v) return "";
   const d = v instanceof Date ? v : new Date(v);
   return d.toLocaleString("vi-VN");
 }
 
+/** [HÓA ĐƠN] Dòng món trong bảng PDF, có hiển thị giá sale nếu có. Ctrl+F: buildItemRows */
 function buildItemRows(items = []) {
   if (!items.length) return [["-", "", "", "0 đ"]];
   return items.map((it) => {
@@ -45,6 +54,7 @@ function buildItemRows(items = []) {
   });
 }
 
+/** [HÓA ĐƠN] Dựng buffer PDF gồm nhà hàng, bàn, khách, món, tổng tiền, phương thức thanh toán. Ctrl+F: buildInvoicePdf */
 async function buildInvoicePdf({ payment, order, reservation, bill, branch, table, user, methodLabel }) {
   ensurePdfFontsLoaded();
 

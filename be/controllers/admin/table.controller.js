@@ -1,11 +1,18 @@
+/**
+ * CONTROLLER ADMIN TABLE — HTTP layer cho sơ đồ bàn, summary, CRUD bàn.
+ * Ctrl+F: table controller, getTables, getTableSummary, createTable
+ * Luồng demo: Phần 3 — sơ đồ bàn phục vụ và trạng thái bàn realtime.
+ */
 const tableService = require('../../services/admin/table.service');
 const { filterTableListForRole, filterTableSummaryForRole } = require('../../utils/roleResponse');
 const { resolveBranchId } = require('../../utils/branchScope');
 
+/** [PHÂN QUYỀN] Lấy role để filter dữ liệu doanh thu trên sơ đồ bàn. Ctrl+F: getRole */
 function getRole(req) {
   return req.userRole || req.user?.role;
 }
 
+/** [SƠ ĐỒ BÀN] Lấy danh sách bàn + phiên active + QR token + totalRevenue. Ctrl+F: getTables */
 exports.getTables = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -18,6 +25,7 @@ exports.getTables = async (req, res) => {
   }
 };
 
+/** [QUẢN LÝ BÀN] Admin tạo bàn mới. Ctrl+F: createTable */
 exports.createTable = async (req, res) => {
   try {
     const payload = { ...req.body, branch_id: resolveBranchId(req, req.body.branch_id || req.query.branchId, 1) };
@@ -30,6 +38,7 @@ exports.createTable = async (req, res) => {
   }
 };
 
+/** [QUẢN LÝ BÀN] Admin cập nhật bàn/sức chứa/trạng thái. Ctrl+F: updateTable */
 exports.updateTable = async (req, res) => {
   try {
     const payload = { ...req.body, branch_id: resolveBranchId(req, req.body.branch_id || req.query.branchId, 1) };
@@ -41,6 +50,7 @@ exports.updateTable = async (req, res) => {
   }
 };
 
+/** [QUẢN LÝ BÀN] Admin xóa bàn nếu không vướng order. Ctrl+F: deleteTable */
 exports.deleteTable = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -52,6 +62,7 @@ exports.deleteTable = async (req, res) => {
   }
 };
 
+/** [SƠ ĐỒ BÀN] Hoạt động gần đây theo bàn/order. Ctrl+F: getTableActivities */
 exports.getTableActivities = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -63,6 +74,7 @@ exports.getTableActivities = async (req, res) => {
   }
 };
 
+/** [SƠ ĐỒ BÀN] Summary trạng thái bàn và doanh thu hiện tại. Ctrl+F: getTableSummary */
 exports.getTableSummary = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);

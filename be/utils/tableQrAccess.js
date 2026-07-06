@@ -1,9 +1,16 @@
+/**
+ * UTIL TABLE QR ACCESS — token ngắn hạn cho quyền gọi món qua QR bàn.
+ * Ctrl+F: table QR access, order_access_token, signTableOrderAccessToken, verifyTableOrderAccessToken
+ * Luồng demo: Phần 4 — khách mở /t/{token}, chỉ gọi món nếu bàn đang active.
+ */
 const jwt = require("jsonwebtoken");
 const { getJwtSecret } = require("./jwt");
 
+/** [QR GỌI MÓN] typ riêng để không nhầm JWT đăng nhập user với token gọi món bàn. Ctrl+F: TABLE_QR_ORDER_TYP */
 const TABLE_QR_ORDER_TYP = "table_qr_order";
 const TABLE_QR_ORDER_EXPIRES_IN = "4h";
 
+/** [QR GỌI MÓN] Ký token chứa table_id + order_id, hết hạn sau 4h. Ctrl+F: signTableOrderAccessToken */
 function signTableOrderAccessToken({ table_id, order_id }) {
   return jwt.sign(
     {
@@ -16,6 +23,7 @@ function signTableOrderAccessToken({ table_id, order_id }) {
   );
 }
 
+/** [QR GỌI MÓN] Verify token gọi món, trả về table_id/order_id để service kiểm tiếp active session. Ctrl+F: verifyTableOrderAccessToken */
 function verifyTableOrderAccessToken(token) {
   const payload = jwt.verify(token, getJwtSecret());
   if (payload?.typ !== TABLE_QR_ORDER_TYP) {

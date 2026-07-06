@@ -1,5 +1,7 @@
 /**
- * Service dùng chung cho thống kê bàn (UC10: trống, đã đặt, đang phục vụ, chờ dọn).
+ * SERVICE TABLE SUMMARY — thống kê và tự đồng bộ trạng thái bàn theo lịch đặt.
+ * Ctrl+F: table summary service, expireReservationsForBranch, getTableSummary, no_show
+ * UC10: trống, đã đặt, đang phục vụ, chờ dọn.
  * Dashboard và trang Quản lý bàn đều gọi service này để đảm bảo số liệu khớp.
  */
 const { Table } = require("../../models");
@@ -9,15 +11,16 @@ const { Sequelize } = require("sequelize");
 
 const DEFAULT_BRANCH_ID = 1;
 
-/** Số phút sau giờ đặt mà khách chưa tới thì coi là no-show → giải phóng bàn và khóa tài khoản */
+/** [NO-SHOW] Số phút sau giờ đặt mà khách chưa tới thì coi là no-show → giải phóng bàn và khóa tài khoản. Ctrl+F: OVERDUE_MINUTES */
 const OVERDUE_MINUTES = 15;
-/** Số phút trước giờ đặt thì chuyển bàn sang 'pre-ordered' để nhân viên chuẩn bị */
+/** [PRE-ORDERED] Số phút trước giờ đặt thì chuyển bàn sang pre-ordered để nhân viên chuẩn bị. Ctrl+F: PRE_ORDER_MINUTES */
 const PRE_ORDER_MINUTES = 15;
 
 /**
  * Đồng bộ trạng thái bàn dựa theo orders (phiên đặt bàn):
  *  1. Đặt bàn chưa được tiếp nhận quá 15 phút → no_show, giải phóng bàn, khóa tài khoản khách
  *  2. Chuyển bàn sang 'pre-ordered' khi còn ≤ PRE_ORDER_MINUTES trước giờ đến
+ * Ctrl+F: expireReservationsForBranch, tự động no_show, khóa tài khoản
  */
 async function expireReservationsForBranch(branchId, cutoff) {
   const now = new Date();
@@ -112,6 +115,7 @@ async function expireReservationsForBranch(branchId, cutoff) {
   );
 }
 
+/** [SƠ ĐỒ BÀN] Tổng hợp số bàn available/serving/reserved/cleaning cho chi nhánh. Ctrl+F: getTableSummary */
 async function getTableSummary(branchId = DEFAULT_BRANCH_ID) {
   await expireReservationsForBranch(branchId);
 

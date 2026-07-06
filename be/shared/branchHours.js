@@ -1,8 +1,14 @@
+/**
+ * SHARED BRANCH HOURS — giờ mở/đóng cửa chi nhánh và validate thời gian đặt bàn.
+ * Ctrl+F: branch hours, giờ mở cửa, RESERVATION_HOLD_MINUTES, getBranchHoursValidationMessage
+ * Luồng demo: Phần 2 — đặt bàn phải nằm trong giờ mở cửa và còn đủ 2 giờ giữ bàn.
+ */
 const DEFAULT_OPEN_TIME = "08:00";
 const DEFAULT_CLOSE_TIME = "22:00";
 /** Buffer giữ bàn khi đặt trước (UC05) */
 const RESERVATION_HOLD_MINUTES = 120;
 
+/** [GIỜ MỞ CỬA] Parse chuỗi HH:mm hoặc HH:mm:ss từ DB chi nhánh. Ctrl+F: parseHm */
 function parseHm(timeText) {
   if (timeText == null || timeText === "") return null;
   const m = /^(\d{1,2}):(\d{2})(?::\d{2})?$/.exec(String(timeText).trim());
@@ -13,6 +19,7 @@ function parseHm(timeText) {
   return { h, min };
 }
 
+/** [GIỜ MỞ CỬA] Nếu chi nhánh chưa cấu hình thì dùng mặc định 08:00–22:00. Ctrl+F: resolveBranchHours */
 function resolveBranchHours(openTime, closeTime) {
   const open =
     openTime != null && String(openTime).trim() !== "" ? String(openTime).trim() : DEFAULT_OPEN_TIME;
@@ -23,12 +30,16 @@ function resolveBranchHours(openTime, closeTime) {
   return { open, close };
 }
 
+/** [GIỜ MỞ CỬA] Đổi giờ/phút sang tổng phút để so sánh nhanh. Ctrl+F: hmToMinutes */
 function hmToMinutes(hm) {
   if (!hm) return null;
   return hm.h * 60 + hm.min;
 }
 
 /**
+ * [ĐẶT BÀN] Trả về thông báo lỗi nếu giờ đặt ngoài giờ mở cửa hoặc quá sát giờ đóng cửa.
+ * Ctrl+F: getBranchHoursValidationMessage, giờ đặt quá gần giờ đóng cửa
+ *
  * @param {Date} date
  * @param {string} openTime
  * @param {string} closeTime
@@ -62,10 +73,12 @@ function getBranchHoursValidationMessage(date, openTime, closeTime, options = {}
   return null;
 }
 
+/** [ĐẶT BÀN] Boolean wrapper cho validate giờ mở cửa. Ctrl+F: isWithinBranchHours */
 function isWithinBranchHours(date, openTime, closeTime, options = {}) {
   return getBranchHoursValidationMessage(date, openTime, closeTime, options) == null;
 }
 
+/** [FE/BE DATE] Ghép ngày + giờ thành Date local để tránh lệch timezone khi chọn booking. Ctrl+F: buildLocalReservationDate */
 function buildLocalReservationDate(datePart, timePart) {
   if (!datePart || !timePart) return null;
   const d = datePart instanceof Date ? datePart : new Date(datePart);
@@ -74,6 +87,7 @@ function buildLocalReservationDate(datePart, timePart) {
   return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
 }
 
+/** [HIỂN THỊ] Label giờ mở cửa cho UI chi nhánh. Ctrl+F: formatBranchHoursLabel */
 function formatBranchHoursLabel(openTime, closeTime) {
   const { open, close } = resolveBranchHours(openTime, closeTime);
   return `${open} – ${close}`;

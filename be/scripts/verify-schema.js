@@ -1,3 +1,8 @@
+/**
+ * SCRIPT VERIFY SCHEMA — kiểm nhanh bảng/cột/count DB sau migration/seed.
+ * Ctrl+F: verify schema, orders cols, counts
+ * Chạy: node scripts/verify-schema.js
+ */
 require('dotenv').config();
 const db = require('../models/db');
 

@@ -1,8 +1,17 @@
+/**
+ * MIDDLEWARE XÁC THỰC / PHÂN QUYỀN — kiểm JWT, khóa tài khoản, role admin/waiter/kitchen/user.
+ * Ctrl+F: auth middleware, verifyToken, verifyAdmin, authorizeRole, phân quyền
+ * Luồng demo: tách tab user, waiter, kitchen, admin bằng JWT + role.
+ */
 const db = require('../models/db');
 const User = db.User;
 const { verifyAccessToken } = require('../utils/jwt');
 const { getAccountBlockMessage } = require('../utils/userAccount');
 
+/**
+ * [AUTH] Load user hiện tại từ DB để kiểm tra tài khoản còn active/chưa bị khóa.
+ * Ctrl+F: loadActiveUser, tài khoản bị khóa
+ */
 async function loadActiveUser(userId) {
   const user = await User.findByPk(userId, {
     attributes: ['user_id', 'username', 'role', 'branch_id', 'is_active', 'locked'],
@@ -14,6 +23,11 @@ async function loadActiveUser(userId) {
   return { user };
 }
 
+/**
+ * [AUTH] Middleware bắt buộc đăng nhập: đọc Bearer token, verify JWT, gắn req.user/req.userRole.
+ * Dùng cho API khách như đặt bàn, dashboard, bàn của tôi.
+ * Ctrl+F: verifyToken, authenticateToken
+ */
 const verifyToken = async (req, res, next) => {
   const header = req.headers.authorization;
   if (!header) {
@@ -46,6 +60,7 @@ const verifyToken = async (req, res, next) => {
   }
 };
 
+/** [PHÂN QUYỀN] Chặn route chỉ admin được vào. Ctrl+F: isAdmin */
 const isAdmin = (req, res, next) => {
   if (!req.userRole) {
     return res.status(401).json({ message: 'Vui lòng đăng nhập' });
@@ -56,6 +71,10 @@ const isAdmin = (req, res, next) => {
   next();
 };
 
+/**
+ * [ADMIN] Verify token và role=admin trong một bước, dùng cho màn quản trị toàn chuỗi.
+ * Ctrl+F: verifyAdmin, admin only
+ */
 const verifyAdmin = async (req, res, next) => {
   const header = req.headers.authorization;
   if (!header) {
@@ -88,6 +107,10 @@ const verifyAdmin = async (req, res, next) => {
   }
 };
 
+/**
+ * [PHÂN QUYỀN] Cho phép nhiều role vào cùng route, ví dụ admin/manager/waiter/kitchen.
+ * Ctrl+F: authorizeRole, allowedRoles
+ */
 const authorizeRole = (...allowedRoles) => {
   return (req, res, next) => {
     const role = req.userRole || (req.user && req.user.role);
@@ -101,6 +124,7 @@ const authorizeRole = (...allowedRoles) => {
   };
 };
 
+// Alias giữ tên cũ cho các route đang import authenticateToken.
 const authenticateToken = verifyToken;
 
 module.exports = {

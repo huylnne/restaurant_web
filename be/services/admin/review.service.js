@@ -1,6 +1,12 @@
+/**
+ * SERVICE ADMIN REVIEW — query danh sách và tổng quan đánh giá theo chi nhánh.
+ * Ctrl+F: admin review service, buildReviewFilters, listReviews, getReviewSummary
+ * Luồng demo: Phần 5 — Admin tìm review vừa gửi sau bữa ăn.
+ */
 const { Sequelize } = require("sequelize");
 const db = require("../../models/db");
 
+/** [ĐÁNH GIÁ] Build SQL filter theo branch, ngày, rating, search tên/SĐT/comment/order. Ctrl+F: buildReviewFilters */
 function buildReviewFilters(branchId, { startDate, endDate, rating, q }) {
   const whereParts = ["o.branch_id = :branchId"];
   const replacements = { branchId };
@@ -28,6 +34,7 @@ function buildReviewFilters(branchId, { startDate, endDate, rating, q }) {
 }
 
 const reviewService = {
+  /** [ĐÁNH GIÁ] Danh sách review có pagination cho màn /admin/reviews. Ctrl+F: listReviews */
   async listReviews(branchId, { startDate, endDate, rating, q, page = 1, limit = 10 }) {
     const { whereParts, replacements } = buildReviewFilters(branchId, {
       startDate,
@@ -94,6 +101,7 @@ const reviewService = {
     };
   },
 
+  /** [ĐÁNH GIÁ] Tổng số review, điểm trung bình, số 5 sao và low rating. Ctrl+F: getReviewSummary service */
   async getReviewSummary(branchId, { startDate, endDate }) {
     const whereParts = ["o.branch_id = :branchId"];
     const replacements = { branchId };

@@ -1,6 +1,12 @@
+/**
+ * MIDDLEWARE VALIDATE ĐẶT BÀN — kiểm số khách, ghi chú, chi nhánh trước khi vào controller.
+ * Ctrl+F: validate reservation, validateCreateReservationBody, MAX_GUESTS
+ * Luồng demo: Phần 2 — Bước 2.3 khách đặt bàn 4 người, có ghi chú.
+ */
 const { MAX_GUESTS } = require('../config/restaurantRules');
 const NOTE_MAX_LEN = 500;
 
+/** [BẢO MẬT INPUT] Chặn field lạ như status/payment_status để khách không tự set trạng thái. Ctrl+F: rejectUnexpectedKeys */
 function rejectUnexpectedKeys(body, allowedKeys) {
   const extra = Object.keys(body || {}).filter((k) => !allowedKeys.includes(k));
   if (extra.length > 0) {
@@ -9,6 +15,10 @@ function rejectUnexpectedKeys(body, allowedKeys) {
   return null;
 }
 
+/**
+ * [ĐẶT BÀN] Validate request tạo booking online: giờ đặt xử lý ở controller, ở đây xử lý số khách/chi nhánh/note.
+ * Ctrl+F: validateCreateReservationBody, ghi chú đặt bàn, số khách tối đa
+ */
 const validateCreateReservationBody = (req, res, next) => {
   const allowed = [
     'reservation_time',

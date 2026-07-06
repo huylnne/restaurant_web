@@ -1,5 +1,6 @@
 /**
- * Undo toàn bộ seeders rồi chạy lại theo thứ tự phụ thuộc đúng.
+ * SCRIPT RESEED ALL — undo toàn bộ seeders rồi chạy lại theo thứ tự phụ thuộc đúng.
+ * Ctrl+F: reseed all, SEEDERS, chạy lại dữ liệu demo
  * Chạy: node scripts/reseed-all.js
  */
 require('dotenv').config();

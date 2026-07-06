@@ -1,5 +1,9 @@
 'use strict';
 
+/**
+ * SEED BULK DATA — tạo dữ liệu lớn 6 tháng: khách, orders, order_items để dashboard/report có số liệu.
+ * Ctrl+F: seed bulk data, CUSTOMER_COUNT, MONTHS_BACK, báo cáo demo
+ */
 const bcrypt = require('bcrypt');
 const { fakerVI: faker } = require('@faker-js/faker');
 const { BRANCH_BESTSELLER_NAMES } = require('./data/restaurantMenuCatalog');

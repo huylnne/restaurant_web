@@ -1,5 +1,9 @@
 'use strict';
 
+/**
+ * SEED EXTRA EMPLOYEES BRANCH 2 — gán employee rows cho staff chi nhánh 2.
+ * Ctrl+F: seed extra employees branch2, manager2, waiter2, kitchen2
+ */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const users = await queryInterface.sequelize.query(

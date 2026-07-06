@@ -1,5 +1,9 @@
 'use strict';
 
+/**
+ * SEED DEMO MENU ITEMS — seeder tên cũ nhưng dùng catalog mới cho chi nhánh 1.
+ * Ctrl+F: seed demo menu items, catalog mới, branch 1 menu
+ */
 const { buildMenuRowsForBranch } = require('./data/restaurantMenuCatalog');
 
 /** Giữ tên seeder cũ — dùng catalog mới cho chi nhánh 1 */

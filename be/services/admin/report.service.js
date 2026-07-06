@@ -1,3 +1,8 @@
+/**
+ * SERVICE ADMIN REPORT — logic SQL báo cáo doanh thu/thống kê theo chi nhánh.
+ * Ctrl+F: report service, getOverviewStats, getRevenueByDay, getTopSellingItems
+ * Luồng demo: Phần 5 — báo cáo & thống kê sau khi thanh toán.
+ */
 const { Order } = require('../../models');
 const { Sequelize, Op } = require('sequelize');
 const db = require('../../models/db');
@@ -12,6 +17,7 @@ const { orderItemLineRevenueSumExpr } = require('../../utils/revenueSql');
 const lineRevenueSum = orderItemLineRevenueSumExpr();
 
 const reportService = {
+  /** [BÁO CÁO] Tổng quan doanh thu/đơn/khách/đặt bàn theo khoảng ngày. Ctrl+F: getOverviewStats report service */
   async getOverviewStats(branchId = 1, startDate, endDate) {
     const whereClause = {};
     if (hasDateRange(startDate, endDate)) {
@@ -86,6 +92,7 @@ const reportService = {
     };
   },
 
+  /** [BÁO CÁO] Doanh thu từng ngày theo days hoặc khoảng start/end. Ctrl+F: getRevenueByDay report service */
   async getRevenueByDay(branchId = 1, days = 7, startDate, endDate) {
     const params = [branchId];
     let dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
@@ -113,6 +120,7 @@ const reportService = {
     });
   },
 
+  /** [BÁO CÁO] Top món bán chạy theo quantity/revenue. Ctrl+F: getTopSellingItems report service */
   async getTopSellingItems(branchId = 1, limit = 10, startDate, endDate) {
     const params = [branchId];
     const dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
@@ -145,6 +153,7 @@ const reportService = {
     });
   },
 
+  /** [BÁO CÁO] Doanh thu gom theo category món. Ctrl+F: getRevenueByCategory report service */
   async getRevenueByCategory(branchId = 1, startDate, endDate) {
     const params = [branchId];
     const dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
@@ -170,6 +179,7 @@ const reportService = {
     });
   },
 
+  /** [BÁO CÁO] Số order theo giờ trong ngày để phân tích giờ cao điểm. Ctrl+F: getOrdersByHour report service */
   async getOrdersByHour(branchId = 1, startDate, endDate) {
     const params = [branchId];
     let dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
@@ -198,6 +208,7 @@ const reportService = {
     });
   },
 
+  /** [BÁO CÁO] Top khách hàng theo tổng chi tiêu và số đơn. Ctrl+F: getTopCustomers report service */
   async getTopCustomers(branchId = 1, limit = 10, startDate, endDate) {
     const params = [branchId];
     const dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
@@ -230,6 +241,7 @@ const reportService = {
     });
   },
 
+  /** [BÁO CÁO] Thống kê bàn qua tableSummaryService. Ctrl+F: getTableStats report service */
   async getTableStats(branchId = 1) {
     const summary = await tableSummaryService.getTableSummary(branchId);
     const occupiedTables = summary.servingTables;
@@ -247,6 +259,7 @@ const reportService = {
     };
   },
 
+  /** [BÁO CÁO] Doanh thu theo tháng cho biểu đồ dài hạn. Ctrl+F: getMonthlyRevenue report service */
   async getMonthlyRevenue(branchId = 1, months = 6, startDate, endDate) {
     const params = [branchId];
     let dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);

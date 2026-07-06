@@ -1,7 +1,8 @@
 'use strict';
 
 /**
- * Gán employees cho tài khoản demo cũ (admin/manager cơ sở).
+ * SEED EMPLOYEES LEGACY — gán employees cho tài khoản demo cũ (admin/manager cơ sở).
+ * Ctrl+F: seed employees legacy, employees demo cũ, admin manager cơ sở
  * Nhân viên theo chi nhánh mới: chạy 20260519100000-seed-seven-branches-staff.js
  */
 module.exports = {

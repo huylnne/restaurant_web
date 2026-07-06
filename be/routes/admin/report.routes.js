@@ -1,10 +1,15 @@
+/**
+ * ROUTES ADMIN REPORT — API báo cáo doanh thu, món bán chạy, khách hàng, xuất Excel/PDF.
+ * Ctrl+F: report routes, /reports, export, revenue-by-day, top-selling
+ * Luồng demo: Phần 5 — Bước 5.6 Admin xem báo cáo & thống kê.
+ */
 const express = require('express');
 const router = express.Router();
 const reportController = require('../../controllers/admin/report.controller');
 const { verifyToken, authorizeRole } = require('../../middlewares/auth');
 const { auditLog } = require('../../middlewares/operationLog');
 
-// Manager chỉ được xem đúng branch của mình (không được override branchId qua query)
+// [PHÂN QUYỀN CHI NHÁNH] Manager chỉ được xem đúng branch của mình (không override branchId qua query).
 const enforceReportBranchScope = (req, res, next) => {
   const role = req.userRole || req.user?.role;
   if (role !== 'manager') return next();
@@ -30,9 +35,10 @@ const enforceReportBranchScope = (req, res, next) => {
   return next();
 };
 
-// Báo cáo tài chính: admin + manager
+// [BÁO CÁO] Báo cáo tài chính: admin + manager, kèm scope chi nhánh.
 router.use(verifyToken, authorizeRole('admin', 'manager'), enforceReportBranchScope);
 
+// [BÁO CÁO] Xuất Excel/PDF theo filter ngày/chi nhánh.
 router.get(
   '/export',
   auditLog({
@@ -50,28 +56,28 @@ router.get(
   reportController.exportReport
 );
 
-// Thống kê tổng quan
+// [BÁO CÁO] Thống kê tổng quan doanh thu/đơn/khách.
 router.get('/overview', reportController.getOverviewStats);
 
-// Doanh thu theo ngày
+// [BÁO CÁO] Doanh thu theo ngày.
 router.get('/revenue-by-day', reportController.getRevenueByDay);
 
-// Món bán chạy nhất
+// [BÁO CÁO] Món bán chạy nhất.
 router.get('/top-selling', reportController.getTopSellingItems);
 
-// Doanh thu theo danh mục
+// [BÁO CÁO] Doanh thu theo danh mục món.
 router.get('/revenue-by-category', reportController.getRevenueByCategory);
 
-// Thống kê theo giờ
+// [BÁO CÁO] Thống kê số đơn theo giờ.
 router.get('/orders-by-hour', reportController.getOrdersByHour);
 
-// Khách hàng thân thiết
+// [BÁO CÁO] Khách hàng thân thiết/top customers.
 router.get('/top-customers', reportController.getTopCustomers);
 
-// Thống kê bàn
+// [BÁO CÁO] Hiệu suất/số liệu theo bàn.
 router.get('/table-stats', reportController.getTableStats);
 
-// Doanh thu theo tháng
+// [BÁO CÁO] Doanh thu theo tháng.
 router.get('/monthly-revenue', reportController.getMonthlyRevenue);
 
 module.exports = router;

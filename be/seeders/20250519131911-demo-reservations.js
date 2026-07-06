@@ -1,5 +1,10 @@
 'use strict';
 
+/**
+ * SEED DEMO RESERVATIONS — tạo một số order đặt bàn mẫu cho khách demo.
+ * Ctrl+F: seed demo reservations, order_type reservation, arrival_time
+ * Dùng để có dữ liệu lịch sử/đặt bàn trước khi demo.
+ */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date();

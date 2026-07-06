@@ -1,5 +1,10 @@
 'use strict';
 
+/**
+ * SEED RESEED MENU ITEMS — tạo lại menu_items cho tất cả chi nhánh active từ catalog.
+ * Ctrl+F: seed menu items, reseed-menu-items, buildMenuRowsForBranch
+ * Luồng demo: Phần 2/5 xem thực đơn public/admin.
+ */
 const { Op } = require('sequelize');
 const { buildMenuRowsForBranch } = require('./data/restaurantMenuCatalog');
 

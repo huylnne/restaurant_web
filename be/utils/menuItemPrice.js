@@ -1,5 +1,7 @@
 /**
- * Giá bán tại thời điểm gọi món (ưu tiên sale_price khi có khuyến mãi hợp lệ).
+ * UTIL MENU ITEM PRICE — xác định giá bán tại thời điểm gọi món.
+ * Ctrl+F: menu item price, resolveMenuItemUnitPrice, sale_price, giá món
+ * Ưu tiên sale_price hợp lệ để bill và báo cáo doanh thu thống nhất.
  */
 function resolveMenuItemUnitPrice(menuItem) {
   if (!menuItem) return 0;

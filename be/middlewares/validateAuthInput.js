@@ -1,9 +1,15 @@
+/**
+ * MIDDLEWARE VALIDATE ĐĂNG KÝ / ĐĂNG NHẬP — lọc input trước khi vào auth.controller.
+ * Ctrl+F: validate auth, validateRegisterBody, validateLoginBody, PHONE_REGEX
+ * Luồng demo: Phần 1 — form đăng ký username/password/SĐT/CAPTCHA.
+ */
 const PHONE_REGEX = /^0\d{9}$/;
 const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
 const PASSWORD_MIN_LEN = 8;
 const PASSWORD_MAX_LEN = 32;
 const FULL_NAME_MAX_LEN = 50;
 
+/** [BẢO MẬT INPUT] Từ chối field lạ để tránh client gửi thừa role/is_active/branch_id. Ctrl+F: rejectUnexpectedKeys */
 function rejectUnexpectedKeys(body, allowedKeys) {
   const extra = Object.keys(body || {}).filter((k) => !allowedKeys.includes(k));
   if (extra.length > 0) {
@@ -12,8 +18,14 @@ function rejectUnexpectedKeys(body, allowedKeys) {
   return null;
 }
 
+/** [CAPTCHA] Các field CAPTCHA bắt buộc đi cùng request đăng ký. Ctrl+F: REGISTER_CAPTCHA_KEYS */
 const REGISTER_CAPTCHA_KEYS = ['captcha_id', 'captcha_answer'];
 
+/**
+ * [ĐĂNG KÝ] Validate body: username chữ thường/số/gạch dưới, password 8-32, SĐT 10 số bắt đầu 0.
+ * Sau validate sẽ chuẩn hóa req.body.username/full_name/phone để controller dùng trực tiếp.
+ * Ctrl+F: validateRegisterBody, đăng ký validate
+ */
 const validateRegisterBody = (req, res, next) => {
   const allowed = ['username', 'password', 'full_name', 'phone', ...REGISTER_CAPTCHA_KEYS];
   const extraErr = rejectUnexpectedKeys(req.body, allowed);
@@ -57,6 +69,10 @@ const validateRegisterBody = (req, res, next) => {
   next();
 };
 
+/**
+ * [ĐĂNG NHẬP] Validate body login, chuẩn hóa username về lowercase để login không phân biệt hoa thường.
+ * Ctrl+F: validateLoginBody, login validate
+ */
 const validateLoginBody = (req, res, next) => {
   const allowed = ['username', 'password'];
   const extraErr = rejectUnexpectedKeys(req.body, allowed);

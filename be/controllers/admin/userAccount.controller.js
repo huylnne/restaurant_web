@@ -1,6 +1,12 @@
+/**
+ * CONTROLLER ADMIN USER ACCOUNT — HTTP layer quản lý tài khoản khách.
+ * Ctrl+F: user account controller, listUsers, updateAccountStatus, khóa tài khoản
+ * Luồng demo: Phần 5 — Bước 5.2 tìm demo_khach01 và xem trạng thái.
+ */
 const userAccountService = require('../../services/admin/userAccount.service');
 
 class UserAccountController {
+  /** [TÀI KHOẢN KHÁCH] Danh sách/search/filter khách theo trạng thái. Ctrl+F: listUsers */
   async listUsers(req, res) {
     try {
       const { page = 1, limit = 10, search = '', role = 'user', accountStatus = 'all' } = req.query;
@@ -18,6 +24,7 @@ class UserAccountController {
     }
   }
 
+  /** [TÀI KHOẢN KHÁCH] Summary active/locked/inactive cho màn admin. Ctrl+F: getSummary */
   async getSummary(req, res) {
     try {
       const stats = await userAccountService.getSummaryStats();
@@ -28,6 +35,7 @@ class UserAccountController {
     }
   }
 
+  /** [TÀI KHOẢN KHÁCH] Chi tiết một tài khoản khách. Ctrl+F: getUserById */
   async getUserById(req, res) {
     try {
       const detail = await userAccountService.getUserDetail(req.params.id);
@@ -40,6 +48,7 @@ class UserAccountController {
     }
   }
 
+  /** [TÀI KHOẢN KHÁCH] Khóa/mở/vô hiệu hóa tài khoản và ghi audit. Ctrl+F: updateAccountStatus */
   async updateAccountStatus(req, res) {
     try {
       const { is_active, locked } = req.body;

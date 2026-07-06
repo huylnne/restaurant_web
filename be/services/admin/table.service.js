@@ -1,3 +1,8 @@
+/**
+ * SERVICE ADMIN TABLE — logic sơ đồ bàn, QR token, CRUD bàn, activity và summary.
+ * Ctrl+F: table service, ensureQrToken, getTables, getTableActivities, getTableSummary
+ * Luồng demo: Phần 3 — phục vụ xem sơ đồ bàn, copy QR, thanh toán chuyển bàn cleaning.
+ */
 const {
   Table,
   Order,
@@ -33,6 +38,7 @@ const UPCOMING_RESERVATION_STATUSES = [
 ];
 
 const tableService = {
+  /** [QR BÀN] Đảm bảo mỗi bàn có qr_token public duy nhất cho link /t/{token}. Ctrl+F: ensureQrToken */
   async ensureQrToken(table) {
     if (table.qr_token) return table.qr_token;
     for (let i = 0; i < 5; i++) {
@@ -46,6 +52,7 @@ const tableService = {
     throw new Error("Không thể sinh QR token cho bàn");
   },
 
+  /** [SƠ ĐỒ BÀN] Lấy danh sách bàn kèm order active, khách, món, QR token, doanh thu tạm tính. Ctrl+F: getTables table service */
   async getTables(branchId = DEFAULT_BRANCH_ID) {
     await tableSummaryService.expireReservationsForBranch(branchId);
 
@@ -207,6 +214,7 @@ const tableService = {
     });
   },
 
+  /** [QUẢN LÝ BÀN] Tạo bàn mới, validate table_number/capacity/status/branch. Ctrl+F: createTable table service */
   async createTable(data) {
     const { table_number } = data;
     const branch_id = parseInt(data.branch_id, 10) || 1;
@@ -227,6 +235,7 @@ const tableService = {
     return table;
   },
 
+  /** [QUẢN LÝ BÀN] Cập nhật bàn và nếu status kết thúc phiên thì complete order chưa terminal. Ctrl+F: updateTable table service */
   async updateTable(tableNumber, data) {
     const branch_id = parseInt(data.branch_id, 10) || 1;
     const table = await Table.findOne({ where: { table_number: tableNumber, branch_id } });
@@ -264,6 +273,7 @@ const tableService = {
     return table;
   },
 
+  /** [QUẢN LÝ BÀN] Xóa bàn trong chi nhánh, fail nếu không tìm thấy. Ctrl+F: deleteTable table service */
   async deleteTable(tableNumber, branchId = DEFAULT_BRANCH_ID) {
     const table = await Table.findOne({ where: { table_number: tableNumber, branch_id: branchId } });
     if (!table) {
@@ -278,6 +288,7 @@ const tableService = {
     return { message: "Đã xóa bàn thành công" };
   },
 
+  /** [SƠ ĐỒ BÀN] Hoạt động/bill gần đây theo order hoàn thành hoặc đang phục vụ. Ctrl+F: getTableActivities */
   async getTableActivities(branchId = DEFAULT_BRANCH_ID) {
     const activities = await Order.findAll({
       where: { branch_id: branchId },
@@ -303,6 +314,7 @@ const tableService = {
     });
   },
 
+  /** [SƠ ĐỒ BÀN] Summary bàn + currentRevenue cho card thống kê. Ctrl+F: getTableSummary table service */
   async getTableSummary(branchId = DEFAULT_BRANCH_ID) {
     const summary = await tableSummaryService.getTableSummary(branchId);
     const db = require("../../models/db");

@@ -1,6 +1,12 @@
+/**
+ * CONTROLLER ADMIN REVIEW — HTTP layer danh sách/tổng quan đánh giá khách hàng.
+ * Ctrl+F: admin review controller, getReviews, getReviewSummary, đánh giá admin
+ * Luồng demo: Phần 5 — Bước 5.7 tìm review vừa gửi.
+ */
 const reviewService = require("../../services/admin/review.service");
 const { resolveBranchId } = require("../../utils/branchScope");
 
+/** [ĐÁNH GIÁ] Danh sách review theo branch/date/rating/search. Ctrl+F: getReviews */
 exports.getReviews = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -12,6 +18,7 @@ exports.getReviews = async (req, res) => {
   }
 };
 
+/** [ĐÁNH GIÁ] Tổng hợp số lượng review và điểm trung bình. Ctrl+F: getReviewSummary */
 exports.getReviewSummary = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);

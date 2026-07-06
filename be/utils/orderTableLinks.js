@@ -1,10 +1,20 @@
+/**
+ * UTIL ORDER TABLE LINKS — xử lý bàn chính + nhiều bàn ghép qua bảng order_tables.
+ * Ctrl+F: order table links, ghép bàn, OrderTable, findActiveOrderByTableId
+ * Dùng bởi: đặt bàn ghép, check-in, bill, QR, realtime payload.
+ */
 const { Order, OrderTable, Table } = require("../models");
 const { Op, Sequelize } = require("sequelize");
 const { activeOrderStatusWhere } = require("./orderStatus");
 
+/** [ĐẶT BÀN] Các loại order có thể chiếm lịch bàn và gây conflict. Ctrl+F: BOOKING_ORDER_TYPES */
 const BOOKING_ORDER_TYPES = ["reservation", "walk_in"];
 const ACTIVE_CONFLICT_STATUSES = { [Op.notIn]: ["cancelled", "completed", "no_show"] };
 
+/**
+ * [TRÙNG LỊCH BÀN] Where query tìm order trùng khung giờ: arrival_time < requestEnd và expected_end > requestStart.
+ * Ctrl+F: buildBookingConflictWhere, conflict, expected_end_time
+ */
 function buildBookingConflictWhere(branch_id, windowStart, windowEnd) {
   const requestStart = new Date(windowStart);
   const requestEnd = new Date(windowEnd);
@@ -27,6 +37,7 @@ function buildBookingConflictWhere(branch_id, windowStart, windowEnd) {
   };
 }
 
+/** [GHÉP BÀN] Link một order với nhiều bàn; bàn đầu là primary. Ctrl+F: linkTablesToOrder */
 async function linkTablesToOrder(orderId, tables, { transaction } = {}) {
   if (!tables?.length) return;
   const rows = tables.map((table, idx) => ({
@@ -37,6 +48,7 @@ async function linkTablesToOrder(orderId, tables, { transaction } = {}) {
   await OrderTable.bulkCreate(rows, { transaction, ignoreDuplicates: true });
 }
 
+/** [GHÉP BÀN] Lấy table_id của order, ưu tiên order_tables, fallback orders.table_id. Ctrl+F: getTableIdsForOrder */
 async function getTableIdsForOrder(orderId, { transaction } = {}) {
   const links = await OrderTable.findAll({
     where: { order_id: orderId },
@@ -53,6 +65,7 @@ async function getTableIdsForOrder(orderId, { transaction } = {}) {
   return order?.table_id ? [order.table_id] : [];
 }
 
+/** [GHÉP BÀN] Lấy object Table đầy đủ cho order ghép bàn. Ctrl+F: getTablesForOrder */
 async function getTablesForOrder(orderId, { transaction } = {}) {
   const tableIds = await getTableIdsForOrder(orderId, { transaction });
   if (!tableIds.length) return [];
@@ -64,6 +77,7 @@ async function getTablesForOrder(orderId, { transaction } = {}) {
   });
 }
 
+/** [ĐẶT BÀN] Lấy tất cả bàn bị conflict trong slot, gồm bàn chính và bàn link. Ctrl+F: getConflictTableIds */
 async function getConflictTableIds(branch_id, windowStart, windowEnd, { transaction } = {}) {
   const where = buildBookingConflictWhere(branch_id, windowStart, windowEnd);
   const orders = await Order.findAll({
@@ -88,6 +102,7 @@ async function getConflictTableIds(branch_id, windowStart, windowEnd, { transact
   return [...ids];
 }
 
+/** [ĐẶT BÀN] Kiểm tra một bàn có order overlap trực tiếp hoặc qua order_tables. Ctrl+F: hasOverlappingBooking */
 async function hasOverlappingBooking(
   table_id,
   branch_id,
@@ -108,6 +123,10 @@ async function hasOverlappingBooking(
   return Boolean(viaLink);
 }
 
+/**
+ * [PHIÊN BÀN] Tìm order active theo table_id, hỗ trợ cả order ghép bàn trong order_tables.
+ * Ctrl+F: findActiveOrderByTableId, active order by table
+ */
 async function findActiveOrderByTableId(tableId, { itemInclude, transaction } = {}) {
   const statusWhere = activeOrderStatusWhere();
   const include = itemInclude ? [itemInclude] : [];
@@ -144,12 +163,13 @@ async function findActiveOrderByTableId(tableId, { itemInclude, transaction } = 
   return orderWithItems || orders[0] || link?.Order || null;
 }
 
+/** [GHÉP BÀN] Kiểm tra order có nhiều hơn một bàn không. Ctrl+F: orderHasMultipleTables */
 async function orderHasMultipleTables(orderId, { transaction } = {}) {
   const count = await OrderTable.count({ where: { order_id: orderId }, transaction });
   return count > 1;
 }
 
-/** Số bàn hiển thị từ order (ưu tiên order_tables, fallback bàn chính). */
+/** [HIỂN THỊ BÀN] Số bàn hiển thị từ order (ưu tiên order_tables, fallback bàn chính). Ctrl+F: resolveOrderTableNumbersFromPlain */
 function resolveOrderTableNumbersFromPlain(order) {
   if (!order) {
     return {
@@ -185,6 +205,7 @@ function resolveOrderTableNumbersFromPlain(order) {
   };
 }
 
+/** [REALTIME] Payload bàn chuẩn cho WebSocket khi bếp/phục vụ cập nhật. Ctrl+F: buildRealtimeTablePayload */
 function buildRealtimeTablePayload(order) {
   const plain = order?.toJSON ? order.toJSON() : order;
   const info = resolveOrderTableNumbersFromPlain(plain);

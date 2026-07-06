@@ -1,3 +1,8 @@
+/**
+ * UTIL USER ACCOUNT — kiểm tra tài khoản có được phép đăng nhập/thao tác không.
+ * Ctrl+F: user account, getAccountBlockMessage, tài khoản bị khóa, is_active
+ * Dùng bởi: auth.controller login, middleware auth, đặt bàn.
+ */
 function getAccountBlockMessage(user) {
   if (!user) return 'Tài khoản không tồn tại';
   if (user.locked) {

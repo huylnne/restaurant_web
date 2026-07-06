@@ -1,7 +1,11 @@
-// be/controllers/payments.controller.js
+/**
+ * CONTROLLER PAYMENT — HTTP layer cho payment session, webhook MoMo/SePay, VietQR, tra cứu payment.
+ * Ctrl+F: payment controller, createSession, momoWebhook, sepayWebhook, createVietQr
+ * Luồng demo: Phần 4 — thanh toán; tiền mặt đi qua waiter.finalizePayment, online đi qua controller này.
+ */
 const service = require('../../services/payment.service');
 
-// POST /api/payments/session
+/** [THANH TOÁN] POST /api/payments/session — tạo phiên thanh toán cho order/reservation/tableToken. Ctrl+F: createSession payment */
 exports.createSession = async (req, res) => {
   try {
     const { orderId, reservationId, tableToken, method, returnUrl, cancelUrl } = req.body;
@@ -22,7 +26,7 @@ exports.createSession = async (req, res) => {
   }
 };
 
-// POST /api/payments/webhook/momo
+/** [MOMO] POST /api/payments/webhook/momo — verify chữ ký và đóng phiên nếu MoMo success. Ctrl+F: momoWebhook */
 exports.momoWebhook = async (req, res) => {
   try {
     const accessKey = process.env.MOMO_ACCESS_KEY;
@@ -37,7 +41,7 @@ exports.momoWebhook = async (req, res) => {
   }
 };
 
-// POST /api/payments/webhook/sepay
+/** [SEPAY] POST /api/payments/webhook/sepay — nhận chuyển khoản và khớp mã DH{orderId}. Ctrl+F: sepayWebhook */
 exports.sepayWebhook = async (req, res) => {
   try {
     const configuredKey = process.env.SEPAY_WEBHOOK_API_KEY;
@@ -60,7 +64,7 @@ exports.sepayWebhook = async (req, res) => {
   }
 };
 
-// GET /api/payments/return?orderId=...
+/** [THANH TOÁN ONLINE] Redirect khách về kết quả checkout sau gateway. Ctrl+F: paymentReturn */
 exports.paymentReturn = async (req, res) => {
   const { orderId } = req.query;
   const payment = await service.getPaymentByOrder(orderId);
@@ -68,24 +72,24 @@ exports.paymentReturn = async (req, res) => {
   return res.redirect(`/checkout/result?status=${payment.status}&orderId=${orderId}`);
 };
 
-// GET /api/orders/:id/payment  (tiện frontend hỏi trạng thái)
+/** [TRA CỨU] Lấy payment theo order_id để FE polling trạng thái. Ctrl+F: getPaymentByOrder */
 exports.getPaymentByOrder = async (req, res) => {
   const p = await service.getPaymentByOrder(req.params.id);
   if (!p) return res.status(404).json({ error: 'Not found' });
   res.json(p);
 };
 
-// GET /api/payments/by-order/:id
+// [TRA CỨU] Alias route cũ /by-order/:id.
 exports.getPaymentByOrderAlias = exports.getPaymentByOrder;
 
-// GET /api/payments/by-reservation/:id
+/** [TRA CỨU] Lấy payment theo reservation_id (alias order_id). Ctrl+F: getPaymentByReservation */
 exports.getPaymentByReservation = async (req, res) => {
   const p = await service.getPaymentByReservation(req.params.id);
   if (!p) return res.status(404).json({ error: 'Not found' });
   res.json(p);
 };
 
-// POST /api/payments/vietqr  (bank scan -> auto amount)
+/** [VIETQR] Sinh payload VietQR đúng số tiền để khách chuyển khoản. Ctrl+F: createVietQr */
 exports.createVietQr = async (req, res) => {
   try {
     const { orderId, tableToken } = req.body || {};

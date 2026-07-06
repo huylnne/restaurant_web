@@ -1,5 +1,7 @@
 /**
- * Tách tên đầy đủ chi nhánh thành tên nhà hàng và tên/địa điểm chi nhánh.
+ * SHARED BRANCH DISPLAY — tách tên nhà hàng và tên/địa điểm chi nhánh để UI hiển thị gọn.
+ * Ctrl+F: branch display, splitRestaurantAndBranch, chi nhánh
+ * Ví dụ: "ABC Restaurant - Hà Nội, Cầu Giấy" → restaurant_name + branch_display_name.
  */
 function splitRestaurantAndBranch(fullBranchName, defaultRestaurantName = "ABC Restaurant") {
   if (!fullBranchName || !String(fullBranchName).trim()) {

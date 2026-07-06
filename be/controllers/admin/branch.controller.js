@@ -1,8 +1,15 @@
+/**
+ * CONTROLLER ADMIN BRANCH — HTTP layer quản lý chi nhánh và chi nhánh manager phụ trách.
+ * Ctrl+F: branch controller, getBranches, updateMyBranch, deactivateBranch
+ * Luồng demo: Phần 5 — Bước 5.3 quản lý chi nhánh.
+ */
 const branchService = require("../../services/admin/branch.service");
 const { isSuperAdmin } = require("../../utils/branchScope");
 
+/** [RESPONSE] Chuyển Sequelize model sang plain object trước khi trả JSON. Ctrl+F: toJSON branch */
 const toJSON = (m) => (m && typeof m.toJSON === "function" ? m.toJSON() : m);
 
+/** [CHI NHÁNH] Super admin xem toàn bộ chi nhánh. Ctrl+F: getBranches */
 exports.getBranches = async (req, res) => {
   if (!isSuperAdmin(req)) return res.status(403).json({ message: "Chỉ super admin được xem toàn bộ chi nhánh" });
   try {
@@ -14,6 +21,7 @@ exports.getBranches = async (req, res) => {
   }
 };
 
+/** [CHI NHÁNH] Super admin xem chi tiết một chi nhánh. Ctrl+F: getBranchById */
 exports.getBranchById = async (req, res) => {
   if (!isSuperAdmin(req)) return res.status(403).json({ message: "Chỉ super admin được xem chi tiết chi nhánh này" });
   try {
@@ -26,6 +34,7 @@ exports.getBranchById = async (req, res) => {
   }
 };
 
+/** [CHI NHÁNH] Super admin tạo chi nhánh mới. Ctrl+F: createBranch */
 exports.createBranch = async (req, res) => {
   if (!isSuperAdmin(req)) return res.status(403).json({ message: "Chỉ super admin được tạo chi nhánh" });
   try {
@@ -39,6 +48,7 @@ exports.createBranch = async (req, res) => {
   }
 };
 
+/** [CHI NHÁNH] Super admin cập nhật chi nhánh bất kỳ. Ctrl+F: updateBranch */
 exports.updateBranch = async (req, res) => {
   if (!isSuperAdmin(req)) return res.status(403).json({ message: "Chỉ super admin được cập nhật chi nhánh này" });
   try {
@@ -52,6 +62,7 @@ exports.updateBranch = async (req, res) => {
   }
 };
 
+/** [CHI NHÁNH] Vô hiệu hóa chi nhánh để không cho đặt bàn. Ctrl+F: deactivateBranch */
 exports.deactivateBranch = async (req, res) => {
   if (!isSuperAdmin(req)) return res.status(403).json({ message: "Chỉ super admin được vô hiệu hóa chi nhánh" });
   try {
@@ -64,6 +75,7 @@ exports.deactivateBranch = async (req, res) => {
   }
 };
 
+/** [MANAGER] Manager xem chi nhánh mình phụ trách. Ctrl+F: getMyBranch */
 exports.getMyBranch = async (req, res) => {
   try {
     const branch = await branchService.getBranchByManager(req.userId);
@@ -74,6 +86,7 @@ exports.getMyBranch = async (req, res) => {
   }
 };
 
+/** [MANAGER] Manager cập nhật thông tin chi nhánh mình phụ trách. Ctrl+F: updateMyBranch */
 exports.updateMyBranch = async (req, res) => {
   try {
     const branch = await branchService.updateMyBranch(req.userId, req.body);

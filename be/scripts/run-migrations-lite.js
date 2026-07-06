@@ -1,3 +1,8 @@
+/**
+ * SCRIPT RUN MIGRATIONS LITE — CLI chạy applyMigrations ngoài lúc start server.
+ * Ctrl+F: run migrations lite, npm run migrate, Migrations OK
+ * Dùng khi cần cập nhật schema thủ công trước demo.
+ */
 require('dotenv').config();
 
 const db = require('../models/db');

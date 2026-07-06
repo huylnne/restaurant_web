@@ -1,7 +1,8 @@
 'use strict';
 
 /**
- * Seed thêm dữ liệu vận hành cho chi nhánh 2: orders COMPLETED + order_items
+ * SEED BRANCH 2 DEMO DATA — thêm dữ liệu vận hành cho chi nhánh 2: orders COMPLETED + order_items.
+ * Ctrl+F: seed branch2 demo data, completed orders branch 2
  */
 module.exports = {
   async up(queryInterface, Sequelize) {

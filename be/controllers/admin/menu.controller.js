@@ -1,6 +1,12 @@
+/**
+ * CONTROLLER ADMIN MENU — HTTP layer cho quản lý món ăn theo chi nhánh.
+ * Ctrl+F: admin menu controller, getAll, create menu, update menu
+ * Luồng demo: Phần 5 — Bước 5.4 quản lý món ăn.
+ */
 const menuService = require("../../services/admin/menu.service");
 const { resolveBranchId } = require('../../utils/branchScope');
 
+/** [QUẢN LÝ MÓN] Danh sách món theo branchId/branch_id. Ctrl+F: getAll menu */
 exports.getAll = async (req, res) => {
   try {
     console.log("📋 GET /api/admin/menu - getAll");
@@ -13,6 +19,7 @@ exports.getAll = async (req, res) => {
   }
 };
 
+/** [QUẢN LÝ MÓN] Chi tiết một món trong đúng chi nhánh. Ctrl+F: getById menu */
 exports.getById = async (req, res) => {
   try {
     console.log("📋 GET /api/admin/menu/:id - getById");
@@ -26,6 +33,7 @@ exports.getById = async (req, res) => {
   }
 };
 
+/** [QUẢN LÝ MÓN] Thêm món mới và ghi audit. Ctrl+F: create menu */
 exports.create = async (req, res) => {
   try {
     console.log("📝 POST /api/admin/menu - create");
@@ -44,6 +52,7 @@ exports.create = async (req, res) => {
   }
 };
 
+/** [QUẢN LÝ MÓN] Cập nhật tên/giá/sale/category/trạng thái món. Ctrl+F: update menu */
 exports.update = async (req, res) => {
   try {
     console.log("✏️ PUT /api/admin/menu/:id - update");
@@ -58,6 +67,7 @@ exports.update = async (req, res) => {
   }
 };
 
+/** [QUẢN LÝ MÓN] Xóa món trong đúng chi nhánh. Ctrl+F: remove menu */
 exports.remove = async (req, res) => {
   try {
     console.log("🗑️ DELETE /api/admin/menu/:id - remove");

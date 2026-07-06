@@ -1,3 +1,8 @@
+/**
+ * UTIL KITCHEN QUEUE — gom món theo bàn và xác định ưu tiên phục vụ cho màn bếp.
+ * Ctrl+F: kitchen queue, groupKitchenItemsByTable, resolveKitchenServeContext, bếp
+ * Luồng demo: Phần 3 — Bước 3.4 bếp thấy món realtime theo bàn.
+ */
 const { ORDER_STATUS } = require("./orderStatus");
 
 /** Trước giờ đến bao nhiêu phút thì coi là "sắp phục vụ" (nhắc bếp). */
@@ -5,6 +10,7 @@ const SOON_SERVE_MINUTES = 15;
 /** Cho phép làm món trễ giờ đặt một chút (khách trễ). */
 const OVERDUE_GRACE_MINUTES = 30;
 
+/** [BẾP] Status order nghĩa là khách đang ở bàn, món cần ưu tiên ngay. Ctrl+F: AT_TABLE_STATUSES */
 const AT_TABLE_STATUSES = new Set([
   ORDER_STATUS.PRE_ORDERED,
   ORDER_STATUS.IN_PROGRESS,
@@ -12,7 +18,8 @@ const AT_TABLE_STATUSES = new Set([
 ]);
 
 /**
- * Ngữ cảnh phục vụ cho bếp: đặt trước theo giờ bàn vs đang phục vụ tại bàn.
+ * [BẾP] Ngữ cảnh phục vụ: đặt trước theo giờ đến hay đang phục vụ tại bàn.
+ * Ctrl+F: resolveKitchenServeContext, serve_mode, is_soon
  */
 function resolveKitchenServeContext(order) {
   const now = Date.now();
@@ -59,11 +66,13 @@ function resolveKitchenServeContext(order) {
   };
 }
 
+/** [BẾP] Timestamp dùng để sắp xếp món theo thời điểm gọi. Ctrl+F: orderedAtMs */
 function orderedAtMs(row) {
   const raw = row?.ordered_at ?? row?.order_created_at ?? row?.Order?.created_at;
   return raw ? new Date(raw).getTime() : Date.now();
 }
 
+/** [BẾP] Key gom nhóm theo bàn; fallback order/item nếu chưa có bàn. Ctrl+F: tableGroupKey */
 function tableGroupKey(row) {
   if (row.table_id != null) return `t:${row.table_id}`;
   if (row.order_id) return `o:${row.order_id}`;
@@ -71,7 +80,8 @@ function tableGroupKey(row) {
 }
 
 /**
- * Gom món theo bàn; mỗi bàn một nhóm, vẫn giữ từng order_item để cập nhật trạng thái.
+ * [BẾP] Gom món theo bàn; mỗi bàn một nhóm, vẫn giữ từng order_item để cập nhật trạng thái.
+ * Ctrl+F: groupKitchenItemsByTable, gom món theo bàn
  */
 function groupKitchenItemsByTable(itemRows) {
   const map = new Map();
@@ -122,6 +132,7 @@ function groupKitchenItemsByTable(itemRows) {
   return sortKitchenTableGroups([...map.values()]);
 }
 
+/** [BẾP] Sort nhóm bàn: đang phục vụ trước, rồi theo giờ phục vụ/gọi món. Ctrl+F: sortKitchenTableGroups */
 function sortKitchenTableGroups(groups) {
   return groups.sort((a, b) => {
     const modeA = a.serve_mode === "active" ? 0 : 1;

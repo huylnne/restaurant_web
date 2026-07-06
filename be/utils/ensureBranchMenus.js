@@ -1,9 +1,11 @@
 /**
- * Sao chép thực đơn mẫu (branch 1) sang chi nhánh chưa có món.
+ * UTIL ENSURE BRANCH MENUS — sao chép thực đơn mẫu (branch 1) sang chi nhánh chưa có món.
+ * Ctrl+F: ensureBranchMenus, ensureMenuForEmptyBranches, sao chép thực đơn
  * Mỗi chi nhánh có bản menu riêng (branch_id) — không dùng chung 1 catalog toàn hệ thống.
  */
 const SOURCE_BRANCH_ID = 1;
 
+/** [SEED/MIGRATION] Clone menu branch 1 cho các chi nhánh active chưa có menu_items. Ctrl+F: ensureMenuForEmptyBranches */
 async function ensureMenuForEmptyBranches(sequelize) {
   const branches = await sequelize.query(
     `SELECT branch_id FROM branches WHERE is_active IS DISTINCT FROM false ORDER BY branch_id`,

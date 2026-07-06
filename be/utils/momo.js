@@ -1,9 +1,16 @@
+/**
+ * UTIL MOMO — ký request và verify IPN/webhook từ cổng thanh toán MoMo.
+ * Ctrl+F: momo util, hmacSha256, verifyIpnSignature, extraData
+ * Dùng bởi: payment.service.js khi tạo phiên MoMo và nhận webhook.
+ */
 const crypto = require("crypto");
 
+/** [MOMO] Tạo chữ ký HMAC SHA256 theo secretKey MoMo. Ctrl+F: hmacSha256 */
 function hmacSha256(rawSignature, secretKey) {
   return crypto.createHmac("sha256", secretKey).update(rawSignature).digest("hex");
 }
 
+/** [MOMO] Chuỗi raw signature đúng thứ tự field khi gọi API tạo payment. Ctrl+F: buildCreateRawSignature */
 function buildCreateRawSignature({
   accessKey,
   amount,
@@ -40,6 +47,7 @@ function buildCreateRawSignature({
   );
 }
 
+/** [MOMO] Chuỗi raw signature để verify IPN/webhook trả về. Ctrl+F: buildIpnRawSignature */
 function buildIpnRawSignature({
   accessKey,
   amount,
@@ -85,6 +93,7 @@ function buildIpnRawSignature({
   );
 }
 
+/** [MOMO] So sánh chữ ký MoMo gửi về với chữ ký hệ thống tự tính. Ctrl+F: verifyIpnSignature */
 function verifyIpnSignature(payload, { accessKey, secretKey }) {
   const raw = buildIpnRawSignature({
     accessKey,
@@ -105,11 +114,13 @@ function verifyIpnSignature(payload, { accessKey, secretKey }) {
   return String(expected).toLowerCase() === String(payload.signature || "").toLowerCase();
 }
 
+/** [MOMO] Nhét orderId/reservationId vào extraData base64 để webhook biết order nào. Ctrl+F: encodeExtraData */
 function encodeExtraData(obj) {
   const json = JSON.stringify(obj || {});
   return Buffer.from(json, "utf8").toString("base64");
 }
 
+/** [MOMO] Đọc extraData từ webhook, lỗi thì trả object rỗng để không crash server. Ctrl+F: decodeExtraData */
 function decodeExtraData(extraData) {
   try {
     if (!extraData) return {};

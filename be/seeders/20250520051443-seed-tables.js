@@ -1,5 +1,10 @@
 'use strict';
 
+/**
+ * SEED TABLES — tạo bàn vật lý cho chi nhánh demo.
+ * Ctrl+F: seed tables, table_number, capacity, available
+ * Luồng demo: /admin/tables hiển thị sơ đồ bàn.
+ */
 module.exports = {
   async up(queryInterface, Sequelize) {
     const now = new Date();

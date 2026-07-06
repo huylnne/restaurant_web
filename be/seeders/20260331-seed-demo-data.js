@@ -4,7 +4,8 @@
 
 /**
 
- * Seeder: Demo data cho admin dashboard & báo cáo thống kê
+ * SEED DEMO DASHBOARD DATA — demo data cho admin dashboard & báo cáo thống kê.
+ * Ctrl+F: seed demo dashboard data, báo cáo 6 tháng, orders order_items
 
  * Tạo orders (phiên đặt bàn) + order_items trải đều 6 tháng gần đây
 

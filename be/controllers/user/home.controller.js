@@ -1,9 +1,15 @@
+/**
+ * CONTROLLER HOME/PUBLIC — dữ liệu trang chủ, giới thiệu, danh sách chi nhánh và chi nhánh gần khách.
+ * Ctrl+F: home controller, getBranches, getBranchesNearby, featured dishes
+ * Luồng demo: Phần 2 — khách xem chi nhánh và mô hình đa chi nhánh.
+ */
 const db = require("../../models/db");
 const { Sequelize } = require("sequelize");
 const { distanceKm, parseCoord, normalizeCoords } = require("../../utils/geo");
 
 const Branch = db.Branch;
 
+/** [CHI NHÁNH] Attribute + subquery đếm tổng bàn/bàn trống để public branch card hiển thị. Ctrl+F: BRANCH_LIST_ATTRIBUTES */
 const BRANCH_LIST_ATTRIBUTES = [
   "branch_id",
   "name",
@@ -34,6 +40,7 @@ const BRANCH_LIST_ATTRIBUTES = [
   ],
 ];
 
+/** [CHI NHÁNH] Load chi nhánh kèm số bàn/bàn trống. Ctrl+F: fetchBranchesWithStats */
 async function fetchBranchesWithStats() {
   return Branch.findAll({
     attributes: BRANCH_LIST_ATTRIBUTES,
@@ -41,6 +48,7 @@ async function fetchBranchesWithStats() {
   });
 }
 
+/** [CHI NHÁNH] Chuyển Sequelize row và chuẩn hóa lat/lng sang number. Ctrl+F: branchToPlain */
 function branchToPlain(branch) {
   const row = branch.toJSON ? branch.toJSON() : branch;
   return {
@@ -50,7 +58,7 @@ function branchToPlain(branch) {
   };
 }
 
-// Ví dụ dữ liệu mock
+/** [TRANG CHỦ] Món nổi bật mock/intro cho homepage. Ctrl+F: getFeaturedDishes */
 exports.getFeaturedDishes = async (req, res) => {
   res.json([
     { id: 1, name: "Bò lúc lắc", image: "/images/bo-luc-lac.jpg", price: 120000 },
@@ -58,6 +66,7 @@ exports.getFeaturedDishes = async (req, res) => {
   ]);
 };
 
+/** [TRANG CHỦ] Danh mục món hiển thị ở homepage/menu. Ctrl+F: getMenuCategories */
 exports.getMenuCategories = async (req, res) => {
   res.json([
     { id: 1, name: "Khai vị" },
@@ -66,6 +75,7 @@ exports.getMenuCategories = async (req, res) => {
   ]);
 };
 
+/** [TRANG CHỦ] Nội dung giới thiệu nhà hàng. Ctrl+F: getIntroduction */
 exports.getIntroduction = async (req, res) => {
   res.json({
     title: "ABC Restaurant – Nơi hương vị tinh tế",
@@ -74,6 +84,7 @@ exports.getIntroduction = async (req, res) => {
   });
 };
 
+/** [CHI NHÁNH] Danh sách chi nhánh public. Ctrl+F: getBranches */
 exports.getBranches = async (req, res) => {
   try {
     const branches = await fetchBranchesWithStats();
@@ -84,7 +95,7 @@ exports.getBranches = async (req, res) => {
   }
 };
 
-/** Sắp xếp chi nhánh theo khoảng cách từ vị trí khách (lat, lng) */
+/** [CHI NHÁNH GẦN BẠN] Sắp xếp chi nhánh theo khoảng cách từ vị trí khách (lat, lng). Ctrl+F: getBranchesNearby */
 exports.getBranchesNearby = async (req, res) => {
   let lat = parseCoord(req.query.lat);
   let lng = parseCoord(req.query.lng);

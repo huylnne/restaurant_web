@@ -1,4 +1,9 @@
 'use strict';
+
+/**
+ * SEED EXTRA USERS — bổ sung user/staff demo ngoài bộ user chính.
+ * Ctrl+F: seed extra users, manager2, branch 2 staff
+ */
 const bcrypt = require('bcrypt');
 
 module.exports = {

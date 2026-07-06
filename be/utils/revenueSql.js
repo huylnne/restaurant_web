@@ -1,5 +1,6 @@
 /**
- * Biểu thức SQL doanh thu theo dòng order_item — đồng bộ bill.service.js / menuItemPrice.js.
+ * UTIL REVENUE SQL — biểu thức SQL doanh thu theo dòng order_item, đồng bộ bill.service.js/menuItemPrice.js.
+ * Ctrl+F: revenue sql, orderItemUnitPriceExpr, sale_price, báo cáo doanh thu
  * Dùng giá bán thực tế (sale_price, oi.price), không dùng mi.price gốc khi có giảm giá.
  */
 function orderItemUnitPriceExpr({ oiAlias = 'oi', miAlias = 'mi' } = {}) {
@@ -19,11 +20,13 @@ function orderItemUnitPriceExpr({ oiAlias = 'oi', miAlias = 'mi' } = {}) {
   END`;
 }
 
+/** [BÁO CÁO] Doanh thu một dòng món = quantity * unit price. Ctrl+F: orderItemLineRevenueExpr */
 function orderItemLineRevenueExpr(opts) {
   const oi = opts?.oiAlias ?? 'oi';
   return `${oi}.quantity * (${orderItemUnitPriceExpr(opts)})`;
 }
 
+/** [BÁO CÁO] SUM doanh thu món, dùng cho dashboard/report/table summary. Ctrl+F: orderItemLineRevenueSumExpr */
 function orderItemLineRevenueSumExpr(opts) {
   return `COALESCE(SUM(${orderItemLineRevenueExpr(opts)}), 0)`;
 }

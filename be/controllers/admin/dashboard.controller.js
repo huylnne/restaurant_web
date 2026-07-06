@@ -1,3 +1,8 @@
+/**
+ * CONTROLLER ADMIN DASHBOARD — HTTP layer cho số liệu tổng quan trang /admin.
+ * Ctrl+F: dashboard controller, getSummary, getWeeklyRevenue, getTopDishes
+ * Luồng demo: Phần 5 — Bước 5.1 Admin xem dashboard.
+ */
 const dashboardService = require('../../services/admin/dashboard.service');
 const { resolveBranchId } = require('../../utils/branchScope');
 const {
@@ -7,6 +12,7 @@ const {
 } = require('../../utils/roleResponse');
 
 const dashboardController = {
+  /** [DASHBOARD] Tổng quan đơn/khách/món/doanh thu, filter dữ liệu tài chính theo role. Ctrl+F: getSummary */
   async getSummary(req, res) {
     try {
       const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -19,6 +25,7 @@ const dashboardController = {
     }
   },
 
+  /** [DASHBOARD] Doanh thu 7 ngày gần nhất, waiter bị filter rỗng. Ctrl+F: getWeeklyRevenue */
   async getWeeklyRevenue(req, res) {
     try {
       const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -31,6 +38,7 @@ const dashboardController = {
     }
   },
 
+  /** [DASHBOARD] Món bán chạy/top dishes theo chi nhánh. Ctrl+F: getTopDishes */
   async getTopDishes(req, res) {
     try {
       const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -43,6 +51,7 @@ const dashboardController = {
     }
   },
 
+  /** [DASHBOARD] Số bàn theo trạng thái để vẽ card/table-status. Ctrl+F: getTableStatus */
   async getTableStatus(req, res) {
     try {
       const branchId = resolveBranchId(req, req.query.branchId, 1);
@@ -60,6 +69,7 @@ const dashboardController = {
     }
   },
 
+  /** [DASHBOARD] Khung giờ cao điểm theo số order. Ctrl+F: getPeakHours */
   async getPeakHours(req, res) {
     try {
       const branchId = resolveBranchId(req, req.query.branchId, 1);

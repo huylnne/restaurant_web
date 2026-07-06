@@ -4,7 +4,8 @@
 
 /**
 
- * Seeder: Thêm đơn hàng COMPLETED cho HÔM NAY (động theo current date)
+ * SEED TODAY ORDERS — thêm đơn hàng COMPLETED cho HÔM NAY (động theo current date).
+ * Ctrl+F: seed today orders, completed hôm nay, dashboard hôm nay
 
  */
 
