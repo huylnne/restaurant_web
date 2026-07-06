@@ -129,7 +129,6 @@ export function useAdminTablesPage() {
   const paymentInfo = ref(null);
   const paymentLoading = ref(false);
   const paymentMethod = ref("CASH");
-  const paymentTransactionRef = ref("");
   const paymentSubmitting = ref(false);
 
   const paymentMethodOptions = [
@@ -633,10 +632,7 @@ export function useAdminTablesPage() {
       const token = localStorage.getItem("token");
       const res = await axios.post(
         `${WAITER_API}/tables/${selectedTable.value.table_id}/checkout`,
-        {
-          method: paymentMethod.value,
-          transaction_ref: paymentTransactionRef.value,
-        },
+        { method: paymentMethod.value },
         { headers: { Authorization: `Bearer ${token}` } }
       );
       paymentInfo.value = res.data?.payment || null;
@@ -1004,7 +1000,6 @@ export function useAdminTablesPage() {
     tableBillLoading,
     paymentInfo,
     paymentMethod,
-    paymentTransactionRef,
     paymentSubmitting,
     paymentMethodOptions,
     hasOrderItemsSelected,

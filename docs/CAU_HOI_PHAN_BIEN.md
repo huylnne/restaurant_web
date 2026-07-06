@@ -1,8 +1,8 @@
 # Câu hỏi & Trả lời phản biện — Restaurant Web
 
-Tài liệu ôn phản biện đồ án **Hệ thống quản lý nhà hàng đa chi nhánh** (đặt bàn, gọi món, bếp, thanh toán, quản trị).
+Tài liệu ôn phản biện đồ án **Hệ thống quản lý nhà hàng đa chi nhánh** theo kiểu trả lời miệng, thiên về nghiệp vụ.
 
-> Nguồn: phân tích mã nguồn `restaurant_web/` — ưu tiên **nghiệp vụ**.
+> Mục tiêu: trả lời ngắn, dễ nói, dễ nhớ; ưu tiên nghiệp vụ vận hành nhà hàng.
 
 ---
 
@@ -30,21 +30,21 @@ Tài liệu ôn phản biện đồ án **Hệ thống quản lý nhà hàng đa
 
 ### H2. Vì sao chọn mô hình đa chi nhánh thay vì một nhà hàng đơn lẻ?
 
-**Đ:** Mỗi chi nhánh có thực đơn, bàn, nhân viên và giờ mở cửa riêng. Admin xem toàn hệ thống; manager / waiter / kitchen chỉ thao tác trong phạm vi `branch_id` được gán — phản ánh chuỗi nhà hàng thực tế.
+**Đ:** Vì mỗi cơ sở có thực đơn, nhân sự, lượng khách và giờ hoạt động khác nhau. Mô hình này giống vận hành thực tế của chuỗi nhà hàng: cấp trung tâm nhìn tổng thể, còn từng cơ sở tự xử lý phần việc của mình.
 
 ### H3. Có bao nhiêu vai trò? Phân quyền thế nào?
 
-**Đ:** 5 vai trò trong `users.role`:
+**Đ:** Có 5 nhóm chính:
 
-| Vai trò   | Nghiệp vụ chính                                              |
-|-----------|--------------------------------------------------------------|
-| `user`    | Đặt bàn, gọi món, thanh toán, đánh giá                       |
-| `waiter`  | Quản lý bàn, check-in, gọi món, xác nhận thanh toán          |
-| `kitchen` | Hàng đợi bếp, cập nhật trạng thái món                        |
-| `manager` | Chi nhánh của mình, menu, báo cáo, đánh giá                  |
-| `admin`   | Toàn hệ thống: chi nhánh, nhân sự, tài khoản khách, nhật ký  |
+| Vai trò | Nghiệp vụ chính |
+|---------|-----------------|
+| Khách hàng | Đặt bàn, gọi món, thanh toán, đánh giá |
+| Phục vụ | Quản lý bàn, tiếp nhận khách, hỗ trợ gọi món, chốt thanh toán |
+| Bếp | Nhận món, chế biến, báo món xong |
+| Quản lý chi nhánh | Quản lý thực đơn, nhân sự, báo cáo, chất lượng dịch vụ |
+| Quản trị hệ thống | Quản lý toàn chuỗi: cơ sở, tài khoản, vận hành tổng |
 
-Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `roles` trong `sidebarMenu.js`.
+Tóm lại: ai làm việc nào thì chỉ thấy đúng màn hình và dữ liệu của việc đó.
 
 ---
 
@@ -54,41 +54,39 @@ Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `role
 
 **Đ:**
 
-1. Khách đăng nhập → chọn chi nhánh, ngày/giờ, số khách.
-2. Hệ thống validate giờ mở cửa chi nhánh.
-3. Tự động **gán bàn** phù hợp (một bàn hoặc ghép nhiều bàn liền kề).
-4. Tạo `Order` với `order_type = "reservation"`, `status = pending`.
-5. (Tùy chọn) đặt món trước → tạo `OrderItem`.
-6. Nhân viên thấy trên màn **Tiếp nhận / Quản lý bàn**.
+1. Khách chọn chi nhánh, giờ đến, số người.
+2. Hệ thống kiểm tra giờ đó nhà hàng có nhận khách không.
+3. Tự xếp bàn phù hợp: một bàn hoặc ghép vài bàn gần nhau.
+4. Tạo lượt đặt bàn để nhân viên tiếp nhận khi khách tới.
+5. Nếu khách muốn thì đặt trước món ngay lúc đó.
 
 ### H5. “Buffer 2 giờ” khi đặt bàn nghĩa là gì?
 
-**Đ:** Mỗi đặt bàn giữ bàn trong **2 giờ** kể từ `arrival_time` (`RESERVATION_BUFFER_MS = 2h`). Trong khung này bàn không được gán cho đặt bàn khác. `expected_end_time = arrival_time + 2h`. Nếu giờ đặt quá gần giờ đóng cửa (không đủ 2h buffer), hệ thống từ chối — logic trong `shared/branchHours.js` (`RESERVATION_HOLD_MINUTES = 120`).
+**Đ:** Nghĩa là một lượt đặt sẽ giữ bàn khoảng **2 tiếng** để tránh trùng lịch. Nếu đặt quá sát giờ đóng cửa, không đủ thời gian phục vụ thì hệ thống sẽ báo chọn giờ khác.
 
 ### H6. Hệ thống chọn bàn như thế nào khi số khách lớn?
 
-**Đ:** Thuật toán trong `be/utils/tableAllocation.js`:
+**Đ:** Về nghiệp vụ, em ưu tiên như sau:
 
-- Ưu tiên **một bàn đủ chỗ** (capacity nhỏ nhất vừa đủ).
-- Nếu không có → **ghép các bàn liền kề** (số bàn chênh ≤ 1, sliding window).
-- Chọn phương án ít bàn nhất, ít chỗ thừa nhất, span ngắn nhất.
-- Nhiều bàn được lưu qua bảng `order_tables`; ghi chú order có dạng `(Nhóm X khách — ghép bàn liền kề: B1, B2)`.
+- Ưu tiên một bàn vừa đủ chỗ để vận hành gọn.
+- Nếu không đủ thì ghép vài bàn gần nhau cho cùng một nhóm.
+- Mục tiêu là dùng ít bàn nhất, vẫn đủ chỗ và dễ phục vụ.
 
 ### H7. Khách được đặt tối đa bao nhiêu lượt trong tương lai?
 
-**Đ:** Tối đa **2** đặt bàn tương lai đang `pending` hoặc `confirmed` (`FUTURE_ACTIVE_LIMIT = 2`) — tránh spam đặt bàn.
+**Đ:** Tối đa **2** lượt đặt trước chưa tới giờ, để tránh chiếm chỗ ảo.
 
 ### H8. Số khách tối đa mỗi lần đặt?
 
-**Đ:** `MAX_GUESTS = 20` (`be/config/restaurantRules.js`). Mỗi bàn mặc định capacity 6 chỗ (`TABLE_CAPACITY = 6`).
+**Đ:** Một lượt đặt tối đa 20 khách; mỗi bàn tiêu chuẩn 6 chỗ.
 
 ### H9. Khách hủy đặt bàn khi nào được?
 
-**Đ:** Chỉ khi `status` thuộc `pending` hoặc `confirmed` (`CANCELABLE_RESERVATION_STATUSES`). Nếu thuộc nhóm `booking_group_id` thì hủy cả nhóm.
+**Đ:** Hủy được khi lượt đặt vẫn còn ở giai đoạn chờ/đã xác nhận, tức là chưa vào bàn thực tế.
 
 ### H10. Xử lý race condition khi hai khách cùng đặt một slot?
 
-**Đ:** `createReservation` chạy trong **transaction** với `SELECT ... FOR UPDATE` trên bàn; sau khi chọn bàn kiểm tra lại overlap; nếu trùng thì thử bàn khác (`pickAvailableTableWithLock`).
+**Đ:** Em xử lý theo nguyên tắc “ai chốt trước thì được trước”. Hệ thống khóa lúc chọn bàn để tránh hai người cùng giành một bàn cùng thời điểm.
 
 ---
 
@@ -96,37 +94,37 @@ Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `role
 
 ### H11. Có mấy trạng thái bàn? Ý nghĩa từng trạng thái?
 
-**Đ:** 4 trạng thái (`shared/tableStatus.js`):
+**Đ:** 4 trạng thái:
 
-| Trạng thái     | Ý nghĩa                              |
-|----------------|--------------------------------------|
-| `available`    | Trống, có thể đặt / xếp khách        |
-| `pre-ordered`  | Đã có đặt bàn sắp đến (≤ 15 phút)    |
-| `occupied`     | Đang phục vụ                         |
-| `cleaning`     | Chờ dọn sau thanh toán               |
+| Trạng thái | Ý nghĩa |
+|-----------|---------|
+| Trống | Có thể xếp khách mới |
+| Sắp có khách đặt | Có lịch đến gần giờ, cần giữ bàn |
+| Đang phục vụ | Đang có khách dùng bữa |
+| Chờ dọn | Khách đã xong, bàn đang chờ vệ sinh |
 
-### H12. Bàn chuyển sang `pre-ordered` khi nào?
+### H12. Bàn chuyển sang “sắp có khách đặt” khi nào?
 
-**Đ:** Job `expireReservationsForBranch` (chạy mỗi ~60s và trước nhiều thao tác): khi còn **≤ 15 phút** (`PRE_ORDER_MINUTES`) đến `arrival_time` của đặt bàn `pending/confirmed/pre-ordered` chưa check-in.
+**Đ:** Khi còn khoảng **15 phút** nữa tới giờ khách hẹn mà khách chưa vào bàn, hệ thống đổi sang “sắp có khách đặt” để nhân viên chuẩn bị.
 
 ### H13. No-show xử lý thế nào?
 
-**Đ:** Quá **15 phút** (`OVERDUE_MINUTES`) sau `arrival_time` mà chưa `checked_in_at`:
+**Đ:** Quá **15 phút** sau giờ hẹn mà khách chưa tới:
 
-- Order → `no_show`
-- Tài khoản khách (`role = user`) → `locked = true`
-- Bàn được giải phóng
+- Lượt đặt bị xem là no-show.
+- Bàn được nhả ra để nhận khách khác.
+- Tài khoản khách có thể bị khóa để hạn chế tái diễn.
 
 ### H14. Check-in đặt bàn khác walk-in thế nào?
 
 **Đ:**
 
-- **Đặt bàn:** `confirmArrival` — nhân viên xác nhận khách đến; set `checked_in_at`, bàn → `occupied`, status có thể `pre-ordered`.
-- **Walk-in:** `walkInCheckIn` — nhân viên chọn bàn trống, nhập số khách; tạo order phiên tại chỗ, không cần đặt trước. Kiểm tra capacity, bàn không bị đặt trước trong tương lai.
+- **Đặt bàn trước:** khách đã book online, tới nơi thì nhân viên bấm tiếp nhận.
+- **Walk-in:** khách tới trực tiếp không đặt trước, nhân viên xếp bàn trống và mở phiên phục vụ ngay.
 
 ### H15. Một khách có thể theo dõi bàn đang ngồi ở đâu?
 
-**Đ:** Trang **Bàn của tôi** (`/my-table`) hoặc quét **QR bàn** (`/t/:token` với `qr_token` trên bảng `tables`). `billService.findActiveOrderByUser` tìm order active của user.
+**Đ:** Khách có thể vào trang “Bàn của tôi” hoặc quét QR tại bàn. QR chủ yếu để xem menu, xem bill, thanh toán; còn gọi món thì chỉ mở khi bàn đang phục vụ thực tế.
 
 ---
 
@@ -134,32 +132,27 @@ Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `role
 
 ### H16. Trạng thái đơn hàng (order) có những gì?
 
-**Đ:** 8 trạng thái (`shared/orderStatus.js`):
-
-`pending` → `confirmed` → `pre-ordered` → `in_progress` → `waiting_payment` → `completed` / `cancelled` / `no_show`
+**Đ:** Về nghiệp vụ thì đi theo các bước: tạo lượt đặt/chờ xác nhận → khách tới bàn → đang phục vụ → chờ thanh toán → hoàn tất (hoặc hủy / khách không tới).
 
 ### H17. Trạng thái từng món (order_item) và pipeline bếp?
 
-**Đ:** `pending` → `processing` → `done` → `served`:
-
-- **Bếp:** `pending` → `processing` → `done`
-- **Phục vụ:** `done` → `served` (đã giao khách)
+**Đ:** Món đi theo chuỗi đơn giản: nhận món → bếp làm → bếp báo xong → phục vụ đem ra khách.
 
 ### H18. Khi bếp bắt đầu làm món, trạng thái đơn có đổi không?
 
-**Đ:** Có. `syncOrderStatusFromItems`: nếu có món `processing` và order đang `pending/confirmed/pre-ordered` → chuyển `in_progress`.
+**Đ:** Có. Khi bếp bắt đầu làm món đầu tiên thì đơn chuyển sang “đang phục vụ”.
 
 ### H19. Realtime giữa bếp và phục vụ hoạt động ra sao?
 
-**Đ:** WebSocket `ws://.../ws/realtime` theo `branch_id` (`be/realtimeHub.js`). Khi bếp cập nhật món hoặc thanh toán xong, server `notifyBranch` — FE phục vụ/bếp refresh hàng đợi, toast món xong (UC08).
+**Đ:** Bếp và phục vụ nhìn cùng một dữ liệu theo thời gian thực. Bếp báo “xong món” là phục vụ thấy ngay để đem ra, tránh món bị nguội.
 
 ### H20. Ai được gọi món?
 
-**Đ:** Cả **khách** (My Table / QR) và **nhân viên phục vụ** (dialog tạo order trên màn quản lý bàn). Món gắn `order_id` của phiên bàn đang active.
+**Đ:** Cả khách và nhân viên phục vụ đều có thể gọi món. Nhưng gọi qua QR chỉ hoạt động khi bàn đang có khách thật, nên không thể lấy link cũ để gọi món ngoài ca phục vụ.
 
 ### H21. Giá món tính thế nào trên hóa đơn?
 
-**Đ:** `bill.service.js`: ưu tiên `sale_price` nếu có; lưu `price` tại thời điểm order (`order_items.price`) để giá không đổi khi menu cập nhật sau.
+**Đ:** Giá trên bill chốt theo thời điểm khách gọi món, nên nếu hôm sau đổi giá menu thì bill cũ vẫn không đổi.
 
 ---
 
@@ -169,27 +162,27 @@ Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `role
 
 **Đ:**
 
-1. Khách bấm **yêu cầu thanh toán** → order `waiting_payment`.
-2. Nhân viên xác nhận trên hệ thống (tiền mặt, chuyển khoản, thẻ, ví…) hoặc khách thanh toán online.
-3. `payment.status = succeeded` → order `completed`, `payment_status = succeeded`.
-4. Bàn → `cleaning`; phát realtime `payment_succeeded`.
-5. Xuất hóa đơn PDF (`invoice.service`).
+1. Khách bấm yêu cầu thanh toán.
+2. Nhân viên xác nhận thanh toán tại quầy hoặc khách tự thanh toán online.
+3. Khi thanh toán thành công, lượt phục vụ được đóng.
+4. Bàn chuyển sang chờ dọn để tránh xếp khách mới quá sớm.
+5. Có thể in/xuất hóa đơn cho khách.
 
 ### H23. Hỗ trợ những phương thức thanh toán nào?
 
-**Đ:** `CASH`, `BANK_TRANSFER`, `CARD`, `WALLET`, `MOMO`, `SEPAY` (VietQR), `COD` (map về tiền mặt). Offline: nhân viên xác nhận; online: MoMo redirect + IPN webhook, SePay/VietQR + webhook khớp số tiền và mã đơn.
+**Đ:** Có tiền mặt, chuyển khoản, thẻ, ví điện tử và quét mã ngân hàng. Thanh toán tại quầy thì nhân viên xác nhận; thanh toán online thì hệ thống tự đối soát để tránh ghi nhận sai hoặc trùng.
 
 ### H24. VietQR/SePay khớp đơn hàng thế nào?
 
-**Đ:** Mã chuyển khoản dạng `DH{orderId}` (`buildSePayOrderCode`). Webhook parse nội dung, so khớp `transferAmount` với tổng bill; idempotent qua `transaction_ref` — tránh ghi nhận trùng.
+**Đ:** Khi khách chuyển khoản, hệ thống kiểm tra đúng đơn và đúng số tiền rồi mới chốt thành công. Một giao dịch chỉ được ghi nhận một lần để tránh cộng trùng.
 
 ### H25. Thanh toán xong bàn có tự giải phóng không?
 
-**Đ:** Không về `available` ngay — chuyển `cleaning`. Nhân viên đánh dấu dọn xong mới `available` (tránh khách mới ngồi khi bàn chưa dọn).
+**Đ:** Không trống ngay. Bàn phải qua bước chờ dọn; dọn xong mới mở lại để đón khách mới.
 
 ### H26. Ghép nhiều bàn thì thanh toán một lần hay nhiều lần?
 
-**Đ:** Một phiên billing chính (`resolvePrimaryBillingOrder`); `onPaymentSucceededByOrder` cập nhật tất cả order trong `booking_group` và tất cả `table_id` liên quan.
+**Đ:** Nhóm ghép nhiều bàn vẫn thanh toán theo một lượt chính cho gọn. Khi thanh toán xong thì toàn bộ bàn trong nhóm đều được cập nhật đồng bộ.
 
 ---
 
@@ -197,11 +190,11 @@ Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `role
 
 ### H27. Khách đánh giá khi nào?
 
-**Đ:** Sau khi order `completed` hoặc `payment_status = succeeded`. Mỗi order **một review** duy nhất. Rating 1–5, comment 5–1000 ký tự.
+**Đ:** Chỉ sau khi khách dùng bữa xong và thanh toán xong mới được đánh giá. Mỗi lượt phục vụ chỉ đánh giá một lần.
 
 ### H28. Đánh giá qua QR bàn có được không?
 
-**Đ:** Có — trong cửa sổ **4 giờ** (`REVIEW_WINDOW_MS`) sau phiên tại bàn đó (`findRecentReviewableOrderForTable`).
+**Đ:** Có. Khách có thể đánh giá trong một khoảng thời gian ngắn sau bữa ăn để phản hồi còn chính xác.
 
 ### H29. Manager/Admin quản lý đánh giá làm gì?
 
@@ -213,19 +206,19 @@ Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `role
 
 ### H30. Báo cáo doanh thu tính trên cơ sở nào?
 
-**Đ:** Tổng `quantity × price` của `order_items` thuộc order `completed`, lọc theo `branch_id` và khoảng ngày. Có thống kê đơn hoàn tất, đang phục vụ, số đặt bàn, khách distinct, món bán chạy; xuất Excel/PDF.
+**Đ:** Doanh thu lấy từ các lượt đã hoàn tất, lọc theo cơ sở và theo thời gian. Ngoài ra có thống kê số lượt phục vụ, số lượt đặt bàn, món bán chạy và hỗ trợ xuất báo cáo.
 
 ### H31. Dashboard và màn quản lý bàn có số liệu khác nhau không?
 
-**Đ:** Không — cùng gọi `tableSummary.service.js` (UC10) để đồng bộ: tổng bàn, đang phục vụ, chờ dọn, đã đặt trước.
+**Đ:** Không. Hai màn hình dùng cùng một nguồn số liệu nên các chỉ số chính là thống nhất.
 
 ### H32. Nhật ký thao tác (operation log) ghi gì?
 
-**Đ:** User, role, branch, action, module, IP, request body (đã redact password/token). Admin tra cứu audit các thao tác nhạy cảm.
+**Đ:** Có ghi nhật ký thao tác quan trọng để truy vết khi có sự cố: ai làm, làm lúc nào, ở cơ sở nào và thao tác gì.
 
 ### H33. Menu mỗi chi nhánh có khác nhau không?
 
-**Đ:** Có — `menu_items.branch_id`. Manager quản lý menu chi nhánh mình; admin xem tất cả. Có `sale_price`, ảnh upload `be/uploads/`, trạng thái còn/bán.
+**Đ:** Có. Mỗi cơ sở quản lý thực đơn riêng để phù hợp nguồn hàng và nhu cầu địa phương; cấp trung tâm vẫn theo dõi được toàn hệ thống.
 
 ---
 
@@ -233,35 +226,35 @@ Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `role
 
 ### H34. Chống spam đăng ký tài khoản?
 
-**Đ:** CAPTCHA tự sinh (SVG, TTL 10 phút) + rate limit. Component `CaptchaField.vue` trên form register.
+**Đ:** Có lớp chống đăng ký ảo và giới hạn tần suất thao tác để giảm spam.
 
 ### H35. Tài khoản bị khóa khi nào?
 
-**Đ:** No-show (tự động), admin khóa thủ công (`locked = true`). User locked không tạo đặt bàn mới.
+**Đ:** Tài khoản có thể bị khóa nếu vi phạm quy định đặt bàn (ví dụ vắng mặt nhiều lần), hoặc do quản trị viên xử lý thủ công.
 
 ### H36. Nhân viên bếp có sửa món chi nhánh khác không?
 
-**Đ:** Không — `kitchen.service` kiểm tra `branch_id` của món phải khớp chi nhánh đang đăng nhập.
+**Đ:** Không. Nhân sự bếp chỉ thao tác trong phạm vi cơ sở mình phụ trách.
 
 ### H37. Validate SĐT và mật khẩu thế nào?
 
-**Đ:** SĐT VN 10 số, bắt đầu 0, unique. Password hash bcrypt (60 ký tự). JWT bắt buộc `JWT_SECRET` ≥ 16 ký tự.
+**Đ:** Có kiểm tra định dạng số điện thoại, không cho trùng tài khoản, và mật khẩu được bảo vệ theo chuẩn an toàn.
 
 ---
 
 ## IX. Thiết kế dữ liệu & kiến trúc
 
-### H38. Vì sao gộp “đặt bàn” và “phiên phục vụ” vào một bảng `orders`?
+### H38. Vì sao gộp “đặt bàn” và “phiên phục vụ” vào một luồng dữ liệu?
 
-**Đ:** Một thực thể **phiên tại nhà hàng** xuyên suốt lifecycle: phân biệt bằng `order_type` (`reservation` vs walk-in/dine-in). Tránh duplicate logic thanh toán, order_items, review. `reservation_id` alias cũ vẫn map `order_id`.
+**Đ:** Vì về bản chất đều là một lượt khách tại nhà hàng, chỉ khác lúc bắt đầu. Gộp chung một luồng giúp nghiệp vụ mượt hơn ở các bước gọi món, thanh toán và đánh giá, tránh tách rời rồi lệch dữ liệu.
 
-### H39. `shared/` dùng để làm gì?
+### H39. Vì sao cần chuẩn hóa quy tắc dùng chung?
 
-**Đ:** Single source of truth cho constants nghiệp vụ (`orderStatus`, `tableStatus`, `branchHours`) — FE và BE cùng import, tránh lệch trạng thái giữa client và server.
+**Đ:** Để mọi màn hình và mọi bộ phận hiểu cùng một quy tắc vận hành, tránh nơi này nói một kiểu, nơi kia xử lý kiểu khác.
 
 ### H40. Vì sao dùng PostgreSQL + Sequelize?
 
-**Đ:** Cần transaction (đặt bàn, thanh toán), query báo cáo phức tạp (aggregate doanh thu, no-show batch SQL), quan hệ nhiều bảng (`order_tables`, `order_items`). Sequelize ORM + raw SQL khi cần hiệu năng.
+**Đ:** Vì hệ thống có nhiều nghiệp vụ cần độ chính xác cao như giữ bàn, thanh toán và báo cáo tổng hợp. Cấu trúc dữ liệu quan hệ giúp kiểm soát đồng bộ tốt hơn khi vận hành thật.
 
 ### H41. Điểm khác biệt / đóng góp so với POS đơn giản?
 
@@ -269,8 +262,8 @@ Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `role
 
 - Đặt bàn online + **tự phân bàn** (ghép bàn liền kề).
 - **Đa chi nhánh** với phân quyền theo chi nhánh.
-- **Realtime bếp–phục vụ** qua WebSocket.
-- Khách tự phục vụ qua **QR bàn** (gọi món, bill, thanh toán VietQR).
+- Bếp và phục vụ cập nhật theo thời gian thực.
+- Khách tự phục vụ qua QR tại bàn (xem menu, xem bill, thanh toán), gọi món chỉ khi bàn đang phục vụ.
 - Tự động **no-show** + khóa tài khoản.
 - Tích hợp **MoMo / VietQR (SePay)**.
 
@@ -278,32 +271,31 @@ Backend dùng JWT + middleware `authorizeRole`; menu sidebar FE lọc theo `role
 
 **Đ:**
 
-- CAPTCHA lưu in-memory — restart server mất challenge (chưa Redis).
-- Ghép bàn theo `table_number` liền kề — chưa có sơ đồ tầng/khu thực tế.
-- No-show khóa vĩnh viễn — chưa có quy trình mở khóa tự động / cảnh báo trước.
-- Chưa có inventory/nguyên liệu, payroll, loyalty.
-- `DB_SYNC_ALTER` chỉ dev — production cần migration riêng.
+- Chống spam hiện vẫn ở mức cơ bản, chưa tối ưu cho quy mô lớn.
+- Ghép bàn hiện dựa trên số bàn liền nhau, chưa có sơ đồ khu vực trực quan.
+- Xử lý khách no-show còn cứng, chưa có quy trình mở khóa mềm.
+- Chưa có quản lý kho nguyên liệu, lương và chương trình khách hàng thân thiết.
 
 ---
 
 ## X. Sơ đồ luồng nghiệp vụ
 
 ```
-Khách đặt bàn / Walk-in
+Khách đặt bàn / khách vào trực tiếp
         ↓
-Nhân viên check-in → bàn OCCUPIED
+Nhân viên tiếp nhận → bàn đang phục vụ
         ↓
-Gọi món → order_items PENDING
+Gọi món
         ↓
-Bếp: PROCESSING → DONE  (WebSocket UC08)
+Bếp nhận món → làm món → báo xong
         ↓
-Phục vụ: SERVED
+Phục vụ đem món ra
         ↓
-Yêu cầu thanh toán → WAITING_PAYMENT
+Yêu cầu thanh toán
         ↓
-Xác nhận thanh toán → COMPLETED → bàn CLEANING
+Xác nhận thanh toán → kết thúc lượt phục vụ → bàn chờ dọn
         ↓
-Đánh giá (UC13, trong 4h)
+Đánh giá sau bữa ăn
 ```
 
 ### Công nghệ (tham khảo nhanh)
@@ -313,7 +305,7 @@ Xác nhận thanh toán → COMPLETED → bàn CLEANING
 | Frontend   | Vue 3, Vite, Element Plus, Vue Router, Axios |
 | Backend    | Node.js, Express 5, Sequelize |
 | Database   | PostgreSQL |
-| Realtime   | WebSocket (`/ws/realtime`) |
+| Cập nhật thời gian thực | Kênh realtime giữa bếp và phục vụ |
 
 ---
 
@@ -321,12 +313,13 @@ Xác nhận thanh toán → COMPLETED → bàn CLEANING
 
 | Câu hỏi | Trả lời gọn |
 |---------|-------------|
-| Khách đặt 19h, đến 19h14 có được không? | Được — no-show sau **15 phút** (19h15). |
+| Khách đặt 19h, đến 19h14 có được không? | Được, vì nhà hàng cho thời gian chờ 15 phút. |
 | Đặt 21h30, nhà hàng đóng 22h? | Bị từ chối — không đủ buffer 2h trước giờ đóng. |
 | Hai nhóm cùng 8 khách, mỗi bàn 4 chỗ liền kề? | Ghép 2 bàn liền kề nếu cùng cluster và không conflict slot 2h. |
-| Walk-in có cần tài khoản? | Không bắt buộc — nhân viên tạo phiên; khách có account thì link `user_id`. |
-| Hủy đặt bàn sau khi check-in? | Không còn `cancelable` — phải xử lý qua kết thúc phiên / hủy nội bộ. |
-| Doanh thu tính order `cancelled`? | Không — chỉ `completed`. |
+| Walk-in có cần tài khoản? | Không bắt buộc, vì nhân viên có thể mở lượt phục vụ trực tiếp tại quầy. |
+| Hủy đặt bàn sau khi khách đã vào bàn? | Không hủy theo kiểu đặt trước nữa; lúc này xử lý như một lượt phục vụ đang diễn ra. |
+| Quét QR 1 lần rồi về nhà spam gọi món? | Không gọi được, vì hệ thống chỉ nhận gọi món khi bàn đang phục vụ thật. Ngoài ra còn giới hạn tần suất thao tác để chặn spam. |
+| Doanh thu có tính lượt đã hủy không? | Không, chỉ tính các lượt phục vụ đã hoàn tất. |
 
 ---
 
@@ -334,13 +327,13 @@ Xác nhận thanh toán → COMPLETED → bàn CLEANING
 
 | Username | Vai trò | Ghi chú |
 |----------|---------|---------|
-| `admin` | Admin | Toàn hệ thống |
-| `manager1` | Quản lý | Chi nhánh 1 |
-| `waiter1` | Phục vụ | Chi nhánh 1 |
-| `kitchen1` | Bếp | Chi nhánh 1 |
-| `ngochuy` | Khách | Chi nhánh 1 |
+| Tài khoản quản trị | Quản trị | Toàn hệ thống |
+| Tài khoản quản lý | Quản lý | Cơ sở 1 |
+| Tài khoản phục vụ | Phục vụ | Cơ sở 1 |
+| Tài khoản bếp | Bếp | Cơ sở 1 |
+| Tài khoản khách | Khách | Cơ sở 1 |
 
-Mật khẩu demo: `123456`
+Mật khẩu demo: 123456
 
 ---
 

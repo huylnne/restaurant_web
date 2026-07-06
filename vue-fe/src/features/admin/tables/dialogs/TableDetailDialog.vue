@@ -185,12 +185,6 @@
                 />
               </el-select>
             </el-form-item>
-            <el-form-item label="Mã giao dịch (nếu có)">
-              <el-input
-                v-model="paymentTransactionRef"
-                placeholder="Ví dụ: ngân hàng / ví / POS"
-              />
-            </el-form-item>
           </el-form>
 
           <div class="payment-actions">
@@ -252,7 +246,6 @@ const {
   formatDateTime,
   paymentMethod,
   paymentMethodOptions,
-  paymentTransactionRef,
   paymentSubmitting,
   finalizePayment,
   downloadInvoice,

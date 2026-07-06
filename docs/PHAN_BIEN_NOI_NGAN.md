@@ -75,7 +75,7 @@
 
 **Thầy: QR trên bàn để làm gì?**
 
-> Dạ khách quét QR thì vào trang bàn đó — gọi món, xem bill, thanh toán VietQR mà không cần nhân viên cầm menu ạ.
+> Dạ khách quét QR thì vào trang bàn đó để xem menu, xem bill, thanh toán VietQR. Còn gọi món thì chỉ mở khi bàn đang phục vụ thật, nên link cũ đem về nhà cũng không gọi món linh tinh được ạ.
 
 ---
 
@@ -146,6 +146,7 @@
 | Đặt 19h, tới 19h14? | Dạ vẫn được, em cho 15 phút, quá 19h15 mới no-show ạ. |
 | Đặt 21h30, đóng 22h? | Dạ không cho vì không đủ 2 giờ giữ bàn trước giờ đóng ạ. |
 | Thanh toán xong bàn trống liền? | Dạ không, chuyển **chờ dọn**, phục vụ dọn xong mới trống ạ. |
+| Quét QR 1 lần rồi về nhà spam gọi món? | Dạ không gọi được ạ, vì hệ thống chỉ nhận gọi món khi bàn đang có khách phục vụ. Bàn chưa mở phiên hoặc đã kết thúc thì tự chặn. |
 | Doanh thu tính đơn hủy? | Dạ không, chỉ đơn **hoàn tất** ạ. |
 
 ---
