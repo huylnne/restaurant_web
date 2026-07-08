@@ -1,13 +1,17 @@
 import { normalizeTableStatus, getTableStatusLabel } from "@/constants/tableStatus";
 import { computeBillTotals, collectOrderItemsFromRow } from "@/utils/billTotals";
 
-/** Gộp các bản ghi cùng booking_group_id thành một dòng hiển thị */
+/**
+ * Gộp các đơn cùng booking_group_id (đặt bàn ghép nhiều bàn) thành MỘT dòng hiển thị,
+ * tính luôn bill gộp — để danh sách không hiện trùng nhiều dòng cho cùng 1 lượt đặt.
+ */
 export function groupReservationsForDisplay(rows) {
   if (!rows?.length) return [];
-  const seen = new Set();
+  const seen = new Set(); // các group đã xử lý, tránh gộp lặp
   const result = [];
 
   for (const row of rows) {
+    // Trường hợp row đã kèm sẵn mảng tables (backend gộp sẵn) → dùng trực tiếp.
     if (row.tables?.length) {
       const mergedOrderItems = row.OrderItems || [];
       const bill = computeBillTotals(mergedOrderItems);
@@ -22,14 +26,18 @@ export function groupReservationsForDisplay(rows) {
     }
 
     const gid = row.booking_group_id;
+    // Không thuộc group nào → là đơn lẻ, tính bill riêng.
     if (!gid) {
       const bill = computeBillTotals(row.OrderItems || []);
       result.push({ ...row, ...bill });
       continue;
     }
+    // Mỗi group chỉ xử lý 1 lần (các row còn lại cùng group sẽ bị skip).
     if (seen.has(gid)) continue;
     seen.add(gid);
 
+    // Gom tất cả đơn cùng group: lấy đủ danh sách bàn, chọn order_id nhỏ nhất làm "đại diện" (primary),
+    // gộp toàn bộ món để tính 1 bill chung.
     const group = rows.filter((r) => r.booking_group_id === gid);
     const tables = group.map((r) => r.Table).filter(Boolean);
     const primary = group.reduce((a, b) => (a.order_id < b.order_id ? a : b));
@@ -84,13 +92,16 @@ export function getReservationBillRoute(row) {
 export function canOrderMoreDishes(data) {
   if (!data) return false;
 
+  // Chặn khi đơn đã kết thúc/đang chờ thanh toán → không cho gọi thêm.
   const resStatus = String(data.status ?? data.order?.status ?? "").toLowerCase();
   if (["cancelled", "completed", "no_show", "waiting_payment"].includes(resStatus)) {
     return false;
   }
+  // Đã thanh toán xong cũng không cho gọi thêm.
   if (data.Payment?.status === "succeeded") return false;
   if (data.order?.payment_status === "paid") return false;
 
+  // Xét trạng thái bàn (ưu tiên các nguồn khác nhau tùy shape dữ liệu).
   const tableStatus = normalizeTableStatus(
     data.Table?.status ??
       data.table?.status ??
@@ -98,10 +109,12 @@ export function canOrderMoreDishes(data) {
       data.groupTables?.[0]?.status
   );
 
+  // Bàn trống/đang dọn → không có phiên; bàn đang phục vụ/đã đặt → cho gọi.
   if (tableStatus === "available" || tableStatus === "cleaning") return false;
   if (tableStatus === "occupied" || tableStatus === "pre-ordered") return true;
   if (resStatus === "in_progress") return true;
 
+  // Trường hợp mập mờ: đơn "confirmed" đã có món/tiền cũng cho gọi thêm.
   const hasItems = Boolean(
     (data.items ?? data.OrderItems ?? []).length || Number(data.total_amount) > 0
   );

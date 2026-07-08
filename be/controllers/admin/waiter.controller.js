@@ -60,9 +60,11 @@ const waiterController = {
 
       };
 
+      // Bắn realtime cho màn hình bếp/phục vụ. Bọc try/catch riêng: lỗi socket không được ảnh hưởng đơn đã tạo.
       try {
 
         const orderId = result?.order?.order_id ?? result?.order_id;
+        // Lấy danh sách bàn của order (có thể ghép nhiều bàn); nếu chưa có, fallback về bàn được truyền vào.
         const tables = orderId ? await getTablesForOrder(orderId) : [];
         const primaryTable = tables[0] || (await Table.findByPk(table_id, { attributes: ['branch_id', 'table_number', 'table_id'] }));
         const branchId = primaryTable?.branch_id;
@@ -134,6 +136,7 @@ const waiterController = {
 
       const id = req.params.id;
 
+      // Đọc dữ liệu món TRƯỚC khi cập nhật để lấy branch_id + tên món + thông tin bàn phục vụ cho payload realtime.
       const before = await OrderItem.findByPk(id, {
 
         include: [
@@ -380,6 +383,7 @@ const waiterController = {
 
 
 
+      // Chỉ cho xuất PDF khi đã có payment và thanh toán THÀNH CÔNG (succeeded).
       const payment = await paymentService.getPaymentByOrder(orderId);
 
       if (!payment || payment.status !== 'succeeded') {

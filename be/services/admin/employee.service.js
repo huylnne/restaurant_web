@@ -9,13 +9,15 @@ const { Op } = require('sequelize');
 class EmployeeService {
   /** [NHÂN VIÊN] Lấy danh sách nhân viên theo chi nhánh, phân trang/search. Ctrl+F: getEmployeesByBranch */
   async getEmployeesByBranch(branchId, page = 1, limit = 10, search = '') {
+    // offset = bỏ qua (page-1)*limit bản ghi đầu → phân trang.
     const offset = (page - 1) * limit;
-    
+
+    // Luôn giới hạn theo chi nhánh của người quản lý đang đăng nhập.
     const whereClause = {
       branch_id: branchId
     };
 
-    // Nếu có search, tìm theo tên hoặc email
+    // Nếu có từ khoá: khớp LIKE %search% trên tên HOẶC email (áp lên bảng User qua include).
     const includeWhere = search ? {
       [Op.or]: [
         { name: { [Op.like]: `%${search}%` } },
@@ -23,6 +25,7 @@ class EmployeeService {
       ]
     } : {};
 
+    // findAndCountAll trả cả rows (trang hiện tại) lẫn count (tổng bản ghi) để tính totalPages.
     const { count, rows } = await Employee.findAndCountAll({
       where: whereClause,
       include: [{
@@ -63,7 +66,7 @@ class EmployeeService {
   async createEmployee(data) {
     const { user_id, branch_id, position, salary, hire_date, status } = data;
 
-    // Kiểm tra user đã là nhân viên chưa
+    // Chống trùng: một user chỉ được gắn với 1 bản ghi employee (tránh 1 người 2 hồ sơ nhân viên).
     const existingEmployee = await Employee.findOne({ where: { user_id } });
     if (existingEmployee) {
       throw new Error('User này đã là nhân viên');

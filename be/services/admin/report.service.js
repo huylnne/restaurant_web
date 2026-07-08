@@ -43,6 +43,8 @@ const reportService = {
       type: Sequelize.QueryTypes.SELECT,
     });
 
+    // Đếm đồng thời 2 loại đơn trong 1 query nhờ COUNT(*) FILTER (WHERE ...):
+    // - hoàn thành và - đang xử lý, tránh phải chạy 2 truy vấn riêng.
     const orderCountParams = [branchId];
     const orderCountQuery = `
       SELECT
@@ -122,6 +124,8 @@ const reportService = {
 
   /** [BÁO CÁO] Top món bán chạy theo quantity/revenue. Ctrl+F: getTopSellingItems report service */
   async getTopSellingItems(branchId = 1, limit = 10, startDate, endDate) {
+    // params khởi đầu với branchId ($1). inclusiveDateClause có thể đẩy thêm start/end ($2,$3).
+    // Sau đó push limit vào cuối → dùng $${params.length} cho LIMIT (số placeholder khớp động).
     const params = [branchId];
     const dateFilter = inclusiveDateClause('o.created_at', params, startDate, endDate);
     params.push(limit);
@@ -230,6 +234,7 @@ const reportService = {
         AND mi.branch_id = $1
         ${dateFilter}
       GROUP BY u.user_id, u.full_name, u.phone
+      -- HAVING lọc sau khi gom nhóm: chỉ giữ khách có tổng chi tiêu > 0.
       HAVING ${lineRevenueSum} > 0
       ORDER BY total_spent DESC
       LIMIT $${params.length}

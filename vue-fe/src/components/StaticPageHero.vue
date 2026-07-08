@@ -12,15 +12,17 @@
 </template>
 
 <script setup>
+// StaticPageHero — banner đầu trang tĩnh (Giới thiệu, Liên hệ...): tiêu đề + phụ đề + ảnh nền + slot nút.
 import { computed } from "vue";
 
 const props = defineProps({
-  title: { type: String, required: true },
-  subtitle: { type: String, default: "" },
-  eyebrow: { type: String, default: "" },
-  image: { type: String, default: "/images/homeimg1.png" },
+  title: { type: String, required: true },      // tiêu đề lớn
+  subtitle: { type: String, default: "" },      // mô tả phụ
+  eyebrow: { type: String, default: "" },       // chữ nhỏ phía trên tiêu đề
+  image: { type: String, default: "/images/homeimg1.png" }, // ảnh nền
 });
 
+// Ghép lớp gradient (từ biến CSS) chồng lên ảnh nền để chữ trắng luôn đọc rõ.
 const heroStyle = computed(() => ({
   backgroundImage: `var(--hl-gradient-hero), url(${props.image})`,
 }));

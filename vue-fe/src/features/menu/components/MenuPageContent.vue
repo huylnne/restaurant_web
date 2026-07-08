@@ -178,6 +178,8 @@
 </template>
 
 <script setup>
+// MenuPageContent — giao diện trang thực đơn (dùng cho cả public lẫn admin).
+// Toàn bộ logic (lọc, phân trang, CRUD, gọi món) nằm trong composable useMenuPage; file này chỉ dựng UI.
 import { Plus, Edit, Delete } from "@element-plus/icons-vue";
 import PaginationBar from "@/components/PaginationBar.vue";
 import MenuHighlightSections from "@/components/MenuHighlightSections.vue";
@@ -188,10 +190,11 @@ const props = defineProps({
   mode: {
     type: String,
     required: true,
-    validator: (v) => ["public", "admin"].includes(v),
+    validator: (v) => ["public", "admin"].includes(v), // chỉ nhận 2 chế độ
   },
 });
 
+// Lấy state + hàm từ composable, truyền mode để nó biết đang ở chế độ nào.
 const {
   categoryOptions,
   isAdminView,

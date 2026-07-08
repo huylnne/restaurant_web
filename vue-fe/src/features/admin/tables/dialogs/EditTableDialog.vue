@@ -54,16 +54,17 @@
 </template>
 
 <script setup>
+// EditTableDialog — sửa bàn: số bàn, trạng thái, xem QR. Waiter không được đổi số bàn (chỉ trạng thái).
 import { useTablesContext } from "../composables/tablesContext";
 
 const {
-  showEditDialogVisible,
-  editTableForm,
-  TABLE_CAPACITY,
-  userRole,
-  selectedTable,
-  openQrDialog,
-  openPaymentQrDialog,
-  updateTable,
+  showEditDialogVisible, // đóng/mở dialog
+  editTableForm,         // dữ liệu form sửa
+  TABLE_CAPACITY,        // số ghế cố định (hiển thị, không cho sửa)
+  userRole,              // để khóa ô số bàn với waiter
+  selectedTable,         // bàn đang sửa (lấy qr_token...)
+  openQrDialog,          // mở QR link bàn
+  openPaymentQrDialog,   // mở QR thanh toán
+  updateTable,           // gọi API cập nhật
 } = useTablesContext();
 </script>

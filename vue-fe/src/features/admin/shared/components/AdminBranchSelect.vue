@@ -17,10 +17,12 @@
 </template>
 
 <script setup>
+// AdminBranchSelect — dropdown chọn chi nhánh dùng lại ở nhiều trang admin.
+// Component "câm": danh sách chi nhánh do cha truyền vào, hỗ trợ v-model + sự kiện change.
 defineProps({
-  modelValue: { type: [Number, String], required: true },
-  branches: { type: Array, default: () => [] },
-  disabled: { type: Boolean, default: false },
+  modelValue: { type: [Number, String], required: true }, // branch_id đang chọn (v-model)
+  branches: { type: Array, default: () => [] },            // danh sách chi nhánh để hiển thị
+  disabled: { type: Boolean, default: false },             // khóa chọn (vd admin thường bị khóa chi nhánh)
 });
 
 defineEmits(["update:modelValue", "change"]);

@@ -1,3 +1,7 @@
+/**
+ * TABLE STATUS (FE) — tái xuất trạng thái bàn từ shared + các hàm map sang nhãn/CSS class/tag type
+ * để hiển thị đồng nhất trên sơ đồ bàn.
+ */
 import shared from "@shared/tableStatus.js";
 
 export const TABLE_STATUS = shared.TABLE_STATUS;

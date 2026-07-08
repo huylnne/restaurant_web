@@ -14,9 +14,13 @@ function hasDateRange(startDate, endDate) {
  * @param {string} columnSql - ví dụ `o.created_at`
  */
 function inclusiveDateClause(columnSql, params, startDate, endDate) {
+  // Không đủ cả 2 mốc ngày → không thêm điều kiện (trả chuỗi rỗng).
   if (!hasDateRange(startDate, endDate)) return '';
+  // i = số thứ tự tham số kế tiếp trong mảng params (dùng cho placeholder $i của Postgres).
   const i = params.length + 1;
+  // Đẩy 2 giá trị ngày vào params theo đúng thứ tự placeholder.
   params.push(startDate, endDate);
+  // >= startDate (00:00) VÀ < endDate + 1 ngày → bao trọn CẢ ngày endDate (inclusive) mà vẫn dùng so sánh nửa mở.
   return ` AND ${columnSql} >= $${i}::date AND ${columnSql} < ($${i + 1}::date + INTERVAL '1 day')`;
 }
 

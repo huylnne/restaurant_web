@@ -8,21 +8,26 @@ const db = require("../../models/db");
 
 /** [ĐÁNH GIÁ] Build SQL filter theo branch, ngày, rating, search tên/SĐT/comment/order. Ctrl+F: buildReviewFilters */
 function buildReviewFilters(branchId, { startDate, endDate, rating, q }) {
+  // whereParts: các mảnh điều kiện sẽ nối bằng AND; replacements: giá trị bind an toàn (chống SQL injection).
+  // Điều kiện gốc: luôn giới hạn theo chi nhánh.
   const whereParts = ["o.branch_id = :branchId"];
   const replacements = { branchId };
 
+  // Lọc theo khoảng ngày (chỉ áp khi có đủ cả 2 mốc).
   if (startDate && endDate) {
     whereParts.push("rv.created_at BETWEEN :startDate AND :endDate");
     replacements.startDate = startDate;
     replacements.endDate = endDate;
   }
 
+  // Lọc theo số sao, chỉ nhận số nguyên hợp lệ 1..5.
   const parsedRating = Number(rating);
   if (Number.isInteger(parsedRating) && parsedRating >= 1 && parsedRating <= 5) {
     whereParts.push("rv.rating = :rating");
     replacements.rating = parsedRating;
   }
 
+  // Tìm kiếm tự do: khớp tên khách (mặc định 'Khách QR' nếu null), SĐT, nội dung comment, hoặc mã đơn.
   if (q && String(q).trim()) {
     whereParts.push(
       "(COALESCE(u.full_name, 'Khách QR') ILIKE :q OR u.phone ILIKE :q OR rv.comment ILIKE :q OR CAST(rv.order_id AS TEXT) ILIKE :q)"

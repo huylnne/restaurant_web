@@ -15,8 +15,11 @@ function isAdmin(role) {
  * Ctrl+F: filterSummaryForRole
  */
 function filterSummaryForRole(role, data) {
+  // Không có dữ liệu thì trả nguyên trạng.
   if (!data) return data;
+  // Admin: xem đầy đủ (bao gồm doanh thu) → trả nguyên object.
   if (isAdmin(role)) return data;
+  // Còn lại (waiter/kitchen): chỉ chọn lọc các số liệu vận hành, CỐ TÌNH bỏ mọi trường doanh thu.
   return {
     totalOrders: data.totalOrders,
     yesterdayOrders: data.yesterdayOrders,

@@ -1,9 +1,14 @@
+/**
+ * useVietQrPayment — composable tạo mã VietQR cho 1 bàn và TỰ POLL trạng thái thanh toán.
+ * Ý tưởng: khách quét QR chuyển khoản → SePay báo webhook về backend → FE hỏi API mỗi 3s
+ * cho tới khi status = "succeeded" thì dừng poll và gọi callback onSucceeded.
+ */
 import { ref, onUnmounted } from "vue";
 import axios from "axios";
 import { API_ORIGIN } from "@/config/api";
 import { createQrDataUrl } from "../utils/tableLinkQr";
 
-const DEFAULT_POLL_INTERVAL_MS = 3000;
+const DEFAULT_POLL_INTERVAL_MS = 3000; // chu kỳ hỏi trạng thái (3 giây)
 
 export function useVietQrPayment(options = {}) {
   const apiOrigin = options.apiOrigin ?? API_ORIGIN;
@@ -35,6 +40,7 @@ export function useVietQrPayment(options = {}) {
     }
   }
 
+  // Hỏi backend trạng thái payment của order hiện tại; nếu đã thành công thì dừng poll + gọi callback.
   async function pollStatus(onSucceeded) {
     if (!orderId.value) return;
     try {
@@ -47,6 +53,7 @@ export function useVietQrPayment(options = {}) {
         }
       }
     } catch (err) {
+      // Lỗi mạng 1 lần không dừng poll — lần sau vẫn thử lại.
       console.error("Poll payment status error:", err);
     }
   }
@@ -57,19 +64,20 @@ export function useVietQrPayment(options = {}) {
     pollTimer = setInterval(() => pollStatus(onSucceeded), pollIntervalMs);
   }
 
+  // Gọi API tạo VietQR cho bàn (tableToken), dựng ảnh QR từ chuỗi raw, rồi bắt đầu poll (nếu autoPoll).
   async function createPaymentQr(tableToken, { onSucceeded, autoPoll = true } = {}) {
     loading.value = true;
     reset();
     stopPolling();
     try {
       const res = await axios.post(`${apiOrigin}/api/payments/vietqr`, { tableToken });
-      const raw = res.data?.vietqrRaw;
+      const raw = res.data?.vietqrRaw; // chuỗi payload chuẩn VietQR
       vietqrRaw.value = raw || "";
       amount.value = res.data?.amount || 0;
       paymentCode.value = res.data?.vietqrContent || res.data?.paymentCode || "";
       orderId.value = res.data?.orderId || null;
-      if (!raw) throw new Error("NO_QR");
-      qrDataUrl.value = await createQrDataUrl(raw);
+      if (!raw) throw new Error("NO_QR"); // không có payload → không dựng được ảnh
+      qrDataUrl.value = await createQrDataUrl(raw); // chuyển raw → ảnh QR (data URL) để <img> hiển thị
       if (autoPoll) startPolling(onSucceeded);
       return res.data;
     } finally {
@@ -77,6 +85,7 @@ export function useVietQrPayment(options = {}) {
     }
   }
 
+  // Tự dọn timer khi component dùng composable bị unmount → tránh rò rỉ interval.
   onUnmounted(stopPolling);
 
   return {

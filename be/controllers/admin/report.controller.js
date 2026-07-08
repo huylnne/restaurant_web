@@ -9,6 +9,7 @@ const { resolveBranchId } = require('../../utils/branchScope');
 
 /** [BÁO CÁO] Chuẩn hóa branchId, khoảng ngày, days/months/limit từ query. Ctrl+F: parseReportQuery */
 function parseReportQuery(req) {
+  // branchId: manager bị ép về chi nhánh của mình; super admin có thể chọn qua query (resolveBranchId lo việc này).
   const branchId = resolveBranchId(req, req.query.branchId, 1);
   const startDate = req.query.startDate || null;
   const endDate = req.query.endDate || null;
@@ -16,6 +17,7 @@ function parseReportQuery(req) {
     branchId,
     startDate,
     endDate,
+    // Giá trị mặc định khi client không truyền: 7 ngày / 6 tháng / top 10.
     days: parseInt(req.query.days, 10) || 7,
     months: parseInt(req.query.months, 10) || 6,
     limit: parseInt(req.query.limit, 10) || 10,
@@ -121,9 +123,11 @@ exports.getMonthlyRevenue = async (req, res) => {
 /** [BÁO CÁO] Xuất Excel/PDF: GET /export?format=xlsx|pdf&branchId=&startDate=&endDate=. Ctrl+F: exportReport */
 exports.exportReport = async (req, res) => {
   try {
+    // Định dạng xuất: mặc định xlsx; hỗ trợ pdf. Khác 2 loại này → trả 400 ở cuối hàm.
     const format = String(req.query.format || 'xlsx').toLowerCase();
     const { branchId, startDate, endDate, days, months, limit } = parseReportQuery(req);
 
+    // Gom toàn bộ dữ liệu báo cáo 1 lần, sau đó render ra Excel hoặc PDF tùy format.
     const data = await reportExportService.gatherReportData({
       branchId,
       startDate,

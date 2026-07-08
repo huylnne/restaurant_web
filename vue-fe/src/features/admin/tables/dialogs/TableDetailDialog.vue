@@ -38,6 +38,7 @@
         </el-descriptions-item>
       </el-descriptions>
 
+      <!-- Cảnh báo: bàn trống nhưng có đơn đặt trước sắp tới (không nên xếp khách vãng lai vào) -->
       <div v-if="selectedTable?.upcomingOrder && normalizeTableStatus(selectedTable?.status) === 'available'"
            class="orders-section upcoming-section">
         <div class="orders-section-header">
@@ -69,6 +70,7 @@
         </div>
       </div>
 
+      <!-- Danh sách đơn hiện tại của bàn + nút tạo đơn; mỗi món có thể đánh dấu "đã phục vụ" -->
       <div class="orders-section">
         <div class="orders-section-header">
           <h4>Đơn hàng hiện tại</h4>
@@ -134,6 +136,7 @@
         </div>
       </div>
 
+      <!-- Hóa đơn tạm tính (dùng lại component BillSummary) -->
       <div class="orders-section" v-if="tableBill">
         <div class="orders-section-header">
           <h4>Hóa đơn tạm tính</h4>
@@ -154,6 +157,7 @@
         </div>
       </div>
 
+      <!-- Khu thanh toán: chọn phương thức, xác nhận, tải PDF, hoặc mở QR chuyển khoản -->
       <div class="orders-section" v-if="tableBill">
         <div class="orders-section-header">
           <h4>Thanh toán &amp; hóa đơn</h4>
@@ -221,6 +225,8 @@
 </template>
 
 <script setup>
+// TableDetailDialog — dialog chi tiết 1 bàn: thông tin bàn, QR, đơn đặt trước sắp tới, đơn hiện tại,
+// hóa đơn tạm tính và khu thanh toán. Đây là nơi phục vụ thao tác nhiều nhất tại quầy.
 import { Plus } from "@element-plus/icons-vue";
 import BillSummary from "@/components/BillSummary.vue";
 import { useTablesContext } from "../composables/tablesContext";

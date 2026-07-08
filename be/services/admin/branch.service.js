@@ -23,6 +23,7 @@ const MUTABLE_FIELDS = [
 
 /** [CHI NHÁNH] Lọc payload update chỉ giữ field hợp lệ. Ctrl+F: sanitizePayload branch */
 function sanitizePayload(payload = {}) {
+  // Chỉ copy các field nằm trong whitelist MUTABLE_FIELDS → chặn client ghi đè field hệ thống (vd branch_id, created_at).
   const clean = {};
   for (const key of MUTABLE_FIELDS) {
     if (payload[key] !== undefined) {

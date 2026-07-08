@@ -4,8 +4,11 @@
  * Luồng demo: admin xem toàn chuỗi, waiter/kitchen/manager thao tác theo chi nhánh.
  */
 function isSuperAdmin(req) {
+  // Lấy role từ req (được middleware auth gắn) — chấp nhận cả 2 vị trí lưu.
   const role = req.userRole || req.user?.role;
   const username = req.user?.username;
+  // "Super admin" = vừa có role admin, vừa đúng tài khoản username "admin"
+  // (chỉ tài khoản này mới được xem/chọn mọi chi nhánh).
   return role === "admin" && username === "admin";
 }
 
@@ -21,13 +24,17 @@ function getUserBranchId(req) {
  * Ctrl+F: resolveBranchId, chọn chi nhánh
  */
 function resolveBranchId(req, requestedBranchId, fallback = 1) {
+  // Chi nhánh gắn với tài khoản đang đăng nhập.
   const userBranchId = getUserBranchId(req);
+  // Chi nhánh mà client YÊU CẦU (vd query ?branch_id=) — parse an toàn về số hoặc null.
   const parsedRequested = parseInt(requestedBranchId, 10);
   const requested = Number.isFinite(parsedRequested) ? parsedRequested : null;
 
   if (isSuperAdmin(req)) {
+    // Super admin: được chọn chi nhánh theo yêu cầu; không có thì dùng của mình; cuối cùng fallback.
     return requested || userBranchId || fallback;
   }
+  // Nhân viên/manager: LUÔN khóa vào chi nhánh của mình trước (không cho vượt sang chi nhánh khác).
   return userBranchId || requested || fallback;
 }
 

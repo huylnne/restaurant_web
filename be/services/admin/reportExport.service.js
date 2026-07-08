@@ -28,6 +28,7 @@ function formatDateCell(v) {
  * Ctrl+F: gatherReportData
  */
 async function gatherReportData({ branchId, startDate, endDate, days, months, limit }) {
+  // Chạy song song 8 truy vấn báo cáo (Promise.all) để giảm tổng thời gian chờ so với gọi tuần tự.
   const [
     overview,
     revenueByDay,
@@ -192,9 +193,11 @@ async function buildExcel(data) {
 
 /** [XUẤT PDF] Nạp font pdfmake để báo cáo tiếng Việt không lỗi font. Ctrl+F: ensurePdfFontsLoaded report */
 function ensurePdfFontsLoaded() {
+  // Nạp toàn bộ font (base64) vào "virtual file system" của pdfmake để có glyph tiếng Việt (dấu).
   for (const k of Object.keys(vfsFonts)) {
     pdfMake.virtualfs.writeFileSync(k, vfsFonts[k], 'base64');
   }
+  // Khai báo bộ font Roboto (4 biến thể) làm font mặc định cho tài liệu.
   pdfMake.setFonts({
     Roboto: {
       normal: 'Roboto-Regular.ttf',

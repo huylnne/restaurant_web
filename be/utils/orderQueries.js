@@ -18,6 +18,8 @@ const { resolveKitchenServeContext } = require("./kitchenQueue");
 
 /** [CHI NHÁNH] Resolve branch của món/order: order.branch_id → table.branch_id → menu.branch_id. Ctrl+F: resolveOrderBranchId */
 function resolveOrderBranchId(plain) {
+  // Thử lần lượt các nguồn xác định chi nhánh, dừng ở nguồn đầu tiên có giá trị:
+  // 1) branch_id trên order → 2) branch_id của bàn → 3) branch_id của món → 4) null.
   return (
     plain.Order?.branch_id ??
     plain.Order?.Table?.branch_id ??
@@ -72,11 +74,13 @@ function orderTableInclude() {
  * Ctrl+F: findKitchenOrderItems, hàng đợi bếp
  */
 async function findKitchenOrderItems({ itemStatus, branchId = 1 }) {
+  // Nếu chỉ định 1 status cụ thể thì lọc theo status đó; không thì lấy cả hàng đợi bếp (pending+processing).
   const statuses = itemStatus
     ? [String(itemStatus).trim().toLowerCase()]
     : KITCHEN_QUEUE_STATUSES;
   const bid = Number(branchId);
 
+  // Lấy các món theo status + kèm MenuItem (bắt buộc) và Order→Table (để biết bàn nào).
   const items = await OrderItem.findAll({
     where: { status: { [Op.in]: statuses } },
     include: [
@@ -87,9 +91,11 @@ async function findKitchenOrderItems({ itemStatus, branchId = 1 }) {
       },
       ...orderTableInclude(),
     ],
-    order: [["order_item_id", "ASC"]],
+    order: [["order_item_id", "ASC"]], // giữ thứ tự tạo món
   });
 
+  // Lọc lại đúng chi nhánh (bid) rồi map về row thân thiện cho UI bếp.
+  // (Lọc ở JS vì branch_id có thể nằm ở nhiều nguồn khác nhau — xem resolveOrderBranchId.)
   return items
     .filter((item) => Number(resolveOrderBranchId(item.toJSON())) === bid)
     .map(mapKitchenItemRow);
@@ -129,15 +135,18 @@ function buildActiveOrdersByTableWhere(table_id) {
  * Ctrl+F: syncOrderStatusFromItems, sync order status
  */
 async function syncOrderStatusFromItems(orderId, { transaction } = {}) {
+  // Không có id thì bỏ qua.
   if (!orderId) return;
   const order = await Order.findByPk(orderId, { transaction });
   if (!order) return;
 
+  // Order đã kết thúc (completed/cancelled) thì KHÔNG động vào nữa.
   const normalized = normalizeOrderStatus(order.status);
   if (normalized === ORDER_STATUS.COMPLETED || normalized === ORDER_STATUS.CANCELLED) {
     return;
   }
 
+  // Lấy trạng thái tất cả món của order để suy ra trạng thái tổng.
   const items = await OrderItem.findAll({
     where: { order_id: orderId },
     attributes: ["status"],
@@ -145,20 +154,25 @@ async function syncOrderStatusFromItems(orderId, { transaction } = {}) {
   });
   if (!items.length) return;
 
+  // Có ít nhất 1 món đang chế biến?
   const hasProcessing = items.some(
     (i) => String(i.status).toLowerCase() === ORDER_ITEM_STATUS.PROCESSING
   );
+  // Tất cả món đều đã xong/đã phục vụ?
   const allTerminal = items.every((i) =>
     ["done", "served"].includes(String(i.status).toLowerCase())
   );
 
   let next = order.status;
+  // Nếu bếp đã bắt đầu làm (có món processing) và order còn ở giai đoạn trước → chuyển sang in_progress.
   if (
     hasProcessing &&
     [ORDER_STATUS.PRE_ORDERED, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PENDING].includes(normalized)
   ) {
     next = ORDER_STATUS.IN_PROGRESS;
   } else if (
+    // Hoặc mọi món đã xong nhưng order vẫn ở giai đoạn sớm → cũng nâng lên in_progress
+    // (chờ nhân viên bấm thanh toán mới sang waiting_payment/completed).
     allTerminal &&
     [ORDER_STATUS.PRE_ORDERED, ORDER_STATUS.CONFIRMED, ORDER_STATUS.IN_PROGRESS].includes(
       normalized
@@ -167,6 +181,7 @@ async function syncOrderStatusFromItems(orderId, { transaction } = {}) {
     next = ORDER_STATUS.IN_PROGRESS;
   }
 
+  // Chỉ ghi DB khi trạng thái thực sự thay đổi (tránh update thừa).
   if (next !== order.status) {
     await order.update({ status: next }, { transaction });
   }

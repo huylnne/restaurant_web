@@ -69,6 +69,7 @@
 </template>
 
 <script setup>
+// OperationLogsPage — trang xem nhật ký thao tác (audit log) theo chi nhánh, có lọc theo từ khóa/module/action/khoảng ngày.
 import { ref, onMounted } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
@@ -80,19 +81,21 @@ import { useAdminBranchScope } from "@/features/admin/shared/composables/useAdmi
 
 const API = `${API_ORIGIN}/api/admin/operation-logs`;
 
+// Quản lý chi nhánh (danh sách + chi nhánh đang chọn + quyền super admin); đổi chi nhánh → tải lại log.
 const { branches, selectedBranchId, isSuperAdmin, fetchBranches } = useAdminBranchScope({
   onBranchChange: () => loadLogs(),
 });
 
-const logs = ref([]);
+const logs = ref([]);         // dữ liệu bảng
 const loading = ref(false);
-const page = ref(1);
+const page = ref(1);          // trang hiện tại
 const totalPages = ref(1);
-const search = ref("");
-const moduleFilter = ref("");
-const actionFilter = ref("");
-const dateRange = ref(null);
+const search = ref("");       // từ khóa tìm
+const moduleFilter = ref(""); // lọc theo module
+const actionFilter = ref(""); // lọc theo hành động
+const dateRange = ref(null);  // [từ ngày, đến ngày]
 
+// Danh sách module để đổ vào dropdown lọc.
 const moduleOptions = [
   "auth",
   "orders",
@@ -108,8 +111,10 @@ const moduleOptions = [
   "reports",
 ];
 
+// Danh sách hành động để lọc.
 const actionOptions = ["create", "update", "delete", "login", "logout", "checkout", "check-in"];
 
+// Gom các tham số query gửi lên API; chỉ đính kèm bộ lọc nào thực sự có giá trị.
 function buildParams() {
   const params = {
     page: page.value,
@@ -126,6 +131,7 @@ function buildParams() {
   return params;
 }
 
+// Tải nhật ký theo bộ lọc + trang hiện tại.
 async function loadLogs() {
   loading.value = true;
   try {
@@ -140,11 +146,13 @@ async function loadLogs() {
   }
 }
 
+// Bấm "Lọc": luôn về trang 1 rồi tải lại.
 function applyFilters() {
   page.value = 1;
   loadLogs();
 }
 
+// "Xóa lọc": reset mọi bộ lọc về mặc định rồi tải lại.
 function resetFilters() {
   search.value = "";
   moduleFilter.value = "";
@@ -154,11 +162,13 @@ function resetFilters() {
   loadLogs();
 }
 
+// Đổi trang từ PaginationBar.
 function onPageChange(p) {
   page.value = p;
   loadLogs();
 }
 
+// Vào trang: nạp chi nhánh trước, sau đó nạp nhật ký.
 onMounted(async () => {
   await fetchBranches();
   await loadLogs();

@@ -85,24 +85,27 @@
 </template>
 
 <script setup>
+// MenuHighlightSections — 2 dải cuộn ngang ở đầu menu: "Món bán chạy" và "Đang giảm giá" theo chi nhánh.
 import { ref, computed, watch } from "vue";
 import axios from "axios";
 import MenuItemPrice from "@/components/MenuItemPrice.vue";
 
 const props = defineProps({
-  branchId: { type: Number, default: 1 },
-  showOrderButton: { type: Boolean, default: true },
+  branchId: { type: Number, default: 1 },            // chi nhánh cần lấy highlight
+  showOrderButton: { type: Boolean, default: true }, // ẩn nút "Đặt món" ở chế độ chỉ xem
 });
 
-defineEmits(["order"]);
+defineEmits(["order"]); // phát ra khi khách bấm "Đặt món" (cha xử lý điều hướng/gọi món)
 
 const loading = ref(false);
-const bestsellers = ref([]);
-const onSale = ref([]);
-const periodDays = ref(30);
+const bestsellers = ref([]);  // danh sách món bán chạy
+const onSale = ref([]);       // danh sách món đang giảm giá
+const periodDays = ref(30);   // khoảng thời gian tính "bán chạy" (do BE trả về)
 
+// Có nội dung để hiển thị hay không (dùng để ẩn cả khối khi rỗng).
 const hasContent = computed(() => bestsellers.value.length > 0 || onSale.value.length > 0);
 
+// Gọi API lấy highlight của chi nhánh; lỗi thì để danh sách rỗng (khối tự ẩn).
 async function fetchHighlights() {
   if (!props.branchId) return;
   loading.value = true;
@@ -121,6 +124,7 @@ async function fetchHighlights() {
   }
 }
 
+// Tải lại mỗi khi đổi chi nhánh; immediate để chạy ngay lần đầu.
 watch(() => props.branchId, fetchHighlights, { immediate: true });
 </script>
 

@@ -37,6 +37,8 @@ const now = () => new Date();
 
 /** [THANH TOÁN] Tính tổng tiền món từ order_items (fallback khi chưa sync bill). Ctrl+F: getOrderAmount */
 async function getOrderAmount(orderId) {
+  // Tính tổng tiền = SUM(số lượng * đơn giá). Đơn giá ưu tiên oi.price (giá đã chốt), thiếu thì lấy mi.price.
+  // COALESCE(...,0) để không bị NULL khi order chưa có món.
   const rows = await sequelize.query(
     `SELECT COALESCE(SUM(oi.quantity * COALESCE(oi.price, mi.price, 0)), 0) AS amount
      FROM order_items oi
@@ -76,7 +78,9 @@ function buildSePayOrderCode(orderId) {
 }
 
 function extractSePayOrderId(payload = {}) {
+  // Tiền tố mã đơn (vd "DH") để nhận diện nội dung chuyển khoản.
   const prefix = getSePayOrderPrefix();
+  // Các trường có thể chứa nội dung chuyển khoản; bỏ trường rỗng và ép về chuỗi.
   const candidates = [
     payload.code,
     payload.subAccount,
@@ -86,18 +90,21 @@ function extractSePayOrderId(payload = {}) {
     .filter(Boolean)
     .map((value) => String(value));
 
+  // Các mẫu regex để bắt số order sau tiền tố (DH123 / ORD-123 / "Thanh toan ban 123").
   const patterns = [
     new RegExp(`${prefix}\\s*[-_]?\\s*(\\d+)`, "i"),
     /\bORD\s*[-_]?\s*(\d+)\b/i,
     /\bThanh\s*toan\s*ban\s*(\d+)\b/i,
   ];
 
+  // Duyệt từng nội dung × từng mẫu; khớp mẫu nào trước thì lấy số order đó.
   for (const text of candidates) {
     for (const pattern of patterns) {
       const match = text.match(pattern);
       if (match?.[1]) return Number(match[1]);
     }
   }
+  // Không tách được mã order → null (webhook sẽ bỏ qua).
   return null;
 }
 
@@ -135,8 +142,10 @@ async function getAmountByOrder(sessionOrderId) {
  */
 async function createOrUpdatePaymentForOrder({ orderId, amount, method }) {
   const normalizedMethod = normalizeMethod(method);
+  // Mỗi order chỉ có 1 bản ghi payment: tìm bản ghi cũ (nếu có).
   let payment = await Payment.findOne({ where: { order_id: orderId } });
   if (!payment) {
+    // Chưa có → tạo mới. Offline (tiền mặt...) = "pending"; online (MoMo/QR) = "requires_action".
     payment = await Payment.create({
       order_id: orderId,
       amount,
@@ -147,7 +156,9 @@ async function createOrUpdatePaymentForOrder({ orderId, amount, method }) {
       created_at: now(),
     });
   } else {
+    // Đã thanh toán thành công rồi thì KHÔNG cho tạo lại (chống thu tiền 2 lần).
     if (payment.status === "succeeded") throw new Error("ORDER_ALREADY_PAID");
+    // Cập nhật lại số tiền/phương thức và reset trạng thái theo phương thức mới.
     payment.amount = amount;
     payment.method = normalizedMethod;
     payment.status = isOfflineMethod(normalizedMethod) ? "pending" : "requires_action";
@@ -217,9 +228,11 @@ async function createMomoSessionForOrder({ orderId, amount, returnUrl, cancelUrl
  * Gọi từ khách (QR) hoặc phục vụ. Ctrl+F: createSession, payment session
  */
 async function createSession({ orderId, reservationId, tableToken, method, returnUrl, cancelUrl }) {
+  // Chuẩn hóa & chặn phương thức không hỗ trợ.
   const normalizedMethod = normalizeMethod(method);
   if (!ALLOWED_METHODS.includes(normalizedMethod)) throw new Error("UNSUPPORTED_METHOD");
 
+  // Xác định order: theo id trực tiếp hoặc suy từ QR token của bàn.
   let sessionOrderId = resolveSessionOrderId({ orderId, reservationId });
 
   if (!sessionOrderId && tableToken) {
@@ -232,9 +245,11 @@ async function createSession({ orderId, reservationId, tableToken, method, retur
 
   if (!sessionOrderId) throw new Error("INVALID_REQUEST");
 
+  // Số tiền tính từ bill; 0 đồng thì không tạo phiên.
   const { amount } = await getAmountByOrder(sessionOrderId);
   if (amount <= 0) throw new Error("INVALID_AMOUNT");
 
+  // Tạo/cập nhật payment và đánh dấu order đang chờ thanh toán.
   const payment = await createOrUpdatePaymentForOrder({
     orderId: sessionOrderId,
     amount,
@@ -243,10 +258,12 @@ async function createSession({ orderId, reservationId, tableToken, method, retur
 
   await Order.update({ payment_status: "pending" }, { where: { order_id: sessionOrderId } });
 
+  // Offline (tiền mặt...) không cần chuyển hướng cổng thanh toán → trả "none".
   if (isOfflineMethod(normalizedMethod)) {
     return { nextAction: "none", paymentId: payment.payment_id, orderId: sessionOrderId };
   }
 
+  // MoMo: gọi API tạo phiên → nhận payUrl/qrCode/deeplink để FE chuyển hướng.
   if (normalizedMethod === PAYMENT_METHODS.MOMO) {
     const momoData = await createMomoSessionForOrder({
       orderId: sessionOrderId,
@@ -266,6 +283,7 @@ async function createSession({ orderId, reservationId, tableToken, method, retur
     };
   }
 
+  // SePay/VietQR: sinh mã QR chuyển khoản; khách quét trả tiền, hệ thống chờ webhook báo về.
   if (normalizedMethod === PAYMENT_METHODS.SEPAY) {
     const qr = await createVietQrForOrder(sessionOrderId);
     return {
@@ -283,9 +301,11 @@ async function resolvePaidSessionTargets(sessionOrderId) {
   const order = await Order.findByPk(sessionOrderId);
   if (!order) return null;
 
+  // Mặc định: chỉ 1 order và các bàn của nó (gồm bàn ghép).
   let orderIds = [order.order_id];
   let tableIds = await getTableIdsForOrder(order.order_id);
 
+  // Nếu order thuộc 1 nhóm đặt (booking_group_id) → gộp toàn bộ order + bàn của cả nhóm.
   if (order.booking_group_id) {
     const groupOrders = await billService.findGroupSessionOrders(order);
     orderIds = groupOrders.map((o) => o.order_id);
@@ -297,6 +317,7 @@ async function resolvePaidSessionTargets(sessionOrderId) {
     ];
   }
 
+  // Phòng thủ: nếu chưa lấy được bàn nào thì dùng bàn chính trên order.
   if (!tableIds.length && order.table_id) {
     tableIds = [order.table_id];
   }
@@ -309,12 +330,15 @@ async function resolvePaidSessionTargets(sessionOrderId) {
  * Luồng demo: Phần 4 — Bước 4.4. Ctrl+F: onPaymentSucceededByOrder, chờ dọn
  */
 async function onPaymentSucceededByOrder(sessionOrderId) {
+  // Xác định order (và các order/bàn cùng nhóm nếu ghép bàn) cần đóng phiên.
   const targets = await resolvePaidSessionTargets(sessionOrderId);
   if (!targets) return;
 
   const { order, orderIds, tableIds } = targets;
+  // Nếu đã completed rồi thì tránh xử lý lại (idempotent — webhook có thể gọi nhiều lần).
   const alreadyCompleted = normalizeOrderStatus(order.status) === ORDER_STATUS.COMPLETED;
 
+  // B1: đóng order → completed + payment_status = succeeded (cho toàn nhóm order).
   if (!alreadyCompleted) {
     await Order.update(
       {
@@ -325,6 +349,7 @@ async function onPaymentSucceededByOrder(sessionOrderId) {
     );
   }
 
+  // B2: chuyển bàn sang "cleaning" (chờ dọn) — chỉ đổi bàn đang occupied/pre-ordered để nhân viên dọn dẹp.
   if (tableIds.length) {
     await Table.update(
       { status: TABLE_STATUS.CLEANING },
@@ -337,6 +362,7 @@ async function onPaymentSucceededByOrder(sessionOrderId) {
     );
   }
 
+  // B3: bắn realtime cho toàn chi nhánh để sơ đồ bàn/bếp cập nhật ngay. try/catch để lỗi realtime không làm hỏng thanh toán.
   if (!alreadyCompleted && order.branch_id) {
     try {
       realtimeHub.notifyBranch(order.branch_id, {
@@ -357,6 +383,7 @@ async function finalizeReservationPayment({ reservationId, orderId, tableId, met
   const normalizedMethod = normalizeMethod(method);
   if (!ALLOWED_METHODS.includes(normalizedMethod)) throw new Error("UNSUPPORTED_METHOD");
 
+  // Xác định order cần thanh toán: theo orderId/reservationId, hoặc suy ra từ bàn (tableId).
   let sessionOrderId = resolveSessionOrderId({ orderId, reservationId });
   if (!sessionOrderId && tableId) {
     const active = await getActiveOrderByTableId(tableId);
@@ -365,9 +392,11 @@ async function finalizeReservationPayment({ reservationId, orderId, tableId, met
   }
   if (!sessionOrderId) throw new Error("ORDER_NOT_FOUND");
 
+  // Tính lại số tiền từ bill (không tin số client gửi) — 0 đồng thì chặn.
   const { amount } = await getAmountByOrder(sessionOrderId);
   if (amount <= 0) throw new Error("INVALID_AMOUNT");
 
+  // Tạo/cập nhật payment rồi ĐÁNH DẤU thành công ngay (vì nhân viên đã xác nhận nhận tiền).
   const payment = await createOrUpdatePaymentForOrder({
     orderId: sessionOrderId,
     amount,
@@ -377,10 +406,12 @@ async function finalizeReservationPayment({ reservationId, orderId, tableId, met
   payment.status = "succeeded";
   payment.paid_at = now();
   if (transactionRef) payment.transaction_ref = transactionRef;
+  // Sinh số hóa đơn + thời điểm phát hành nếu chưa có (chỉ tạo 1 lần).
   if (!payment.invoice_no) payment.invoice_no = generateInvoiceNo(payment.payment_id);
   if (!payment.invoice_issued_at) payment.invoice_issued_at = now();
   await payment.save();
 
+  // Đóng phiên: order completed + bàn chờ dọn + realtime.
   await onPaymentSucceededByOrder(sessionOrderId);
 
   return payment;
@@ -388,8 +419,10 @@ async function finalizeReservationPayment({ reservationId, orderId, tableId, met
 
 /** [THANH TOÁN] Webhook IPN từ MoMo sau khi khách trả qua ví. Ctrl+F: handleMomoWebhook, MoMo */
 async function handleMomoWebhook(payload, verifyOk = true) {
+  // Chữ ký không hợp lệ → từ chối (chống giả mạo webhook).
   if (!verifyOk) throw new Error("INVALID_SIGNATURE");
 
+  // Lấy lại order_id đã nhét trong extraData lúc tạo phiên.
   const extra = momo.decodeExtraData(payload.extraData);
   const sessionOrderId = Number(extra.orderId || extra.reservationId);
   if (!sessionOrderId) throw new Error("ORDER_NOT_FOUND");
@@ -397,9 +430,11 @@ async function handleMomoWebhook(payload, verifyOk = true) {
   const payment = await Payment.findOne({ where: { order_id: sessionOrderId } });
   if (!payment) throw new Error("PAYMENT_NOT_FOUND");
 
+  // resultCode === 0 nghĩa là MoMo báo thành công.
   const ok = Number(payload.resultCode) === 0;
   const newStatus = ok ? "succeeded" : "failed";
 
+  // Chỉ xử lý khi trạng thái thực sự đổi (idempotent — webhook có thể gửi lặp).
   if (payment.status !== newStatus) {
     payment.status = newStatus;
     if (ok) {
@@ -419,24 +454,30 @@ async function handleMomoWebhook(payload, verifyOk = true) {
 
 /** [THANH TOÁN] Webhook chuyển khoản SePay/VietQR — khớp mã DH{orderId}. Ctrl+F: handleSePayWebhook, SePay */
 async function handleSePayWebhook(payload, verifyOk = true) {
+  // Chữ ký sai → chặn.
   if (!verifyOk) throw new Error("INVALID_SIGNATURE");
+  // Chỉ xử lý giao dịch TIỀN VÀO ("in"); tiền ra thì bỏ qua.
   if (String(payload.transferType || "").toLowerCase() !== "in") {
     return { processed: false, reason: "IGNORED_TRANSFER_TYPE" };
   }
 
+  // Nếu có cấu hình số tài khoản nhận → chỉ chấp nhận tiền vào đúng tài khoản đó.
   const expectedAccountNumber = process.env.SEPAY_ACCOUNT_NUMBER || process.env.VIETQR_ACCOUNT_NUMBER;
   if (expectedAccountNumber && String(payload.accountNumber) !== String(expectedAccountNumber)) {
     return { processed: false, reason: "IGNORED_ACCOUNT" };
   }
 
+  // Tách mã order từ nội dung chuyển khoản; không thấy thì bỏ qua.
   const sessionOrderId = extractSePayOrderId(payload);
   if (!sessionOrderId) return { processed: false, reason: "ORDER_CODE_NOT_FOUND" };
 
+  // Số tiền chuyển phải là số dương.
   const transferAmount = Math.round(Number(payload.transferAmount || 0));
   if (!Number.isFinite(transferAmount) || transferAmount <= 0) {
     return { processed: false, reason: "INVALID_AMOUNT" };
   }
 
+  // Chống xử lý trùng giao dịch: nếu mã giao dịch này đã ghi nhận succeeded thì chỉ đảm bảo đóng phiên.
   const transactionRef = sePayTransactionRef(payload);
   if (transactionRef) {
     const existingTransaction = await Payment.findOne({ where: { transaction_ref: transactionRef } });
@@ -446,6 +487,7 @@ async function handleSePayWebhook(payload, verifyOk = true) {
     }
   }
 
+  // Đối chiếu số tiền chuyển với số tiền bill; lệch thì từ chối (tránh trả thiếu/thừa).
   const { amount } = await getAmountByOrder(sessionOrderId);
   const expectedAmount = Math.round(Number(amount));
   if (transferAmount !== expectedAmount) {
@@ -541,11 +583,13 @@ module.exports = {
 };
 
 async function createVietQrForOrder(sessionOrderId) {
+  // Cấu hình ngân hàng nhận tiền từ ENV; thiếu → báo chưa cấu hình.
   const bankBin = process.env.VIETQR_BANK_BIN;
   const accountNumber = process.env.VIETQR_ACCOUNT_NUMBER;
   const serviceCode = process.env.VIETQR_SERVICE_CODE || "QRIBFTTA";
   if (!bankBin || !accountNumber) throw new Error("VIETQR_NOT_CONFIGURED");
 
+  // Số tiền làm tròn về VND nguyên; phải dương.
   const { amount } = await getAmountByOrder(sessionOrderId);
   const vnd = Math.round(Number(amount));
   if (!Number.isFinite(vnd) || vnd <= 0) throw new Error("INVALID_AMOUNT");

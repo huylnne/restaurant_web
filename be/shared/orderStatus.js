@@ -54,22 +54,31 @@ const IN_PROGRESS_ORDER_STATUS_DB_VALUES = [ORDER_STATUS.IN_PROGRESS, "IN_PROGRE
 
 /** [ORDER STATUS] Chuẩn hóa status legacy/viết hoa về format mới. Ctrl+F: normalizeOrderStatus */
 function normalizeOrderStatus(status) {
+  // B1: giá trị rỗng/null thì trả về nguyên trạng, không cố ép kiểu (tránh biến null thành "null").
   if (status == null || status === "") return status;
+  // B2: ép về chuỗi và bỏ khoảng trắng thừa hai đầu (dữ liệu DB có thể dính space).
   const s = String(status).trim();
+  // B3: tạo bản viết thường để so khớp không phân biệt hoa/thường.
   const lower = s.toLowerCase();
+  // B4: nếu đã là 1 trong các status chuẩn (viết thường) thì dùng luôn.
   if (ORDER_STATUS_VALUES.includes(lower)) return lower;
+  // B5: các status legacy viết HOA trong DB cũ → ánh xạ sang hằng chuẩn.
   if (s === "PENDING") return ORDER_STATUS.PENDING;
   if (s === "IN_PROGRESS") return ORDER_STATUS.IN_PROGRESS;
   if (s === "COMPLETED") return ORDER_STATUS.COMPLETED;
   if (s === "CANCELLED") return ORDER_STATUS.CANCELLED;
   if (s === "NO_SHOW") return ORDER_STATUS.NO_SHOW;
+  // B6: các tên cũ "open"/"preorder" đều được coi là đã đặt trước (pre-ordered).
   if (lower === "open" || lower === "preorder") return ORDER_STATUS.PRE_ORDERED;
+  // B7: không khớp gì thì trả bản viết thường để phía gọi tự xử lý.
   return lower;
 }
 
 /** [ORDER ACTIVE] Kiểm tra order còn trong luồng phục vụ chưa kết thúc. Ctrl+F: isActiveOrderStatus */
 function isActiveOrderStatus(status) {
+  // Chuẩn hóa trước để so khớp thống nhất (không lo hoa/thường/legacy).
   const n = normalizeOrderStatus(status);
+  // "Còn sống" = đang ở một trong các bước từ lúc đặt tới lúc chờ thanh toán.
   return [
     ORDER_STATUS.PENDING,
     ORDER_STATUS.CONFIRMED,
@@ -81,7 +90,9 @@ function isActiveOrderStatus(status) {
 
 /** [TƯƠNG THÍCH DB] Nhận diện status pre-order cũ còn sót trong seed/migration. Ctrl+F: isLegacyPreorderOrderStatus */
 function isLegacyPreorderOrderStatus(status) {
+  // Ép chuỗi an toàn (kể cả null/undefined) rồi bỏ space thừa.
   const raw = String(status ?? "").trim();
+  // Chấp nhận cả 2 cách viết cũ để không bỏ sót dữ liệu seed đời đầu.
   return raw === "pre-ordered" || raw === "preorder";
 }
 

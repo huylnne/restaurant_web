@@ -1,3 +1,8 @@
+/**
+ * PUBLIC ROUTES — trang cho khách (trang chủ, menu, đặt bàn, bàn của tôi, QR bàn...).
+ * Route gắn meta.requiresAuth cần đăng nhập; các trang giới thiệu để mở tự do.
+ * Tất cả component đều lazy-load (import động) để chia nhỏ bundle, tải nhanh hơn.
+ */
 const LoginView = () => import("@/views/LoginView.vue");
 const RegisterView = () => import("@/views/RegisterView.vue");
 const MenuView = () => import("@/views/MenuView.vue");

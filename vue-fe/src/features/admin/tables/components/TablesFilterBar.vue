@@ -18,8 +18,10 @@
 </template>
 
 <script setup>
+// TablesFilterBar — ô tìm theo số bàn + dropdown lọc theo trạng thái. State lấy từ context chung.
 import { Search } from "@element-plus/icons-vue";
 import { useTablesContext } from "../composables/tablesContext";
 
+// searchQuery/filterStatus: v-model 2 chiều; filterTables: hàm áp bộ lọc (gọi khi gõ/đổi trạng thái).
 const { searchQuery, filterStatus, filterTables } = useTablesContext();
 </script>

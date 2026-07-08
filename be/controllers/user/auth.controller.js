@@ -21,6 +21,7 @@ const register = async (req, res) => {
   try {
     const { username, password, full_name, phone } = req.body;
 
+    // B1: chống trùng username (so sánh không phân biệt hoa/thường bằng iLike).
     const existingUser = await User.findOne({
       where: { username: { [Op.iLike]: username } },
     });
@@ -29,13 +30,16 @@ const register = async (req, res) => {
       return res.status(400).json({ message: "Tên đăng nhập đã tồn tại" });
     }
 
+    // B2: chống trùng số điện thoại (mỗi SĐT chỉ đăng ký 1 tài khoản).
     const existingPhone = await User.findOne({ where: { phone } });
     if (existingPhone) {
       return res.status(400).json({ message: "Số điện thoại này đã được đăng ký" });
     }
 
+    // B3: KHÔNG lưu mật khẩu thô — băm bcrypt với cost 10 (salt tự sinh) trước khi ghi DB.
     const hashedPassword = await bcrypt.hash(password, 10);
 
+    // B4: tạo user role=user, chưa gắn chi nhánh, mặc định đang hoạt động & không khóa.
     const newUser = await User.create({
       username,
       password_hash: hashedPassword,
@@ -48,6 +52,7 @@ const register = async (req, res) => {
       locked: false,
     });
 
+    // B5: gắn thông tin user vào req để middleware ghi nhật ký (audit) biết ai vừa thao tác.
     req.userId = newUser.user_id;
     req.userRole = newUser.role;
     req.user = {
@@ -84,24 +89,30 @@ const login = async (req, res) => {
   try {
     const { username, password } = req.body;
 
+    // B1: tìm user theo username (không phân biệt hoa/thường).
     const user = await User.findOne({
       where: { username: { [Op.iLike]: username } },
     });
 
+    // Lưu ý bảo mật: dùng cùng 1 thông báo cho "không tồn tại" và "sai mật khẩu"
+    // để không lộ username nào có thật.
     if (!user) {
       return res.status(401).json({ message: "Tài khoản hoặc mật khẩu không đúng" });
     }
 
+    // B2: chặn tài khoản bị khóa/vô hiệu hóa trước khi kiểm tra mật khẩu.
     const blockMsg = getAccountBlockMessage(user);
     if (blockMsg) {
       return res.status(403).json({ message: blockMsg });
     }
 
+    // B3: so mật khẩu người dùng nhập với hash lưu trong DB (bcrypt tự tách salt).
     const isMatch = await bcrypt.compare(password, user.password_hash);
     if (!isMatch) {
       return res.status(401).json({ message: "Tài khoản hoặc mật khẩu không đúng" });
     }
 
+    // B4: phát hành JWT chứa danh tính + vai trò + chi nhánh để phân quyền ở các API sau.
     const token = signAccessToken({
       user_id: user.user_id,
       username: user.username,

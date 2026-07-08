@@ -35,17 +35,19 @@
 </template>
 
 <script setup>
+// TablesPageHeader — tiêu đề trang bàn + thanh công cụ (chọn chi nhánh, làm mới, tiếp nhận khách, đặt bàn).
+// Nút "Đặt bàn mới" chỉ hiện với admin; select chi nhánh bị khóa nếu không phải admin (xem :disabled trong template).
 import { Plus, UserFilled, Refresh } from "@element-plus/icons-vue";
 import { useTablesContext } from "../composables/tablesContext";
 
 const {
-  selectedBranchId,
-  userRole,
-  branches,
-  showAddDialog,
-  fetchTables,
-  fetchSummary,
-  handleBranchChange,
-  openReceptionDialog,
+  selectedBranchId,      // chi nhánh đang chọn (v-model)
+  userRole,              // vai trò → quyết định hiển thị/khóa nút
+  branches,              // danh sách chi nhánh
+  showAddDialog,         // cờ mở dialog đặt bàn mới
+  fetchTables,           // làm mới danh sách bàn
+  fetchSummary,          // làm mới thống kê
+  handleBranchChange,    // xử lý khi đổi chi nhánh
+  openReceptionDialog,   // mở dialog tiếp nhận khách
 } = useTablesContext();
 </script>

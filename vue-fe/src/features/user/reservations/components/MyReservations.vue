@@ -227,6 +227,8 @@
 </template>
 
 <script setup>
+// MyReservations — bảng lịch sử dùng bữa của khách: xem đơn, hủy, đánh giá, xem hóa đơn.
+// Có 2 layout: bảng (desktop) và thẻ (mobile). Các đơn ghép bàn được gộp thành 1 dòng hiển thị.
 import { ref, computed, onMounted } from "vue";
 import axios from "axios";
 import { ElMessage, ElMessageBox } from "element-plus";
@@ -247,12 +249,13 @@ import {
   formatTableNumber,
 } from "@/utils/reservationDisplay";
 
-const reservations = ref([]);
+const reservations = ref([]); // dữ liệu thô từ API
 const loading = ref(true);
 
-/** Gộp các bản ghi cùng booking_group_id thành một dòng hiển thị */
+/** Gộp các bản ghi cùng booking_group_id thành một dòng hiển thị (đơn ghép nhiều bàn). */
 const displayReservations = computed(() => groupReservationsForDisplay(reservations.value));
 
+// State cho dialog đánh giá.
 const reviewDialogVisible = ref(false);
 const submittingReview = ref(false);
 const reviewForm = ref({
@@ -261,6 +264,7 @@ const reviewForm = ref({
   comment: "",
 });
 
+// Nạp danh sách đặt bàn của user đang đăng nhập.
 async function fetchReservations() {
   try {
     loading.value = true;
@@ -280,6 +284,7 @@ async function fetchReservations() {
   }
 }
 
+// Hủy đặt bàn: hỏi xác nhận trước, gọi API cancel, rồi nạp lại danh sách.
 async function cancelReservation(id) {
   try {
     await ElMessageBox.confirm("Bạn có chắc chắn muốn hủy đặt bàn này?", "Xác nhận hủy", {
@@ -306,6 +311,7 @@ async function cancelReservation(id) {
   }
 }
 
+// Có được phép hủy không: trạng thái pending/confirmed, chưa check-in, và còn ≥ 2 giờ trước giờ đến.
 function canCancelReservation(row) {
   const resStatus = (row.status || "").trim().toLowerCase();
   if (!["pending", "confirmed"].includes(resStatus)) return false;
@@ -315,6 +321,7 @@ function canCancelReservation(row) {
   return arrivalMs - Date.now() >= 2 * 60 * 60 * 1000;
 }
 
+// Có được phép đánh giá không: đơn đã hoàn tất/thanh toán xong và chưa có Review.
 function canReviewReservation(row) {
   const reservationStatus = String(row.status || "").trim().toLowerCase();
   const paymentStatus = String(row.Payment?.status || "").trim().toLowerCase();
@@ -322,6 +329,7 @@ function canReviewReservation(row) {
   return isEligible && !row.Review;
 }
 
+// Mở dialog đánh giá cho 1 đơn cụ thể.
 function openReviewDialog(row) {
   reviewForm.value = {
     order_id: row.order_id,
@@ -331,6 +339,7 @@ function openReviewDialog(row) {
   reviewDialogVisible.value = true;
 }
 
+// Gửi đánh giá: validate sao + nội dung, gọi API, đóng dialog và nạp lại danh sách.
 async function submitReview() {
   const payload = {
     order_id: reviewForm.value.order_id,
@@ -365,6 +374,7 @@ async function submitReview() {
   }
 }
 
+// Các hàm format hiển thị — delegate sang utils để tái sử dụng ở nhiều nơi.
 function formatBranchName(row) {
   return formatBranchNameFromRow(row);
 }

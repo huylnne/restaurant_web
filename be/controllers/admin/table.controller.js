@@ -17,6 +17,7 @@ exports.getTables = async (req, res) => {
   try {
     const branchId = resolveBranchId(req, req.query.branchId, 1);
     const tables = await tableService.getTables(branchId);
+    // Lọc theo vai trò: chỉ admin/manager mới thấy doanh thu; waiter/kitchen bị ẩn số tiền.
     const filtered = filterTableListForRole(getRole(req), tables);
     res.json(filtered);
   } catch (error) {

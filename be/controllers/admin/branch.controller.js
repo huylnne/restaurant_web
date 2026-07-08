@@ -11,6 +11,7 @@ const toJSON = (m) => (m && typeof m.toJSON === "function" ? m.toJSON() : m);
 
 /** [CHI NHÁNH] Super admin xem toàn bộ chi nhánh. Ctrl+F: getBranches */
 exports.getBranches = async (req, res) => {
+  // Chặn quyền ngay đầu: chỉ super admin mới được xem danh sách TẤT CẢ chi nhánh (manager chỉ thấy chi nhánh mình).
   if (!isSuperAdmin(req)) return res.status(403).json({ message: "Chỉ super admin được xem toàn bộ chi nhánh" });
   try {
     const data = await branchService.listBranches();

@@ -31,6 +31,7 @@
 </template>
 
 <script setup>
+// AdminSidebar — menu dọc bên trái khu vực quản lý. Các mục hiển thị lọc theo vai trò đăng nhập.
 import { computed } from "vue";
 import { useRoute } from "vue-router";
 import { KnifeFork, Grid, DataLine, User, Dish, Setting, OfficeBuilding, Document } from "@element-plus/icons-vue";
@@ -39,9 +40,10 @@ import { getCurrentRole } from "@/utils/auth.js";
 
 const route = useRoute();
 
-const role = computed(() => getCurrentRole());
-const visibleMenus = computed(() => getMenuByRole(role.value));
+const role = computed(() => getCurrentRole());                 // vai trò hiện tại
+const visibleMenus = computed(() => getMenuByRole(role.value)); // các mục menu được phép thấy
 
+// Ánh xạ tên icon (chuỗi trong cấu hình) → component icon thực tế.
 const iconMap = {
   KnifeFork,
   Grid,
@@ -52,6 +54,7 @@ const iconMap = {
   OfficeBuilding,
   Document,
 };
+// Trả về component icon theo tên; không khớp thì dùng Grid mặc định.
 function iconComponent(name) {
   return iconMap[name] || Grid;
 }
@@ -59,11 +62,13 @@ function iconComponent(name) {
 /** Active menu theo route hiện tại */
 const activeMenuKey = computed(() => {
   const path = route.path;
+  // 1) Khớp chính xác đường dẫn.
   const idx = visibleMenus.value.findIndex((item) => item.route === path);
   if (idx >= 0) return String(idx + 1);
+  // 2) Không khớp chính xác → khớp theo tiền tố (vd /admin/tables/123 vẫn active mục /admin/tables).
   const byRoute = visibleMenus.value.find((item) => item.route && path.startsWith(item.route));
   if (byRoute) return String(visibleMenus.value.indexOf(byRoute) + 1);
-  return "1";
+  return "1"; // mặc định active mục đầu
 });
 </script>
 

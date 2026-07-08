@@ -22,8 +22,11 @@ const STATUS_ALIASES = {
 
 /** [TABLE STATUS] Chuẩn hóa trạng thái bàn trước khi so sánh. Ctrl+F: normalizeTableStatus */
 function normalizeTableStatus(status) {
+  // Rỗng/null thì trả về nguyên trạng (không tự bịa trạng thái).
   if (!status) return status;
+  // Ép chuỗi, bỏ space, viết thường để so khớp thống nhất.
   const s = String(status).trim().toLowerCase();
+  // Nếu là tên cũ (vd "reserved") thì đổi sang tên mới; không có alias thì giữ nguyên.
   return STATUS_ALIASES[s] || s;
 }
 

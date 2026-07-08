@@ -104,13 +104,17 @@ function createMathChallenge() {
 
 /** [CAPTCHA] Verify một lần rồi xóa challenge để tránh reuse. Ctrl+F: verifyStoredChallenge */
 function verifyStoredChallenge(captchaId, captchaAnswer) {
+  // Dọn các challenge hết hạn trước.
   pruneChallengeStore();
+  // Tra đáp án đã lưu theo captchaId; không có (hết hạn/sai id) → báo lỗi.
   const entry = challengeStore.get(String(captchaId || ''));
   if (!entry) {
     return { ok: false, message: 'CAPTCHA đã hết hạn. Vui lòng tải lại.' };
   }
+  // Xóa NGAY sau khi lấy → mỗi mã chỉ dùng được 1 lần (chống dùng lại cùng captcha).
   challengeStore.delete(String(captchaId));
 
+  // Chuẩn hóa đáp án người dùng: bỏ khoảng trắng, viết hoa để so khớp không phân biệt hoa/thường.
   const normalizedAnswer = String(captchaAnswer ?? '').trim().replace(/\s+/g, '').toUpperCase();
   if (!normalizedAnswer || normalizedAnswer !== String(entry.answer).toUpperCase()) {
     return { ok: false, message: 'Mã CAPTCHA không đúng' };

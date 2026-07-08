@@ -1,14 +1,29 @@
-/** Bật chỉ khi cần test bằng một tọa độ giả lập. */
+/**
+ * USE_FIXED_USER_LOCATION = cờ bật/tắt chế độ dùng vị trí cố định.
+ *  - true  : luôn trả về FIXED_USER_LOCATION, KHÔNG hỏi GPS trình duyệt (tiện demo/bảo vệ đồ án).
+ *  - false : gọi navigator.geolocation để lấy GPS thật của thiết bị.
+ */
 export const USE_FIXED_USER_LOCATION = true;
 
-/** Vị trí demo mặc định — bỏ qua GPS trình duyệt khi USE_FIXED_USER_LOCATION = true. */
+/**
+ * FIXED_USER_LOCATION = tọa độ mặc định giả lập "vị trí người dùng".
+ * Đang đặt tại Đại học Bách Khoa Hà Nội (ĐHBK Hà Nội) để demo tính năng "chi nhánh gần bạn".
+ *  - lat   : vĩ độ (khoảng 21.0049 — cổng chính C1 ĐHBK Hà Nội).
+ *  - lng   : kinh độ (khoảng 105.8438).
+ *  - label : nhãn hiển thị cho người dùng biết đây là vị trí nào.
+ */
 export const FIXED_USER_LOCATION = {
-  lat: 20.833045053382488,
-  lng: 105.84194514066971,
-  label: "Vị trí demo",
+  lat: 21.004999,
+  lng: 105.843807,
+  label: "ĐHBK Hà Nội",
 };
 
-/** Tâm khu vực — dùng khi chọn thủ công Hà Nội / TP.HCM */
+/**
+ * REGION_PRESETS = các "tâm khu vực" định sẵn, dùng khi người dùng chọn tay Hà Nội / TP.HCM
+ * thay vì để hệ thống tự định vị.
+ *  - hanoi : mượn lại FIXED_USER_LOCATION (ĐHBK Hà Nội) làm tâm khu vực Hà Nội.
+ *  - hcm   : tâm khu vực TP.HCM (khu vực Bến Thành, Quận 1).
+ */
 export const REGION_PRESETS = {
   hanoi: { ...FIXED_USER_LOCATION },
   hcm: { lat: 10.7769, lng: 106.7009, label: "TP.HCM" },

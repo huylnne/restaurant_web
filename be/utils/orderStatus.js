@@ -8,7 +8,10 @@ const { Op } = require("sequelize");
 
 /** [SQL RAW] Escape và nối danh sách status cho câu SQL thủ công. Ctrl+F: sqlLiteralIn */
 function sqlLiteralIn(values) {
+  // Bỏ giá trị trùng bằng Set để IN-list gọn hơn.
   const uniq = [...new Set(values)];
+  // Với mỗi giá trị: bọc dấu nháy đơn '...' và escape nháy đơn bên trong (' → '')
+  // để tránh lỗi cú pháp / SQL injection khi ghép chuỗi thủ công. Nối lại bằng ", ".
   return uniq.map((v) => `'${String(v).replace(/'/g, "''")}'`).join(", ");
 }
 

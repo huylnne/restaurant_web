@@ -20,7 +20,9 @@ const kitchenService = {
    * Ctrl+F: getOrderItemsByStatus, hàng đợi bếp
    */
   async getOrderItemsByStatus(status = ORDER_ITEM_STATUS.PENDING, branchId = 1) {
+    // Lấy các món theo trạng thái + đúng chi nhánh.
     const items = await findKitchenOrderItems({ itemStatus: status, branchId });
+    // Gom món theo bàn để màn bếp hiển thị mỗi bàn 1 thẻ.
     const tables = groupKitchenItemsByTable(items);
     return { tables, items, total_items: items.length, total_tables: tables.length };
   },
@@ -38,14 +40,17 @@ const kitchenService = {
       ],
     });
     if (!item) throw new Error('OrderItem not found');
+    // Bảo vệ theo chi nhánh: bếp chi nhánh A không được sửa món của chi nhánh B.
     const itemBranchId = resolveOrderBranchId(item.toJSON());
     if (itemBranchId == null || Number(itemBranchId) !== Number(branchId)) {
       throw new Error('Không có quyền cập nhật món của chi nhánh khác');
     }
 
+    // Cập nhật trạng thái món (pending→processing→done...).
     const normalized = normalizeOrderItemStatus(newStatus);
     item.status = normalized;
     await item.save();
+    // Đồng bộ lại trạng thái order tổng dựa trên trạng thái các món (vd có món processing → order in_progress).
     await syncOrderStatusFromItems(item.order_id);
 
     await item.reload({

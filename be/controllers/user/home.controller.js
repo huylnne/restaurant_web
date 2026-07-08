@@ -97,6 +97,7 @@ exports.getBranches = async (req, res) => {
 
 /** [CHI NHÁNH GẦN BẠN] Sắp xếp chi nhánh theo khoảng cách từ vị trí khách (lat, lng). Ctrl+F: getBranchesNearby */
 exports.getBranchesNearby = async (req, res) => {
+  // Lấy tọa độ khách từ query; parseCoord trả null nếu không phải số hợp lệ.
   let lat = parseCoord(req.query.lat);
   let lng = parseCoord(req.query.lng);
 
@@ -104,12 +105,15 @@ exports.getBranchesNearby = async (req, res) => {
     return res.status(400).json({ message: "Cần tham số lat và lng hợp lệ" });
   }
 
+  // Chuẩn hóa (kẹp về khoảng hợp lệ của vĩ độ/kinh độ).
   ({ lat, lng } = normalizeCoords(lat, lng));
 
   try {
     const rows = await fetchBranchesWithStats();
+    // Chỉ hiện chi nhánh đang hoạt động.
     const active = rows.map(branchToPlain).filter((b) => b.is_active !== false);
 
+    // Tính khoảng cách (km) từ khách tới mỗi chi nhánh có tọa độ (dùng Haversine trong distanceKm).
     const withDistance = active.map((b) => {
       const blat = b.latitude;
       const blng = b.longitude;
@@ -121,6 +125,7 @@ exports.getBranchesNearby = async (req, res) => {
       };
     });
 
+    // Sắp xếp gần → xa; chi nhánh thiếu tọa độ (distance_km null) luôn đẩy xuống cuối.
     withDistance.sort((a, b) => {
       if (a.distance_km == null && b.distance_km == null) return a.branch_id - b.branch_id;
       if (a.distance_km == null) return 1;

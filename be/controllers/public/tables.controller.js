@@ -57,6 +57,7 @@ exports.checkinByToken = async (req, res) => {
 /** [QR] POST — khách gọi món qua QR. Ctrl+F: addOrderItemsByToken */
 exports.addOrderItemsByToken = async (req, res) => {
   try {
+    // token (trên URL) định danh bàn; accessToken (header x-table-order-token) chứng minh khách đang trong phiên hợp lệ.
     const data = await service.addOrderItemsByToken({
       token: req.params.token,
       accessToken: req.headers["x-table-order-token"],

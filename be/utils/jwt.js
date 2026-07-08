@@ -9,7 +9,9 @@ const JWT_EXPIRES_IN = process.env.JWT_EXPIRES_IN || '2h';
 
 /** [BẢO MẬT] Lấy JWT_SECRET từ env và bắt buộc đủ dài để tránh secret yếu khi demo/deploy. Ctrl+F: getJwtSecret */
 function getJwtSecret() {
+  // Đọc khóa bí mật ký JWT từ biến môi trường (không hardcode trong code).
   const secret = process.env.JWT_SECRET;
+  // Bắt buộc tồn tại và đủ dài (>=16 ký tự) để chống secret yếu dễ bị brute-force.
   if (!secret || String(secret).trim().length < 16) {
     throw new Error(
       'JWT_SECRET chưa cấu hình hoặc quá ngắn (tối thiểu 16 ký tự). Thêm vào file .env.'

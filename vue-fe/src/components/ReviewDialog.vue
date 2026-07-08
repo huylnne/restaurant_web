@@ -32,20 +32,22 @@
 </template>
 
 <script setup>
+// ReviewDialog — hộp thoại đánh giá dịch vụ sau khi dùng bữa (chọn sao + nhận xét).
+// Hỗ trợ 2 chế độ: "auth" (khách đã đăng nhập) và "guest" (khách quét QR bàn, dùng tableToken).
 import { ref, watch } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 import { API_ORIGIN } from "@/config/api";
 
 const props = defineProps({
-  modelValue: { type: Boolean, default: false },
-  orderId: { type: [Number, String], default: null },
+  modelValue: { type: Boolean, default: false },       // đóng/mở dialog (v-model)
+  orderId: { type: [Number, String], default: null },  // đơn cần đánh giá
   mode: {
     type: String,
     default: "auth",
-    validator: (value) => ["auth", "guest"].includes(value),
+    validator: (value) => ["auth", "guest"].includes(value), // chỉ nhận 2 chế độ
   },
-  tableToken: { type: String, default: "" },
+  tableToken: { type: String, default: "" },           // token bàn (bắt buộc ở chế độ guest)
 });
 
 const emit = defineEmits(["update:modelValue", "submitted", "closed"]);
@@ -53,6 +55,7 @@ const emit = defineEmits(["update:modelValue", "submitted", "closed"]);
 const form = ref({ rating: 0, comment: "" });
 const submitting = ref(false);
 
+// Mỗi lần mở dialog → reset form về trống để không giữ đánh giá cũ.
 watch(
   () => props.modelValue,
   (visible) => {
@@ -62,11 +65,13 @@ watch(
   }
 );
 
+// Đóng dialog ("Để sau"/nút X): tắt v-model và báo cha đã đóng (kèm orderId).
 function handleClose() {
   emit("update:modelValue", false);
   emit("closed", { orderId: props.orderId });
 }
 
+// Gửi đánh giá: validate ở client trước rồi mới gọi API (endpoint khác nhau theo mode).
 async function submitReview() {
   const payload = {
     order_id: Number(props.orderId),
@@ -74,6 +79,7 @@ async function submitReview() {
     comment: String(form.value.comment || "").trim(),
   };
 
+  // Các kiểm tra bắt buộc trước khi gửi.
   if (!payload.order_id) {
     ElMessage.warning("Không xác định được đơn hàng để đánh giá");
     return;
@@ -90,11 +96,13 @@ async function submitReview() {
   submitting.value = true;
   try {
     if (props.mode === "guest") {
+      // Khách vãng lai: gửi qua endpoint public theo token bàn (không cần đăng nhập).
       await axios.post(
         `${API_ORIGIN}/api/public/tables/by-token/${props.tableToken}/reviews`,
         payload
       );
     } else {
+      // Khách đã đăng nhập: gửi kèm JWT.
       const token = localStorage.getItem("token");
       await axios.post("/api/users/reviews", payload, {
         headers: { Authorization: `Bearer ${token}` },
@@ -102,7 +110,7 @@ async function submitReview() {
     }
     ElMessage.success("Gửi đánh giá thành công. Cảm ơn quý khách!");
     emit("update:modelValue", false);
-    emit("submitted", { orderId: payload.order_id });
+    emit("submitted", { orderId: payload.order_id }); // báo cha để cập nhật UI
   } catch (err) {
     ElMessage.error(err.response?.data?.message || "Không thể gửi đánh giá");
   } finally {

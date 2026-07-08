@@ -14,15 +14,20 @@ const lineRevenueSum = orderItemLineRevenueSumExpr();
 const dashboardService = {
   /** [DASHBOARD] Tổng quan hôm nay/hôm qua: doanh thu, đơn, khách, món. Ctrl+F: getSummary dashboard service */
   async getSummary(branchId = 1) {
+    // Mốc thời gian: hôm nay = [00:00 hôm nay, 00:00 ngày mai).
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     const tomorrow = new Date(today);
     tomorrow.setDate(tomorrow.getDate() + 1);
 
+    // Mốc hôm qua = [00:00 hôm qua, 23:59:59 hôm qua] để so sánh tăng/giảm.
     const yesterday = new Date(today);
     yesterday.setDate(yesterday.getDate() - 1);
     const yesterdayEnd = new Date(yesterday);
     yesterdayEnd.setHours(23, 59, 59, 999);
+
+    // Bên dưới: mỗi chỉ số (doanh thu/đơn/khách/món) chạy 2 truy vấn giống nhau cho hôm nay & hôm qua.
+    // Doanh thu tính bằng lineRevenueSum (đơn giá thực tế × số lượng), chỉ tính order đã hoàn tất.
 
     const todayRevenueQuery = `
       SELECT ${lineRevenueSum} AS total
@@ -183,7 +188,8 @@ const dashboardService = {
       },
     });
 
-    const daysMap = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"];
+    const daysMap = ["CN", "T2", "T3", "T4", "T5", "T6", "T7"]; // nhãn thứ trong tuần
+    // Đưa kết quả SQL vào Map: "YYYY-MM-DD" → doanh thu, để tra nhanh theo ngày.
     const revenueByDate = new Map(
       results.map((row) => {
         const dateKey =
@@ -194,10 +200,12 @@ const dashboardService = {
       })
     );
 
+    // Lấp đầy đủ 7 ngày liên tiếp (kể cả ngày không có doanh thu → 0) để biểu đồ không bị khuyết cột.
     const output = [];
     for (let i = 0; i < 7; i++) {
       const day = new Date(startDate);
       day.setDate(startDate.getDate() + i);
+      // Tự ghép key ngày theo giờ LOCAL (không dùng toISOString để tránh lệch múi giờ sang ngày khác).
       const dateKey = [
         day.getFullYear(),
         String(day.getMonth() + 1).padStart(2, "0"),
@@ -288,6 +296,7 @@ const dashboardService = {
       replacements: { branchId },
     });
 
+    // Số lượt lớn nhất trong các khung giờ (tối thiểu 1 để không chia cho 0).
     const maxCount = Math.max(
       ...results.map((r) => parseInt(r.reservation_count)),
       1
@@ -300,9 +309,11 @@ const dashboardService = {
         return {
           timeRange: `${hour}:00 - ${hour + 2}:00`,
           reservationCount: count,
+          // % so với khung giờ đông nhất → dùng vẽ thanh mức độ cao điểm.
           percentage: Math.round((count / maxCount) * 100),
         };
       })
+      // Chỉ giữ các khung giờ đủ đông (>30% so với đỉnh) để coi là "cao điểm".
       .filter((r) => r.percentage > 30);
   },
 };

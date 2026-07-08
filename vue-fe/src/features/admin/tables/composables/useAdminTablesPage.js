@@ -1,3 +1,13 @@
+/**
+ * useAdminTablesPage — "bộ não" của màn Quản lý bàn (sơ đồ bàn) cho admin/manager/waiter/kitchen.
+ * Gộp toàn bộ nghiệp vụ tại quầy vào 1 composable:
+ *  - Sơ đồ bàn: nạp danh sách bàn + thống kê, lọc/tìm, phân trang co giãn theo kích thước lưới.
+ *  - CRUD bàn: thêm/sửa/xóa; waiter chỉ được đổi trạng thái bàn.
+ *  - Chi tiết bàn: đơn món của bàn, hóa đơn (bill), trạng thái thanh toán, gọi món tại bàn, đánh dấu đã phục vụ.
+ *  - Thanh toán: chốt tiền mặt/CK, tạo QR VietQR (tự poll), tải hóa đơn PDF.
+ *  - Tiếp nhận (reception): check-in đơn đặt trước + xếp bàn cho khách vãng lai (walk-in).
+ *  - Realtime: poll định kỳ + WebSocket theo chi nhánh để đồng bộ trạng thái bàn/bếp.
+ */
 import { ref, onMounted, onUnmounted, computed, watch, nextTick } from "vue";
 import { ElMessage, ElMessageBox } from "element-plus";
 import axios from "axios";
@@ -30,10 +40,11 @@ import {
 import { TABLE_API, WAITER_API, RECEPTION_API, BRANCH_API } from "../api/tablesApi";
 
 export function useAdminTablesPage() {
-  const tablesGridRef = ref(null);
-  const tablePageSize = ref(36);
+  const tablesGridRef = ref(null);   // ref tới DOM lưới bàn (để đo kích thước)
+  const tablePageSize = ref(36);     // số bàn/trang (được tính lại theo màn hình)
   let tablesGridResizeObserver = null;
 
+  // Đọc 1 biến CSS dạng px (vd --hl-admin-grid-min) → số; lỗi thì trả về fallback.
   function readCssPxVar(name, fallback) {
     if (typeof document === "undefined") return fallback;
     const raw = getComputedStyle(document.documentElement).getPropertyValue(name).trim();
@@ -41,28 +52,33 @@ export function useAdminTablesPage() {
     return Number.isFinite(n) ? n : fallback;
   }
 
+  // Tính số bàn/trang sao cho lấp vừa vùng hiển thị: số cột × số hàng ước lượng.
   function computeTablePageSize() {
     const el = tablesGridRef.value;
     if (!el || typeof window === "undefined") return;
     const w = el.clientWidth;
-    if (w < 80) return;
+    if (w < 80) return; // chưa render đủ rộng
 
+    // Số cột = (bề rộng + gap) / (thẻ tối thiểu + gap).
     const minCard = readCssPxVar("--hl-admin-grid-min", 220);
     const gap = readCssPxVar("--hl-admin-grid-gap", 16);
     const cols = Math.max(1, Math.floor((w + gap) / (minCard + gap)));
 
+    // Số hàng = chiều cao còn lại của viewport / chiều cao 1 thẻ (kẹp 3..14 hàng).
     const rect = el.getBoundingClientRect();
     const reserveBottom = 120;
     const availH = Math.max(240, window.innerHeight - rect.top - reserveBottom);
     const estRowH = 150;
     const rows = Math.max(3, Math.min(14, Math.floor(availH / estRowH)));
 
+    // pageSize = cols*rows, kẹp trong khoảng 12..150.
     const next = Math.min(150, Math.max(12, cols * rows));
     if (tablePageSize.value !== next) {
       tablePageSize.value = next;
     }
   }
 
+  // Kéo currentPage về trang cuối hợp lệ nếu nó vượt quá tổng số trang (sau khi lọc/đổi pageSize).
   function clampTablePage() {
     const total = filteredTables.value?.length || 0;
     const maxPage = Math.max(1, Math.ceil(total / tablePageSize.value));
@@ -71,17 +87,20 @@ export function useAdminTablesPage() {
     }
   }
 
+  // Gọi mỗi khi lưới đổi kích thước: tính lại pageSize rồi kẹp lại trang.
   function onTablesGridLayoutTick() {
     computeTablePageSize();
     clampTablePage();
   }
 
-  const userRole = ref("");
-  const branches = ref([]);
-  const selectedBranchId = ref(1);
-  const tables = ref([]);
-  const filteredTables = ref([]);
-  const summary = ref({
+  // --- State cơ bản: vai trò, chi nhánh, danh sách bàn ---
+  const userRole = ref("");          // vai trò người đăng nhập (admin/manager/waiter/kitchen)
+  const branches = ref([]);          // danh sách chi nhánh
+  const selectedBranchId = ref(1);   // chi nhánh đang xem
+  const tables = ref([]);            // toàn bộ bàn của chi nhánh (chưa lọc)
+  const filteredTables = ref([]);    // danh sách bàn sau khi lọc/tìm
+  const summary = ref({              // các con số thống kê hiển thị ở đầu trang
+
     totalTables: 0,
     availableTables: 0,
     occupiedTables: 0,
@@ -90,19 +109,21 @@ export function useAdminTablesPage() {
     currentRevenue: 0,
   });
 
-  const searchQuery = ref("");
-  const filterStatus = ref("");
-  const tableCurrentPage = ref(1);
-  const showAddDialog = ref(false);
-  const showDetailDialog = ref(false);
-  const showEditDialogVisible = ref(false);
-  const selectedTable = ref(null);
+  // --- State lọc + các dialog ---
+  const searchQuery = ref("");           // ô tìm theo số bàn
+  const filterStatus = ref("");          // lọc theo trạng thái bàn
+  const tableCurrentPage = ref(1);       // trang hiện tại của lưới bàn
+  const showAddDialog = ref(false);      // dialog thêm bàn
+  const showDetailDialog = ref(false);   // dialog chi tiết bàn
+  const showEditDialogVisible = ref(false); // dialog sửa bàn
+  const selectedTable = ref(null);       // bàn đang được chọn/mở chi tiết
 
+  // --- State cho QR (2 chế độ: link đặt món của bàn HOẶC QR thanh toán VietQR) ---
   const showQrDialog = ref(false);
   const qrSelectedTable = ref(null);
-  const linkQrDataUrl = ref("");
-  const qrLink = ref("");
-  const qrMode = ref("link");
+  const linkQrDataUrl = ref("");   // ảnh QR của link bàn (/t/{token})
+  const qrLink = ref("");          // chuỗi link bàn
+  const qrMode = ref("link");      // "link" | "payment"
   const {
     qrDataUrl: paymentQrDataUrl,
     amount: qrPaymentAmount,
@@ -113,22 +134,25 @@ export function useAdminTablesPage() {
     stopPolling: stopQrPaymentPolling,
     reset: resetVietQrPayment,
   } = useVietQrPayment();
+  // Ảnh QR hiển thị tùy chế độ: thanh toán → QR VietQR; ngược lại → QR link bàn.
   const qrDataUrl = computed(() =>
     qrMode.value === "payment" ? paymentQrDataUrl.value : linkQrDataUrl.value
   );
 
-  const tableOrders = ref([]);
+  // --- State chi tiết bàn: đơn món, tạo đơn tại bàn ---
+  const tableOrders = ref([]);           // các đơn của bàn đang mở
   const tableOrdersLoading = ref(false);
   const showCreateOrderDialog = ref(false);
-  const menuItemsForOrder = ref([]);
+  const menuItemsForOrder = ref([]);     // thực đơn để chọn khi tạo đơn tại bàn
   const menuItemsLoading = ref(false);
-  const orderQuantities = ref({});
+  const orderQuantities = ref({});       // map item_id → số lượng đang chọn
 
-  const tableBill = ref(null);
+  // --- State hóa đơn + thanh toán ---
+  const tableBill = ref(null);           // bill tổng hợp của bàn
   const tableBillLoading = ref(false);
-  const paymentInfo = ref(null);
+  const paymentInfo = ref(null);         // thông tin bản ghi payment (nếu có)
   const paymentLoading = ref(false);
-  const paymentMethod = ref("CASH");
+  const paymentMethod = ref("CASH");     // phương thức thanh toán đang chọn
   const paymentSubmitting = ref(false);
 
   const paymentMethodOptions = [
@@ -139,51 +163,59 @@ export function useAdminTablesPage() {
     { value: "WALLET", label: "Ví điện tử" },
   ];
 
+  // Có ít nhất 1 món được chọn (số lượng > 0) → cho phép bấm "Tạo đơn".
   const hasOrderItemsSelected = computed(() =>
     Object.values(orderQuantities.value).some((qty) => qty > 0)
   );
 
+  // Các đơn đặt món trước (pre-order) theo trạng thái cũ — dùng để hiển thị riêng.
   const legacyPreOrders = computed(() =>
     tableOrders.value.filter((o) => isLegacyPreorderOrderStatus(o.status))
   );
   const preOrders = legacyPreOrders;
 
+  // Form thêm bàn mới (sức chứa mặc định lấy từ hằng số).
   const newTable = ref({
     table_number: null,
     capacity: TABLE_CAPACITY,
   });
 
+  // Form sửa bàn.
   const editTableForm = ref({
     table_number: null,
     capacity: null,
     status: "",
   });
 
+  // --- State cho dialog Tiếp nhận (reception): 2 tab reservation | walkin ---
   const showReceptionDialog = ref(false);
-  const receptionTab = ref("reservation");
-  const receptionSearchQuery = ref("");
-  const receptionResults = ref([]);
+  const receptionTab = ref("reservation");   // tab đang mở
+  const receptionSearchQuery = ref("");       // ô tìm đặt bàn (SĐT/tên/mã)
+  const receptionResults = ref([]);           // kết quả tìm / danh sách sắp tới
   const receptionSearchLoading = ref(false);
-  const receptionSearched = ref(false);
-  const receptionConfirmLoading = ref(null);
-  const walkInGuests = ref(2);
-  const walkInTables = ref([]);
+  const receptionSearched = ref(false);       // đã bấm tìm hay chưa (để hiện "không có kết quả")
+  const receptionConfirmLoading = ref(null);  // order_id đang check-in (để loading nút riêng)
+  const walkInGuests = ref(2);                // số khách vãng lai
+  const walkInTables = ref([]);               // bàn trống gợi ý cho walk-in
   const walkInTablesLoading = ref(false);
-  const walkInSelectedTableIds = ref([]);
+  const walkInSelectedTableIds = ref([]);     // các bàn đã chọn để ghép cho nhóm khách
   const walkInSubmitLoading = ref(false);
 
+  // Tổng sức chứa của các bàn đã chọn cho walk-in.
   const walkInSelectedCapacity = computed(() =>
     walkInTables.value
       .filter((table) => walkInSelectedTableIds.value.includes(table.table_id))
       .reduce((sum, table) => sum + Number(table.capacity || 0), 0)
   );
 
+  // Đã chọn đủ bàn để chứa hết nhóm khách chưa?
   const hasEnoughWalkInCapacity = computed(
     () =>
       walkInSelectedTableIds.value.length > 0 &&
       walkInSelectedCapacity.value >= Number(walkInGuests.value || 0)
   );
 
+  // Nạp danh sách chi nhánh; nếu chi nhánh đang chọn không còn → chọn chi nhánh đầu tiên.
   const fetchBranches = async () => {
     try {
       const response = await axios.get(BRANCH_API);
@@ -198,6 +230,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Nạp toàn bộ bàn của chi nhánh; sau khi có dữ liệu thì tính lại layout lưới.
   const fetchTables = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -206,8 +239,9 @@ export function useAdminTablesPage() {
         headers: { Authorization: `Bearer ${token}` },
       });
       tables.value = response.data;
-      filteredTables.value = response.data;
+      filteredTables.value = response.data; // reset bộ lọc về toàn bộ
       await nextTick();
+      // Chờ khung hình kế tiếp để DOM có kích thước thật rồi mới tính pageSize.
       requestAnimationFrame(() => {
         onTablesGridLayoutTick();
       });
@@ -217,6 +251,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Nạp các con số thống kê (tổng bàn, trống, đang dùng, doanh thu hiện tại...).
   const fetchSummary = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -230,14 +265,18 @@ export function useAdminTablesPage() {
     }
   };
 
-  const lastOrderItemStatusById = new Map();
-  let orderItemStatusSnapshotPrimed = false;
+  // Cơ chế phát hiện món "vừa mới xong" để bật thông báo cho phục vụ:
+  // lưu lại trạng thái từng order_item ở lần fetch trước, so sánh với lần fetch sau.
+  const lastOrderItemStatusById = new Map(); // order_item_id → status (lần trước)
+  let orderItemStatusSnapshotPrimed = false; // đã có "ảnh chụp" đầu tiên chưa
 
+  // Xóa snapshot (dùng khi mở lại dialog để không báo nhầm món đã done từ trước).
   function resetOrderItemStatusSnapshot() {
     lastOrderItemStatusById.clear();
     orderItemStatusSnapshotPrimed = false;
   }
 
+  // Ghi lại trạng thái hiện tại của mọi order_item làm mốc so sánh cho lần sau.
   function primeOrderItemStatusSnapshot(orders) {
     lastOrderItemStatusById.clear();
     for (const order of orders || []) {
@@ -249,6 +288,7 @@ export function useAdminTablesPage() {
     }
   }
 
+  // Lấy danh sách số bàn của 1 đơn (ưu tiên bàn ghép OrderTables, fallback Table đơn), sắp xếp tăng dần.
   function tableNumbersFromOrder(order) {
     const linked = (order?.OrderTables || []).map((link) => link.Table).filter(Boolean);
     const tables = linked.length ? linked : order?.Table ? [order.Table] : [];
@@ -258,6 +298,7 @@ export function useAdminTablesPage() {
       .sort((a, b) => a - b);
   }
 
+  // So sánh dữ liệu mới với snapshot cũ: món nào chuyển sang "done" (trước đó khác done) thì báo.
   function notifyDishJustDoneFromOrders(ordersAfter) {
     for (const order of ordersAfter || []) {
       const tableNumbers = tableNumbersFromOrder(order);
@@ -266,6 +307,7 @@ export function useAdminTablesPage() {
         if (id == null) continue;
         const st = String(oi.status || "").toLowerCase();
         const prev = lastOrderItemStatusById.get(id);
+        // Chỉ báo khi có mốc cũ (prev) và trạng thái vừa đổi thành "done".
         if (st === "done" && prev && prev !== "done") {
           notifyKitchenDishDone({
             dishName: oi.MenuItem?.name,
@@ -281,6 +323,7 @@ export function useAdminTablesPage() {
     }
   }
 
+  // Nạp các đơn của 1 bàn; nếu đã có snapshot thì phát hiện món vừa done để báo, rồi cập nhật snapshot.
   const fetchTableOrders = async (table_id) => {
     if (!table_id) return;
     tableOrdersLoading.value = true;
@@ -292,10 +335,10 @@ export function useAdminTablesPage() {
       });
       const data = Array.isArray(res.data) ? res.data : res.data.orders || [];
       if (orderItemStatusSnapshotPrimed) {
-        notifyDishJustDoneFromOrders(data);
+        notifyDishJustDoneFromOrders(data); // so với lần trước → báo món mới xong
       }
       tableOrders.value = data;
-      primeOrderItemStatusSnapshot(data);
+      primeOrderItemStatusSnapshot(data);   // cập nhật mốc cho lần sau
       orderItemStatusSnapshotPrimed = true;
     } catch (err) {
       console.error("Lỗi lấy đơn hàng bàn:", err);
@@ -305,6 +348,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Nạp hóa đơn tổng hợp (bill) của bàn.
   const fetchTableBill = async (table_id) => {
     if (!table_id) return;
     tableBillLoading.value = true;
@@ -322,9 +366,10 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Nạp trạng thái thanh toán của bàn; nếu vừa chuyển sang "succeeded" (do CK/QR) thì tự đóng dialog + báo.
   const fetchTablePayment = async (table_id) => {
     if (!table_id) return;
-    const prevStatus = paymentInfo.value?.status || "";
+    const prevStatus = paymentInfo.value?.status || ""; // nhớ trạng thái cũ để so sánh
     paymentLoading.value = true;
     try {
       const token = localStorage.getItem("token");
@@ -340,8 +385,9 @@ export function useAdminTablesPage() {
         paymentInfo.value = null;
       }
       if (paymentInfo.value?.method) {
-        paymentMethod.value = paymentInfo.value.method;
+        paymentMethod.value = paymentInfo.value.method; // đồng bộ phương thức đang chọn
       }
+      // Chuyển trạng thái sang succeeded khi đang mở dialog → thông báo và đóng dialog.
       const newStatus = paymentInfo.value?.status || "";
       if (
         newStatus === "succeeded" &&
@@ -358,6 +404,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Khi mở dialog chi tiết bàn: reset snapshot rồi nạp đồng thời đơn + bill + trạng thái thanh toán.
   const onDetailDialogOpen = () => {
     resetOrderItemStatusSnapshot();
     if (selectedTable.value?.table_id) {
@@ -367,6 +414,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Mở dialog gọi món tại bàn: nạp thực đơn của chi nhánh, khởi tạo số lượng = 0 cho mọi món.
   const openCreateOrderDialog = async () => {
     menuItemsForOrder.value = [];
     orderQuantities.value = {};
@@ -389,6 +437,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Gửi đơn gọi món: gom các món có số lượng > 0 → POST; xong thì làm mới đơn/bàn/thống kê.
   const submitCreateOrder = async () => {
     if (!selectedTable.value?.table_id) return;
     const items = Object.entries(orderQuantities.value)
@@ -415,6 +464,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Đánh dấu 1 món "đã phục vụ" (served); xong thì làm mới danh sách đơn của bàn.
   const markItemServed = async (orderItemId) => {
     try {
       const token = localStorage.getItem("token");
@@ -432,6 +482,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Thêm bàn mới cho chi nhánh; xong thì reset form và làm mới danh sách + thống kê.
   const addTable = async () => {
     try {
       const token = localStorage.getItem("token");
@@ -449,6 +500,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Mở dialog sửa bàn: đổ dữ liệu bàn đang chọn vào form (chuẩn hóa trạng thái).
   const showEditDialog = () => {
     if (!selectedTable.value) return;
 
@@ -461,18 +513,21 @@ export function useAdminTablesPage() {
     showEditDialogVisible.value = true;
   };
 
+  // Cập nhật bàn: waiter chỉ được đổi TRẠNG THÁI (PATCH); còn lại được sửa đầy đủ số bàn/sức chứa (PUT).
   const updateTable = async () => {
     try {
       const token = localStorage.getItem("token");
       const role = userRole.value;
 
       if (role === "waiter") {
+        // Phục vụ: chỉ đổi trạng thái bàn (vd trống ↔ đang dọn).
         await axios.patch(
           `${WAITER_API}/tables/${selectedTable.value.table_id}/status`,
           { status: editTableForm.value.status },
           { headers: { Authorization: `Bearer ${token}` } }
         );
       } else {
+        // Admin/manager: sửa đầy đủ; dùng số bàn CŨ trên URL để định danh.
         const oldTableNumber = selectedTable.value.table_number;
         await axios.put(
           `${TABLE_API}/${oldTableNumber}`,
@@ -494,6 +549,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Xóa bàn: hỏi xác nhận trước; nếu người dùng bấm Hủy (error === "cancel") thì im lặng bỏ qua.
   const deleteTable = async (table) => {
     try {
       await ElMessageBox.confirm(
@@ -523,11 +579,13 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Chọn bàn và mở dialog chi tiết.
   const viewTableDetail = (table) => {
     selectedTable.value = table;
     showDetailDialog.value = true;
   };
 
+  // Mở dialog QR ở chế độ "link": tạo ảnh QR trỏ tới trang gọi món của bàn (/t/{token}).
   const openQrDialog = async (table) => {
     qrSelectedTable.value = table;
     linkQrDataUrl.value = "";
@@ -536,7 +594,7 @@ export function useAdminTablesPage() {
     stopQrPaymentPolling();
     qrLink.value = buildTableQrLink(table?.qr_token);
     showQrDialog.value = true;
-    if (!qrLink.value) return;
+    if (!qrLink.value) return; // bàn chưa có token thì thôi
     try {
       linkQrDataUrl.value = await createQrDataUrl(qrLink.value);
     } catch (e) {
@@ -545,6 +603,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Đóng tất cả dialog liên quan thanh toán và dừng poll QR (dùng khi thanh toán xong/hủy).
   const closePaymentDialogs = () => {
     stopQrPaymentPolling();
     showQrDialog.value = false;
@@ -552,6 +611,7 @@ export function useAdminTablesPage() {
     showEditDialogVisible.value = false;
   };
 
+  // Callback khi VietQR/SePay xác nhận đã thanh toán: đóng dialog + làm mới toàn bộ dữ liệu bàn.
   const onQrPaymentSucceeded = async () => {
     closePaymentDialogs();
     ElMessage.success("SEPay đã xác nhận thanh toán");
@@ -564,10 +624,12 @@ export function useAdminTablesPage() {
     fetchSummary();
   };
 
+  // Đóng dialog QR bằng bất kỳ cách nào → dừng poll để tránh gọi API vô ích.
   watch(showQrDialog, (visible) => {
     if (!visible) stopQrPaymentPolling();
   });
 
+  // Mở dialog QR ở chế độ "payment": gọi API tạo VietQR và tự poll trạng thái.
   const openPaymentQrDialog = async (table) => {
     qrSelectedTable.value = table;
     linkQrDataUrl.value = "";
@@ -584,6 +646,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Copy link bàn vào clipboard.
   const copyQrLink = async () => {
     try {
       if (!qrLink.value) return;
@@ -594,6 +657,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Lọc bàn theo ô tìm (số bàn) và trạng thái; sau khi lọc luôn về trang 1.
   const filterTables = () => {
     let result = tables.value;
 
@@ -611,9 +675,11 @@ export function useAdminTablesPage() {
     tableCurrentPage.value = 1;
   };
 
+  // Tổng số trang của lưới bàn (theo danh sách đã lọc và pageSize).
   const tablePaginationTotalPages = computed(() =>
     Math.max(1, Math.ceil((filteredTables.value?.length || 0) / tablePageSize.value))
   );
+  // Cắt lấy đúng phần bàn của trang hiện tại (phân trang phía client).
   const displayedTables = computed(() => {
     const list = filteredTables.value || [];
     const size = tablePageSize.value;
@@ -621,13 +687,15 @@ export function useAdminTablesPage() {
     return list.slice(start, start + size);
   });
 
+  // Các alias tiện dùng ở template để lấy class/màu tag/nhãn theo trạng thái bàn.
   const getStatusClass = getTableStatusClass;
   const getTagType = getTableTagType;
   const getStatusText = getTableStatusLabel;
 
+  // Chốt thanh toán tiền mặt/CK tại quầy (checkout); xong thì làm mới bill/đơn/bàn.
   const finalizePayment = async () => {
     if (!selectedTable.value?.table_id) return;
-    paymentSubmitting.value = true;
+    paymentSubmitting.value = true; // khóa nút tránh double-submit
     try {
       const token = localStorage.getItem("token");
       const res = await axios.post(
@@ -651,6 +719,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Tải hóa đơn PDF: nhận blob rồi tạo link ẩn để trình duyệt tải xuống, sau đó thu hồi URL tạm.
   const downloadInvoice = async () => {
     if (!paymentInfo.value?.order_id) {
       ElMessage.warning("Chưa có hóa đơn để tải");
@@ -660,7 +729,7 @@ export function useAdminTablesPage() {
       const token = localStorage.getItem("token");
       const res = await axios.get(
         `${WAITER_API}/reservations/${paymentInfo.value.order_id}/invoice.pdf`,
-        { headers: { Authorization: `Bearer ${token}` }, responseType: "blob" }
+        { headers: { Authorization: `Bearer ${token}` }, responseType: "blob" } // nhận nhị phân
       );
       const blob = new Blob([res.data], { type: "application/pdf" });
       const url = window.URL.createObjectURL(blob);
@@ -669,9 +738,9 @@ export function useAdminTablesPage() {
       const invoiceNo = paymentInfo.value.invoice_no || "invoice";
       link.download = `${invoiceNo}.pdf`;
       document.body.appendChild(link);
-      link.click();
+      link.click();   // kích hoạt tải
       link.remove();
-      window.URL.revokeObjectURL(url);
+      window.URL.revokeObjectURL(url); // giải phóng bộ nhớ blob URL
     } catch (err) {
       ElMessage.error(err.response?.data?.message || "Không thể tải hóa đơn");
     }
@@ -681,6 +750,7 @@ export function useAdminTablesPage() {
     showReceptionDialog.value = true;
   };
 
+  // Khi mở dialog tiếp nhận: reset về tab "đặt trước", xóa dữ liệu cũ, và nạp danh sách khách sắp tới.
   const onReceptionDialogOpen = () => {
     receptionTab.value = "reservation";
     receptionSearchQuery.value = "";
@@ -692,10 +762,12 @@ export function useAdminTablesPage() {
     loadUpcomingArrivals();
   };
 
+  // Chuyển sang tab "khách vãng lai" → nạp bàn trống gợi ý.
   const onReceptionTabChange = (tabName) => {
     if (tabName === "walkin") fetchWalkInTables();
   };
 
+  // Nạp danh sách đơn đặt bàn sắp đến giờ (để lễ tân chủ động check-in).
   const loadUpcomingArrivals = async () => {
     receptionSearchLoading.value = true;
     try {
@@ -716,6 +788,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Định dạng giờ đến hiển thị trong danh sách tiếp nhận (dd/MM HH:mm).
   const formatReceptionTime = (datetime) => {
     if (!datetime) return "";
     return new Date(datetime).toLocaleString("vi-VN", {
@@ -726,6 +799,7 @@ export function useAdminTablesPage() {
     });
   };
 
+  // Gộp danh sách bàn của 1 đơn thành chuỗi "B1, B2..." (ưu tiên bàn ghép, fallback bàn đơn).
   const formatReceptionTables = (item) => {
     const tableList = item?.tables?.length ? item.tables : item?.table ? [item.table] : [];
     if (!tableList.length) return "—";
@@ -734,8 +808,10 @@ export function useAdminTablesPage() {
       .join(", ");
   };
 
+  // Đơn đã check-in chưa? (có mốc thời gian checked_in_at).
   const isReceptionCheckedIn = (item) => Boolean(item?.checked_in_at);
 
+  // Có được phép check-in đơn này không: chưa check-in, chưa hoàn tất/hủy, và đã có bàn gán.
   const canConfirmReception = (item) => {
     if (isReceptionCheckedIn(item)) return false;
     const status = String(item?.status || "").toLowerCase();
@@ -744,12 +820,14 @@ export function useAdminTablesPage() {
     return tableList.length > 0 || Boolean(item?.table_id);
   };
 
+  // Đơn có đặt món trước hay không (để hiển thị nhãn) — chưa check-in và có dấu hiệu pre-order.
   const hasReceptionPreOrder = (item) =>
     !isReceptionCheckedIn(item) &&
     (Boolean(item?.hasPreOrder) ||
       String(item?.status || "").toLowerCase() === "pre-ordered" ||
       (Array.isArray(item?.OrderItems) && item.OrderItems.length > 0));
 
+  // Tìm đơn đặt bàn theo SĐT/tên/mã.
   const searchReception = async () => {
     const q = receptionSearchQuery.value.trim();
     if (!q) {
@@ -757,7 +835,7 @@ export function useAdminTablesPage() {
       return;
     }
     receptionSearchLoading.value = true;
-    receptionSearched.value = true;
+    receptionSearched.value = true; // đánh dấu đã tìm để hiện "không có kết quả" nếu rỗng
     try {
       const res = await axios.get(`${RECEPTION_API}/search`, {
         params: { q, branchId: selectedBranchId.value },
@@ -773,8 +851,9 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Check-in 1 đơn đặt bàn: gọi API, làm mới dữ liệu + danh sách, rồi mở luôn chi tiết bàn tương ứng.
   const confirmReception = async (item) => {
-    receptionConfirmLoading.value = item.order_id;
+    receptionConfirmLoading.value = item.order_id; // để nút của đúng dòng đó loading
     try {
       const res = await axios.post(
         `${RECEPTION_API}/check-in`,
@@ -784,11 +863,13 @@ export function useAdminTablesPage() {
       ElMessage.success(res.data?.message || "Tiếp nhận thành công");
       await fetchTables();
       await fetchSummary();
+      // Làm mới danh sách theo ngữ cảnh: đang tìm thì tìm lại, không thì nạp lại "sắp tới".
       if (receptionSearchQuery.value.trim()) {
         await searchReception();
       } else {
         await loadUpcomingArrivals();
       }
+      // Mở chi tiết bàn vừa được gán (nếu tìm thấy trong danh sách hiện tại).
       const tableNum = res.data?.table?.table_number ?? item.table?.table_number;
       if (tableNum != null) {
         const found = tables.value.find((t) => t.table_number === tableNum);
@@ -801,6 +882,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Nạp danh sách bàn trống phù hợp cho số khách vãng lai hiện tại; reset các bàn đã chọn.
   const fetchWalkInTables = async () => {
     walkInTablesLoading.value = true;
     walkInSelectedTableIds.value = [];
@@ -813,6 +895,7 @@ export function useAdminTablesPage() {
     } catch (err) {
       console.error("fetchWalkInTables:", err);
       walkInTables.value = [];
+      // Chỉ báo lỗi khi người dùng đang thực sự ở tab walk-in.
       if (receptionTab.value === "walkin") {
         ElMessage.error(err.response?.data?.message || "Không thể tải bàn trống");
       }
@@ -823,6 +906,7 @@ export function useAdminTablesPage() {
 
   const isWalkInTableSelected = (tableId) => walkInSelectedTableIds.value.includes(tableId);
 
+  // Bật/tắt chọn 1 bàn cho walk-in (dùng để ghép nhiều bàn cho nhóm đông).
   const toggleWalkInTable = (tableId) => {
     if (isWalkInTableSelected(tableId)) {
       walkInSelectedTableIds.value = walkInSelectedTableIds.value.filter((id) => id !== tableId);
@@ -831,6 +915,7 @@ export function useAdminTablesPage() {
     walkInSelectedTableIds.value = [...walkInSelectedTableIds.value, tableId];
   };
 
+  // Xếp bàn cho khách vãng lai: gửi các bàn đã chọn + số khách; xong thì mở chi tiết bàn chính.
   const submitWalkIn = async () => {
     if (!hasEnoughWalkInCapacity.value) {
       ElMessage.warning("Chọn thêm bàn để đủ chỗ cho nhóm khách");
@@ -841,8 +926,8 @@ export function useAdminTablesPage() {
       const res = await axios.post(
         `${RECEPTION_API}/walk-in`,
         {
-          table_id: walkInSelectedTableIds.value[0],
-          table_ids: walkInSelectedTableIds.value,
+          table_id: walkInSelectedTableIds.value[0], // bàn "chính" (tương thích API cũ)
+          table_ids: walkInSelectedTableIds.value,   // toàn bộ bàn ghép
           number_of_guests: walkInGuests.value,
           branch_id: selectedBranchId.value,
         },
@@ -864,6 +949,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Đóng dialog tiếp nhận và mở chi tiết của 1 bàn cụ thể (dùng khi click vào bàn trong kết quả).
   const openTableAfterReception = (tableInfo) => {
     if (!tableInfo?.table_number) return;
     const found = tables.value.find((t) => t.table_number === tableInfo.table_number);
@@ -873,6 +959,7 @@ export function useAdminTablesPage() {
     }
   };
 
+  // Đổi chi nhánh: xóa bộ lọc/lựa chọn hiện tại rồi nạp lại bàn + thống kê của chi nhánh mới.
   const handleBranchChange = () => {
     tableCurrentPage.value = 1;
     filterStatus.value = "";
@@ -883,15 +970,18 @@ export function useAdminTablesPage() {
     fetchSummary();
   };
 
-  let refreshTimer = null;
-  let disposeTablesWs = null;
+  // --- Đồng bộ realtime: kết hợp poll định kỳ + WebSocket theo chi nhánh ---
+  let refreshTimer = null;      // id của setInterval poll
+  let disposeTablesWs = null;   // hàm huỷ kết nối WebSocket
 
+  // Waiter/kitchen cần cập nhật nhanh (4s); vai trò khác chỉ cần chậm hơn (12s) để đỡ tải.
   function getTablesPollIntervalMs() {
     const r = userRole.value;
     if (r === "waiter" || r === "kitchen") return 4000;
     return 12000;
   }
 
+  // Một nhịp đồng bộ: nếu đang mở chi tiết bàn thì làm mới đơn/bill/thanh toán; nếu không thì làm mới lưới + thống kê.
   function pollTablesSyncTick() {
     if (showDetailDialog.value && selectedTable.value?.table_id) {
       fetchTableOrders(selectedTable.value.table_id);
@@ -903,12 +993,14 @@ export function useAdminTablesPage() {
     }
   }
 
+  // Nhận message realtime: chỉ quan tâm sự kiện món/luồng đơn → báo bếp + đồng bộ ngay lập tức.
   function onTablesRealtimeMsg(msg) {
     if (msg?.type !== "order_item_status" && msg?.type !== "order_flow") return;
     handleKitchenRealtimeMessage(msg);
     pollTablesSyncTick();
   }
 
+  // Dừng poll + ngắt WebSocket (gọi trước khi khởi động lại hoặc khi unmount).
   function stopTablesPollingAndWs() {
     if (refreshTimer) {
       clearInterval(refreshTimer);
@@ -920,23 +1012,28 @@ export function useAdminTablesPage() {
     }
   }
 
+  // Khởi động poll (theo nhịp phù hợp vai trò) + mở WebSocket của chi nhánh đang chọn.
   function startTablesPollingAndWs() {
     stopTablesPollingAndWs();
     refreshTimer = setInterval(pollTablesSyncTick, getTablesPollIntervalMs());
     disposeTablesWs = connectBranchRealtime(API_ORIGIN, selectedBranchId.value, onTablesRealtimeMsg);
   }
 
+  // Đổi chi nhánh → khởi động lại poll + WebSocket để lắng nghe đúng chi nhánh mới.
   watch(selectedBranchId, () => {
     startTablesPollingAndWs();
   });
 
+  // pageSize đổi → đảm bảo trang hiện tại vẫn hợp lệ.
   watch(tablePageSize, () => {
     clampTablePage();
   });
 
+  // Khi gắn component: xác định vai trò/chi nhánh, nạp dữ liệu, bật realtime và theo dõi resize lưới.
   onMounted(() => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     userRole.value = user?.role || "";
+    // Không phải admin tổng → khóa vào chi nhánh của tài khoản.
     if (user?.role !== "admin" && user?.branch_id) {
       selectedBranchId.value = Number(user.branch_id) || 1;
     }
@@ -946,6 +1043,7 @@ export function useAdminTablesPage() {
       startTablesPollingAndWs();
     });
 
+    // Sau khi DOM sẵn sàng: gắn ResizeObserver + listener resize để tự tính lại pageSize.
     nextTick(() => {
       const el = tablesGridRef.value;
       if (el && typeof ResizeObserver !== "undefined") {
@@ -959,6 +1057,7 @@ export function useAdminTablesPage() {
     });
   });
 
+  // Dọn dẹp toàn bộ timer/observer/listener khi rời trang → tránh rò rỉ bộ nhớ và gọi API thừa.
   onUnmounted(() => {
     stopQrPaymentPolling();
     stopTablesPollingAndWs();

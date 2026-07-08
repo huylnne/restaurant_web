@@ -81,6 +81,7 @@
 </template>
 
 <script setup>
+// UserDashboardPage — trang chủ khách: carousel banner, món nổi bật cuộn ngang, khối chi nhánh gần bạn.
 import HomeNearbySection from "@/components/HomeNearbySection.vue";
 import { BRAND } from "@/config/siteContent";
 import { Location } from "@element-plus/icons-vue";
@@ -90,23 +91,27 @@ import { ref, onMounted, onBeforeUnmount } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
 
+// --- Carousel banner (vòng lặp vô hạn) ---
 const realImages = [
   "/images/homeimg1.png",
   "/images/homeimg2.png",
   "/images/homeimg3.png",
 ];
 
+// Thêm ảnh "clone" ở đầu/cuối để khi trượt tới biên có thể nhảy về slide thật mà không thấy giật.
 const images = [realImages[realImages.length - 1], ...realImages, realImages[0]];
-const currentIndex = ref(1);
-const isTransitionEnabled = ref(true);
+const currentIndex = ref(1);           // bắt đầu ở slide thật đầu tiên (index 1, vì 0 là clone)
+const isTransitionEnabled = ref(true); // tắt transition khi "nhảy" về slide thật ở biên
 
 let intervalId = null;
 
+// Tự động chuyển slide mỗi 3 giây.
 onMounted(() => {
   intervalId = setInterval(() => {
     currentIndex.value += 1;
     isTransitionEnabled.value = true;
 
+    // Tới clone cuối → sau khi animation xong, tắt transition và nhảy về slide thật đầu.
     if (currentIndex.value >= images.length - 1) {
       setTimeout(() => {
         isTransitionEnabled.value = false;
@@ -120,6 +125,7 @@ onBeforeUnmount(() => {
   clearInterval(intervalId);
 });
 
+// Nút slide trước: nếu về clone đầu thì nhảy về slide thật cuối.
 const prevSlide = () => {
   currentIndex.value -= 1;
   isTransitionEnabled.value = true;
@@ -132,6 +138,7 @@ const prevSlide = () => {
   }
 };
 
+// Nút slide sau: tới clone cuối thì nhảy về slide thật đầu.
 const nextSlide = () => {
   currentIndex.value += 1;
   if (currentIndex.value >= images.length - 1) {
@@ -140,6 +147,8 @@ const nextSlide = () => {
     }, 600);
   }
 };
+
+// --- Món nổi bật ---
 const featuredDishes = ref([]);
 onMounted(async () => {
   try {
@@ -153,6 +162,7 @@ onMounted(async () => {
 const dishGrid = ref(null);
 const dishCards = ref([]);
 
+// Cuộn lưới món theo đúng 1 thẻ (bề rộng thẻ + gap 24px).
 const scrollByCard = (direction) => {
   if (!dishCards.value.length) return;
   const itemWidth = dishCards.value[0].offsetWidth + 24;
@@ -165,9 +175,11 @@ const scrollByCard = (direction) => {
 const scrollLeft = () => scrollByCard("left");
 const scrollRight = () => scrollByCard("right");
 
+// Chỉ đơn pending/confirmed mới cho phép đặt món trước.
 const canPreOrderForReservation = (order) =>
   ["pending", "confirmed"].includes(String(order?.status || "").toLowerCase());
 
+// Bấm "Đặt món": nếu đã có đơn đặt bàn hợp lệ → chuyển sang trang OrderMenu; không thì nhắc đặt bàn trước.
 const handleOrderClick = (dish) => {
   const order = JSON.parse(localStorage.getItem("activeOrder") || "null");
 

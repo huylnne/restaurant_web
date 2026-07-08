@@ -1,5 +1,11 @@
+<!--
+  UserNavbar — thanh điều hướng đầu trang. Hiển thị 2 kiểu tùy đường dẫn:
+   - Trang /admin: header gọn (brand + link nhanh + menu quản lý + tài khoản).
+   - Trang khách: header đầy đủ (top bar, thông tin liên hệ, menu điều hướng chính).
+-->
 <template>
   <div class="header-wrapper" :class="{ 'header-wrapper--admin': isAdminRoute }">
+    <!-- KIỂU 1: header gọn cho khu vực admin -->
     <header v-if="isAdminRoute" class="admin-compact-header">
       <router-link to="/" class="admin-compact-header__brand">
         <img :src="BRAND.logo" :alt="BRAND.name" class="admin-compact-header__logo" />
@@ -44,6 +50,7 @@
       </div>
     </header>
 
+    <!-- KIỂU 2: header đầy đủ cho khu vực khách -->
     <div v-else class="home-page_header">
       <!-- Top Bar -->
       <div class="top-bar">
@@ -159,27 +166,33 @@ import { getMenuByRole } from "@/config/sidebarMenu.js";
 
 const router = useRouter();
 const route = useRoute();
+// Đang ở khu vực admin? → quyết định hiển thị header gọn hay header đầy đủ.
 const isAdminRoute = computed(() => route.path.startsWith("/admin"));
-const user = ref(null);
-const isLoggedIn = ref(false);
+const user = ref(null);         // thông tin user lấy từ API /users/me
+const isLoggedIn = ref(false);  // đã đăng nhập hay chưa
 
 // Lưu role từ localStorage (vì API /users/me có thể không trả về role)
 const storedUserRole = ref(null);
 
+// Là nhân viên (staff) hay không — ưu tiên role từ API, fallback role lưu ở localStorage.
 const isStaff = computed(() => {
   const role = user.value?.role || storedUserRole.value;
   return !!role && checkStaffRole(role);
 });
 
+// Đường dẫn trang quản lý mặc định theo vai trò (vd bếp → /admin/kitchen).
 const staffHomePath = computed(() => getDefaultStaffPath(user.value?.role || storedUserRole.value) || "/admin");
+// Danh sách menu quản lý (chỉ giữ mục có route) để đổ vào dropdown "Menu quản lý".
 const adminMenus = computed(() =>
   getMenuByRole(user.value?.role || storedUserRole.value).filter((item) => item.route)
 );
 
+// Điều hướng khi chọn 1 mục trong dropdown menu quản lý.
 function goToAdminMenu(routePath) {
   if (routePath) router.push(routePath);
 }
 
+// Đăng xuất: hỏi xác nhận → xóa token/user → về trang chủ và reload để làm sạch trạng thái.
 const logout = async () => {
   try {
     await ElMessageBox.confirm("Bạn có chắc muốn đăng xuất?", "Xác nhận", {
@@ -188,7 +201,7 @@ const logout = async () => {
       type: "warning",
     });
   } catch {
-    return;
+    return; // người dùng bấm Hủy
   }
   localStorage.removeItem("token");
   localStorage.removeItem("user");
@@ -198,11 +211,12 @@ const logout = async () => {
   router.push("/").then(() => location.reload());
 };
 
+// Khi navbar xuất hiện: nếu có token thì gọi /users/me để lấy thông tin; token hỏng → dọn phiên.
 onMounted(async () => {
   const token = localStorage.getItem("token");
   const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
   if (storedUser && storedUser.role) {
-    storedUserRole.value = storedUser.role;
+    storedUserRole.value = storedUser.role; // giữ role tạm để hiện menu đúng ngay lập tức
   }
   if (token) {
     try {
@@ -222,6 +236,7 @@ onMounted(async () => {
 
 const DEFAULT_AVATAR = "https://maunhi.com/wp-content/uploads/2025/04/avatar-facebook-mac-dinh-3.jpeg";
 
+// Chuẩn hóa đường dẫn avatar: rỗng → ảnh mặc định; link http → giữ nguyên; /uploads → ghép domain API.
 const getAvatarUrl = (path) => {
   if (path === null || path === undefined || (typeof path === "string" && !path.trim())) {
     return DEFAULT_AVATAR;

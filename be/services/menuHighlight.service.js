@@ -10,11 +10,14 @@ const reportService = require("./admin/report.service");
 
 /** [THỰC ĐƠN] Chuẩn hóa giá hiển thị, sale_price, discount_percent cho frontend. Ctrl+F: formatMenuItem */
 function formatMenuItem(row) {
-  const price = Number(row.price) || 0;
+  const price = Number(row.price) || 0; // giá gốc
+  // Giá sale chỉ tính khi có giá trị.
   const salePrice =
     row.sale_price != null && row.sale_price !== "" ? Number(row.sale_price) : null;
+  // "Đang sale" khi giá sale dương và thật sự rẻ hơn giá gốc.
   const onSale = salePrice != null && salePrice > 0 && salePrice < price;
-  const displayPrice = onSale ? salePrice : price;
+  const displayPrice = onSale ? salePrice : price; // giá hiển thị cho khách
+  // % giảm để hiển thị badge (làm tròn), không sale thì null.
   const discountPercent = onSale
     ? Math.round(((price - salePrice) / price) * 100)
     : null;
@@ -61,12 +64,15 @@ async function getBestsellers(branchId, limit = 8, days = 30) {
   const startDate = start.toISOString().slice(0, 10);
   const endDate = end.toISOString().slice(0, 10);
 
+  // Ưu tiên: món bán chạy trong N ngày gần đây.
   let rows = await reportService.getTopSellingItems(branchId, limit, startDate, endDate);
 
+  // Fallback 1: chưa có đơn trong khoảng đó → lấy top bán chạy toàn thời gian.
   if (!rows.length) {
     rows = await reportService.getTopSellingItems(branchId, limit);
   }
 
+  // Có dữ liệu bán chạy → nạp thêm thông tin menu (tên/giá/ảnh) để hiển thị.
   if (rows.length) {
     const ids = rows.map((r) => r.item_id);
     const menuRows = await MenuItem.findAll({
@@ -84,6 +90,7 @@ async function getBestsellers(branchId, limit = 8, days = 30) {
     );
   }
 
+  // Fallback 2: chưa bán được món nào → hiển thị món "nổi bật" (is_featured).
   const fallback = await MenuItem.findAll({
     where: { branch_id: branchId, is_available: true, is_featured: true },
     order: [["created_at", "DESC"]],
@@ -94,6 +101,7 @@ async function getBestsellers(branchId, limit = 8, days = 30) {
     return fallback.map((r) => formatMenuItem(r.get({ plain: true })));
   }
 
+  // Fallback 3: không có món featured → lấy tạm các món còn bán mới nhất.
   const anyActive = await MenuItem.findAll({
     where: { branch_id: branchId, is_available: true },
     order: [["created_at", "DESC"]],

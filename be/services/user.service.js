@@ -45,11 +45,13 @@ exports.changePassword = async (userId, currentPassword, newPassword) => {
   const user = await User.findByPk(userId);
   if (!user) throw new Error("Người dùng không tồn tại");
 
+  // So khớp mật khẩu cũ với hash trong DB (bcrypt.compare tự xử lý salt).
   const isMatch = await bcrypt.compare(currentPassword, user.password_hash);
   if (!isMatch) {
     throw new Error("Mật khẩu hiện tại không đúng");
   }
 
+  // Hash mật khẩu mới với cost 10 rồi lưu — DB không bao giờ giữ mật khẩu gốc.
   const hashedPassword = await bcrypt.hash(newPassword, 10);
   user.password_hash = hashedPassword;
   await user.save();
@@ -280,6 +282,8 @@ exports.getCurrentTableSession = async (userId) => {
 
     if (!order) return null;
 
+    // Bàn đang "available" nghĩa là khách chưa được xếp/đã rời bàn:
+    // chỉ giữ lại nếu đây là lượt đặt TƯƠNG LAI (chưa tới giờ); còn lại coi như không có phiên.
     if (order.Table && order.Table.status === "available") {
       const arrival = new Date(order.arrival_time);
       const isFuture = arrival > new Date();

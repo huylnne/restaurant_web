@@ -28,15 +28,16 @@
 </template>
 
 <script setup>
+// CreateOrderDialog — gọi món tại bàn: liệt kê thực đơn với ô chọn số lượng; nút "Tạo đơn" khóa khi chưa chọn món nào.
 import { useTablesContext } from "../composables/tablesContext";
 
 const {
-  showCreateOrderDialog,
-  menuItemsLoading,
-  selectedTable,
-  menuItemsForOrder,
-  orderQuantities,
-  hasOrderItemsSelected,
-  submitCreateOrder,
+  showCreateOrderDialog, // đóng/mở dialog
+  menuItemsLoading,      // đang tải thực đơn
+  selectedTable,         // bàn đang tạo đơn
+  menuItemsForOrder,     // danh sách món để chọn
+  orderQuantities,       // map item_id → số lượng đang chọn
+  hasOrderItemsSelected, // có món nào SL>0 chưa (bật/tắt nút)
+  submitCreateOrder,     // gửi đơn
 } = useTablesContext();
 </script>

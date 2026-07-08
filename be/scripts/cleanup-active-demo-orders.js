@@ -22,10 +22,12 @@ const ACTIVE_STATUSES = [
   'IN_PROGRESS',
 ];
 
+// An toàn: mặc định chỉ "dry run" (đếm). Phải truyền cờ --yes mới thực sự xóa.
 const shouldDelete = process.argv.includes('--yes');
 
 async function main() {
   const sequelize = db.sequelize;
+  // Bọc toàn bộ trong 1 transaction: hoặc xóa sạch (commit), hoặc không đổi gì (rollback nếu lỗi).
   const transaction = await sequelize.transaction();
 
   try {
@@ -67,6 +69,7 @@ async function main() {
     );
     const tableIds = affectedTables.map((row) => row.table_id).filter(Boolean);
 
+    // Thứ tự xóa TÔN TRỌNG khóa ngoại: xóa bảng con (reviews, payments, order_items) TRƯỚC, orders SAU.
     await sequelize.query(
       `
       DELETE FROM reviews
@@ -128,6 +131,7 @@ async function main() {
       }
     );
 
+    // Trả các bàn liên quan về 'available', nhưng chỉ khi bàn không còn order active nào khác.
     if (tableIds.length) {
       await sequelize.query(
         `

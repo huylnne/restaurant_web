@@ -20,15 +20,18 @@ const SENSITIVE_KEYS = new Set([
 
 /** [AUDIT] Đệ quy che password/token trước khi lưu log. Ctrl+F: sanitizeBody */
 function sanitizeBody(body) {
+  // Không phải object → không có gì để che.
   if (!body || typeof body !== 'object') return null;
+  // Clone nông để không sửa vào body gốc của request.
   const clone = Array.isArray(body) ? [...body] : { ...body };
+  // Hàm đệ quy: đi sâu vào mọi cấp, thay giá trị của field nhạy cảm bằng [REDACTED].
   const scrub = (obj) => {
     if (!obj || typeof obj !== 'object') return obj;
     for (const key of Object.keys(obj)) {
       if (SENSITIVE_KEYS.has(key)) {
-        obj[key] = '[REDACTED]';
+        obj[key] = '[REDACTED]'; // che mật khẩu/token
       } else if (obj[key] && typeof obj[key] === 'object') {
-        scrub(obj[key]);
+        scrub(obj[key]); // đệ quy cho object/array lồng nhau
       }
     }
     return obj;
@@ -80,6 +83,7 @@ async function writeLog(req, payload = {}) {
     status_code: payload.status_code ?? null,
   };
 
+  // action + module là bắt buộc để log có ý nghĩa truy vết.
   if (!record.action || !record.module) {
     throw new Error('operation log requires action and module');
   }
@@ -89,10 +93,12 @@ async function writeLog(req, payload = {}) {
 
 /** [NHẬT KÝ] Query log có phân trang/filter module/action/user/entity/time/search. Ctrl+F: listLogs */
 async function listLogs(req, query = {}) {
+  // Phân trang: page tối thiểu 1; limit kẹp trong [1, 100] để tránh query quá nặng.
   const page = Math.max(1, parseInt(query.page, 10) || 1);
   const limit = Math.min(100, Math.max(1, parseInt(query.limit, 10) || 20));
-  const offset = (page - 1) * limit;
+  const offset = (page - 1) * limit; // số bản ghi bỏ qua
 
+  // Ghép điều kiện lọc động theo các filter được truyền.
   const where = {};
   if (query.module) where.module = query.module;
   if (query.action) where.action = query.action;
@@ -100,15 +106,18 @@ async function listLogs(req, query = {}) {
   if (query.entity_type) where.entity_type = query.entity_type;
   if (query.entity_id) where.entity_id = parseInt(query.entity_id, 10);
 
+  // Giới hạn theo chi nhánh (manager chỉ thấy log chi nhánh mình — xem resolveBranchId).
   const branchId = resolveBranchId(req, query.branch_id, null);
   if (branchId) where.branch_id = branchId;
 
+  // Lọc theo khoảng thời gian from/to (nếu có).
   if (query.from || query.to) {
     where.created_at = {};
     if (query.from) where.created_at[Op.gte] = new Date(query.from);
     if (query.to) where.created_at[Op.lte] = new Date(query.to);
   }
 
+  // Tìm kiếm gần đúng (iLike = không phân biệt hoa/thường) trên mô tả/username/action.
   if (query.search) {
     const term = `%${String(query.search).trim()}%`;
     where[Op.or] = [

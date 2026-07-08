@@ -9,9 +9,11 @@ const service = require('../../services/payment.service');
 exports.createSession = async (req, res) => {
   try {
     const { orderId, reservationId, tableToken, method, returnUrl, cancelUrl } = req.body;
+    // Service tự nhận diện nguồn đơn (order/reservation/QR bàn) và khởi tạo phiên theo phương thức chọn.
     const data = await service.createSession({ orderId, reservationId, tableToken, method, returnUrl, cancelUrl });
     res.json(data);
   } catch (e) {
+    // Map mã lỗi nghiệp vụ (string) → HTTP status phù hợp; không có trong map → 500.
     const map = {
       ORDER_NOT_FOUND: 404,
       TABLE_NOT_FOUND: 404,
@@ -33,8 +35,11 @@ exports.momoWebhook = async (req, res) => {
     const secretKey = process.env.MOMO_SECRET_KEY;
     const { verifyIpnSignature } = require("../../utils/momo");
 
+    // Xác thực chữ ký HMAC do MoMo gửi kèm để đảm bảo webhook đúng từ MoMo (chống giả mạo).
     const verifyOk = verifyIpnSignature(req.body, { accessKey, secretKey });
+    // Truyền cờ verifyOk cho service: chỉ ghi nhận thanh toán khi chữ ký hợp lệ.
     await service.handleMomoWebhook(req.body, verifyOk);
+    // MoMo chỉ cần HTTP 204 để biết đã nhận IPN.
     res.status(204).send();
   } catch (e) {
     res.status(400).send(e.message);
@@ -44,10 +49,13 @@ exports.momoWebhook = async (req, res) => {
 /** [SEPAY] POST /api/payments/webhook/sepay — nhận chuyển khoản và khớp mã DH{orderId}. Ctrl+F: sepayWebhook */
 exports.sepayWebhook = async (req, res) => {
   try {
+    // SePay xác thực bằng API key (không phải HMAC). Key cấu hình trong env.
     const configuredKey = process.env.SEPAY_WEBHOOK_API_KEY;
     const authHeader = req.get("authorization") || "";
+    // Bóc tiền tố (Bearer/Apikey/Token) khỏi header Authorization để lấy key thô.
     const receivedKey = authHeader.replace(/^(Bearer|Apikey|ApiKey|Token)\s+/i, "").trim();
     const xApiKey = req.get("x-api-key") || "";
+    // Hợp lệ nếu: chưa cấu hình key (dev), hoặc key khớp ở 1 trong các vị trí header có thể có.
     const verifyOk =
       !configuredKey ||
       receivedKey === configuredKey ||

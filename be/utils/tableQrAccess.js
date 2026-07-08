@@ -25,11 +25,14 @@ function signTableOrderAccessToken({ table_id, order_id }) {
 
 /** [QR GỌI MÓN] Verify token gọi món, trả về table_id/order_id để service kiểm tiếp active session. Ctrl+F: verifyTableOrderAccessToken */
 function verifyTableOrderAccessToken(token) {
+  // Verify chữ ký + hạn dùng của token (hết hạn/sai chữ ký sẽ ném lỗi ở đây).
   const payload = jwt.verify(token, getJwtSecret());
+  // Chặn dùng nhầm JWT đăng nhập user làm token gọi món: bắt buộc đúng "typ" riêng.
   if (payload?.typ !== TABLE_QR_ORDER_TYP) {
     const err = new Error("ORDER_ACCESS_INVALID");
     throw err;
   }
+  // Trả về bàn + order để service kiểm tra tiếp (bàn còn active mới cho gọi món).
   return {
     table_id: Number(payload.table_id),
     order_id: Number(payload.order_id),

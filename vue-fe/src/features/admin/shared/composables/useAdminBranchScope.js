@@ -22,15 +22,17 @@ export function useAdminBranchScope(options = {}) {
       const res = await axios.get(`${API_ORIGIN}/api/home/branches`);
       branches.value = Array.isArray(res.data) ? res.data : [];
       if (!isSuperAdmin && currentUser?.branch_id) {
+        // Không phải super admin: khóa cứng về chi nhánh của tài khoản (không cho chọn chi nhánh khác).
         selectedBranchId.value = Number(currentUser.branch_id) || 1;
       } else if (
         branches.value.length &&
         !branches.value.some((b) => b.branch_id === selectedBranchId.value)
       ) {
+        // Super admin: nếu chi nhánh đang chọn không còn trong danh sách → chọn chi nhánh đầu tiên.
         selectedBranchId.value = branches.value[0].branch_id;
       }
     } catch {
-      branches.value = [];
+      branches.value = []; // lỗi API → để rỗng, tránh vỡ giao diện
     }
   }
 

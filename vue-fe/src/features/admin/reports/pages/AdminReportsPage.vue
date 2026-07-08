@@ -193,6 +193,8 @@
 </template>
 
 <script setup>
+// AdminReportsPage — trang báo cáo & thống kê chi nhánh: cards tổng quan, 4 biểu đồ Echarts,
+// bảng top món/khách, thống kê bàn, và xuất báo cáo Excel/PDF. Có thể lọc theo chi nhánh + khoảng ngày.
 import { ref, computed, onMounted, onUnmounted } from "vue";
 import axios from "axios";
 import { ElMessage } from "element-plus";
@@ -211,15 +213,17 @@ import { API_ORIGIN } from "@/config/api";
 
 const API_BASE = API_ORIGIN;
 
-const dateRange = ref(null);
-const exportLoading = ref(null);
+const dateRange = ref(null);      // [từ ngày, đến ngày] — null = dùng mặc định của BE
+const exportLoading = ref(null);  // "xlsx" | "pdf" khi đang xuất (để loading đúng nút)
 
+// Đổi "YYYY-MM-DD" → "DD/MM/YYYY" để hiển thị.
 const formatDisplayDate = (iso) => {
   if (!iso) return "";
   const [y, m, d] = String(iso).split("-");
   return d && m && y ? `${d}/${m}/${y}` : iso;
 };
 
+// Nhãn khoảng thời gian đang xem (null nếu chưa chọn khoảng → dùng mặc định).
 const periodLabel = computed(() => {
   if (dateRange.value?.length === 2) {
     return `${formatDisplayDate(dateRange.value[0])} – ${formatDisplayDate(dateRange.value[1])}`;
@@ -246,6 +250,7 @@ const tableTitles = computed(() => {
   };
 });
 
+// Gom tham số chung cho các API báo cáo; nếu có chọn khoảng ngày thì đính kèm startDate/endDate.
 const buildReportParams = (extra = {}) => {
   const params = { branchId: selectedBranchId.value, days: 7, months: 6, limit: 10, ...extra };
   if (dateRange.value?.length === 2) {
@@ -281,15 +286,17 @@ const tableStats = ref({
 });
 const monthlyRevenue = ref([]);
 
+// Các ref DOM để gắn biểu đồ Echarts.
 const revenueChart = ref(null);
 const categoryChart = ref(null);
 const hourChart = ref(null);
 const monthlyChart = ref(null);
-const chartInstances = [];
+const chartInstances = []; // lưu instance để resize/dispose sau này
 
+// Vẽ (hoặc cập nhật) 1 biểu đồ trên phần tử el; tái dùng instance cũ nếu đã init để tránh tạo trùng.
 async function renderChart(el, option) {
   if (!el) return null;
-  const echarts = await loadEcharts();
+  const echarts = await loadEcharts(); // nạp Echarts theo kiểu lazy (tách bundle)
   const existing = echarts.getInstanceByDom(el);
   const chart = existing || echarts.init(el);
   chart.setOption(option, true);
@@ -297,9 +304,11 @@ async function renderChart(el, option) {
   return chart;
 }
 
+// Resize tất cả biểu đồ (gọi khi cửa sổ đổi kích thước).
 function resizeAllCharts() {
   chartInstances.forEach((c) => c?.resize());
 }
+// Nạp danh sách chi nhánh; admin thường bị khóa chi nhánh, super admin thì chọn chi nhánh hợp lệ đầu tiên.
 const fetchBranches = async () => {
   try {
     const res = await axios.get(`${API_BASE}/api/home/branches`);
@@ -314,7 +323,7 @@ const fetchBranches = async () => {
   }
 };
 
-// Format tiền
+// Format tiền sang định dạng VND.
 const formatCurrency = (amount) => {
   return new Intl.NumberFormat("vi-VN", {
     style: "currency",
@@ -325,7 +334,7 @@ const formatCurrency = (amount) => {
 // Lấy token
 const getToken = () => localStorage.getItem("token");
 
-// Lấy tất cả dữ liệu
+// Lấy TẤT CẢ dữ liệu báo cáo song song (Promise.all cho nhanh) rồi vẽ biểu đồ.
 const fetchAllData = async () => {
   try {
     const token = getToken();
@@ -356,6 +365,7 @@ const fetchAllData = async () => {
       axios.get(`${API_BASE}/api/admin/reports/monthly-revenue`, { headers, params }),
     ]);
 
+    // Gán dữ liệu từng phần vào state tương ứng.
     overview.value = overviewRes.data;
     revenueByDay.value = revenueByDayRes.data;
     topSellingItems.value = topSellingRes.data;
@@ -365,7 +375,7 @@ const fetchAllData = async () => {
     tableStats.value = tableStatsRes.data;
     monthlyRevenue.value = monthlyRes.data;
 
-    // Vẽ biểu đồ
+    // Có dữ liệu → vẽ lại 4 biểu đồ.
     drawCharts();
   } catch (error) {
     console.error("Lỗi lấy dữ liệu báo cáo:", error);
@@ -373,16 +383,18 @@ const fetchAllData = async () => {
   }
 };
 
+// Xuất báo cáo dạng file (pdf/xlsx): tải blob từ API rồi tạo link ẩn để trình duyệt tải xuống.
 const downloadReport = async (format) => {
   try {
-    exportLoading.value = format;
+    exportLoading.value = format; // đánh dấu để loading đúng nút Excel/PDF
     const token = getToken();
     const params = { format, ...buildReportParams() };
     const res = await axios.get(`${API_BASE}/api/admin/reports/export`, {
       headers: { Authorization: `Bearer ${token}` },
       params,
-      responseType: "blob",
+      responseType: "blob", // nhận nhị phân
     });
+    // Chọn MIME + đuôi file theo định dạng.
     const mime =
       format === "pdf"
         ? "application/pdf"
@@ -394,9 +406,10 @@ const downloadReport = async (format) => {
     a.href = url;
     a.download = `bao-cao-chi-nhanh-${selectedBranchId.value}-${Date.now()}.${ext}`;
     a.click();
-    URL.revokeObjectURL(url);
+    URL.revokeObjectURL(url); // giải phóng blob URL
     ElMessage.success("Đã tải báo cáo");
   } catch (error) {
+    // Khi lỗi, BE có thể trả JSON nhưng vì responseType=blob nên phải đọc blob rồi parse ra thông báo.
     const data = error.response?.data;
     if (data instanceof Blob) {
       try {
@@ -414,7 +427,7 @@ const downloadReport = async (format) => {
   }
 };
 
-// Vẽ biểu đồ
+// Vẽ toàn bộ 4 biểu đồ.
 const drawCharts = () => {
   drawRevenueChart();
   drawCategoryChart();
@@ -422,7 +435,7 @@ const drawCharts = () => {
   drawMonthlyChart();
 };
 
-// Biểu đồ doanh thu theo ngày
+// Biểu đồ đường: doanh thu theo ngày (trục X = ngày, trục Y = tiền hiển thị dạng "K").
 const drawRevenueChart = () => {
   const option = {
     tooltip: {
@@ -456,7 +469,7 @@ const drawRevenueChart = () => {
   renderChart(revenueChart.value, option);
 };
 
-// Biểu đồ doanh thu theo danh mục
+// Biểu đồ tròn (donut): tỉ trọng doanh thu theo danh mục món.
 const drawCategoryChart = () => {
   const option = {
     tooltip: {
@@ -497,7 +510,7 @@ const drawCategoryChart = () => {
   renderChart(categoryChart.value, option);
 };
 
-// Biểu đồ đơn hàng theo giờ
+// Biểu đồ cột: số đơn theo từng giờ trong ngày.
 const drawHourChart = () => {
   const option = {
     tooltip: {
@@ -521,7 +534,7 @@ const drawHourChart = () => {
   renderChart(hourChart.value, option);
 };
 
-// Biểu đồ doanh thu theo tháng
+// Biểu đồ cột: doanh thu theo tháng (trục Y hiển thị dạng "M" = triệu).
 const drawMonthlyChart = () => {
   const option = {
     tooltip: {
@@ -551,6 +564,7 @@ const drawMonthlyChart = () => {
   renderChart(monthlyChart.value, option);
 };
 
+// Vào trang: chọn chi nhánh mặc định, nạp chi nhánh + dữ liệu, và lắng nghe resize để vẽ lại biểu đồ.
 onMounted(async () => {
   selectedBranchId.value = getDefaultBranchIdForUser(currentUser);
   await fetchBranches();
@@ -558,6 +572,7 @@ onMounted(async () => {
   window.addEventListener("resize", resizeAllCharts);
 });
 
+// Rời trang: gỡ listener và huỷ toàn bộ instance biểu đồ để tránh rò rỉ bộ nhớ.
 onUnmounted(() => {
   window.removeEventListener("resize", resizeAllCharts);
   chartInstances.forEach((c) => c.dispose());

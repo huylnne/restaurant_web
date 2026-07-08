@@ -34,18 +34,20 @@
 </template>
 
 <script setup>
+// QrDialog — hiển thị QR của bàn ở 2 chế độ: "link" (khách quét để gọi món) và "payment" (QR chuyển khoản).
+// Chế độ payment hiển thị thêm số tiền, nội dung CK và trạng thái chờ SEPay xác nhận.
 import { useTablesContext } from "../composables/tablesContext";
 
 const {
-  showQrDialog,
-  qrMode,
-  qrSelectedTable,
-  qrDataUrl,
-  qrPaymentAmount,
-  qrPaymentCode,
-  qrPaymentStatus,
-  qrLink,
+  showQrDialog,      // đóng/mở dialog
+  qrMode,            // "link" | "payment"
+  qrSelectedTable,   // bàn đang xem QR
+  qrDataUrl,         // ảnh QR (data URL) hiển thị
+  qrPaymentAmount,   // số tiền (chế độ payment)
+  qrPaymentCode,     // nội dung chuyển khoản
+  qrPaymentStatus,   // trạng thái thanh toán (đang chờ/đã xong)
+  qrLink,            // link bàn (chế độ link)
   formatCurrency,
-  copyQrLink,
+  copyQrLink,        // copy link vào clipboard
 } = useTablesContext();
 </script>

@@ -25,9 +25,14 @@ const PRE_ORDER_MINUTES = 15;
 async function expireReservationsForBranch(branchId, cutoff) {
   const now = new Date();
   const nowIso = now.toISOString();
+  // Mốc no-show: giờ đến <= (hiện tại - 15 phút) mà chưa check-in thì tính là bỏ hẹn.
   const noShowDeadline = cutoff || new Date(now.getTime() - OVERDUE_MINUTES * 60 * 1000);
+  // Mốc pre-order: giờ đến <= (hiện tại + 15 phút) thì chuẩn bị giữ bàn.
   const preOrderTrigger = new Date(now.getTime() + PRE_ORDER_MINUTES * 60 * 1000);
 
+  // BƯỚC 1: tự động NO-SHOW + KHÓA TÀI KHOẢN khách.
+  // CTE "expired": update các order quá hạn chưa check-in sang 'no_show', trả về user_id của chúng.
+  // Sau đó khóa (locked=true) các user role 'user' tương ứng chưa bị khóa → phạt khách bỏ hẹn.
   await db.sequelize.query(
     `WITH expired AS (
        UPDATE orders
@@ -57,6 +62,8 @@ async function expireReservationsForBranch(branchId, cutoff) {
     }
   );
 
+  // Danh sách bàn "sắp có khách đặt tới" (trong 15 phút tới): gồm bàn chính (orders.table_id)
+  // và bàn ghép (order_tables). UNION để gộp cả 2 nguồn, khử trùng.
   const reservedTableSubquery = `
     SELECT o.table_id AS table_id
     FROM orders o
@@ -78,6 +85,8 @@ async function expireReservationsForBranch(branchId, cutoff) {
       AND tb.branch_id = :branchId
   `;
 
+  // BƯỚC 2: nhả bàn 'pre-ordered' về 'available' nếu KHÔNG còn nằm trong danh sách sắp có khách
+  // (vd đặt bàn đã bị hủy/no-show) → tránh giữ bàn thừa.
   await db.sequelize.query(
     `UPDATE tables t
      SET status = :available
@@ -96,6 +105,8 @@ async function expireReservationsForBranch(branchId, cutoff) {
     }
   );
 
+  // BƯỚC 3: chuyển bàn 'available' sang 'pre-ordered' nếu sắp có khách đặt tới (trong 15 phút)
+  // → nhân viên biết mà giữ/chuẩn bị bàn.
   await db.sequelize.query(
     `UPDATE tables t
      SET status = :preOrdered

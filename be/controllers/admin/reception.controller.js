@@ -56,6 +56,7 @@ exports.confirmArrival = async (req, res) => {
     });
   } catch (error) {
     console.error("reception.confirmArrival:", error);
+    // Ánh xạ mã lỗi service → HTTP status: không tìm thấy=404, sai nghiệp vụ=400, còn lại=500.
     const status =
       error.code === "NOT_FOUND"
         ? 404

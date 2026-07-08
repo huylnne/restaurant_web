@@ -1,5 +1,11 @@
+<!--
+  PaginationBar — thanh phân trang tái sử dụng (nút Trước/Sau + "Trang x / y").
+  Dùng v-model:currentPage ở component cha; phát thêm sự kiện prev/next nếu cần bắt riêng.
+  Mặc định tự ẩn khi chỉ có 1 trang (trừ khi showWhenSinglePage = true).
+-->
 <template>
   <div v-if="totalPages > 1 || showWhenSinglePage" class="pagination-bar">
+    <!-- Nút về trang trước: chặn khi đang ở trang 1 hoặc bị disabled -->
     <button
       type="button"
       class="pagination-bar__btn"
@@ -10,9 +16,11 @@
       <el-icon><ArrowLeft /></el-icon>
       <span>Trước</span>
     </button>
+    <!-- Chỉ số trang hiện tại / tổng số trang -->
     <span class="pagination-bar__info">
       Trang {{ currentPage }} / {{ totalPages }}
     </span>
+    <!-- Nút sang trang sau: chặn khi đang ở trang cuối hoặc bị disabled -->
     <button
       type="button"
       class="pagination-bar__btn"
@@ -30,13 +38,14 @@
 import { ArrowLeft, ArrowRight } from "@element-plus/icons-vue";
 
 defineProps({
-  currentPage: { type: Number, required: true },
-  totalPages: { type: Number, required: true },
-  disabled: { type: Boolean, default: false },
+  currentPage: { type: Number, required: true },  // trang hiện tại (v-model)
+  totalPages: { type: Number, required: true },   // tổng số trang
+  disabled: { type: Boolean, default: false },    // khóa cả 2 nút (vd đang tải)
   /** Hiển thị thanh pagination ngay cả khi chỉ 1 trang */
   showWhenSinglePage: { type: Boolean, default: false },
 });
 
+// update:currentPage cho v-model; prev/next để cha xử lý thêm (vd cuộn lên đầu).
 defineEmits(["update:currentPage", "prev", "next"]);
 </script>
 

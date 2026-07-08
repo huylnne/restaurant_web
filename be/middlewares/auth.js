@@ -29,23 +29,28 @@ async function loadActiveUser(userId) {
  * Ctrl+F: verifyToken, authenticateToken
  */
 const verifyToken = async (req, res, next) => {
+  // B1: đọc header "Authorization: Bearer <token>". Không có header → 401.
   const header = req.headers.authorization;
   if (!header) {
     return res.status(401).json({ message: 'Chưa có token xác thực' });
   }
 
+  // B2: tách phần token (bỏ chữ "Bearer" đứng trước). Thiếu token → 401.
   const token = header.split(' ')[1];
   if (!token) {
     return res.status(401).json({ message: 'Token không hợp lệ' });
   }
 
   try {
+    // B3: verify chữ ký + hạn của JWT → lấy payload (chứa user_id, role...).
     const payload = verifyAccessToken(token);
+    // B4: tải user từ DB để kiểm tra realtime (có thể đã bị khóa/vô hiệu hóa sau khi cấp token).
     const { user, blocked, message } = await loadActiveUser(payload.user_id);
     if (blocked) {
       return res.status(403).json({ message });
     }
 
+    // B5: gắn danh tính vào req để controller phía sau dùng.
     req.userId = user.user_id;
     req.userRole = user.role;
     req.user = {
@@ -56,6 +61,7 @@ const verifyToken = async (req, res, next) => {
     };
     next();
   } catch (error) {
+    // Token sai chữ ký hoặc hết hạn → 403.
     return res.status(403).json({ message: 'Token không hợp lệ hoặc đã hết hạn' });
   }
 };
@@ -112,11 +118,14 @@ const verifyAdmin = async (req, res, next) => {
  * Ctrl+F: authorizeRole, allowedRoles
  */
 const authorizeRole = (...allowedRoles) => {
+  // Trả về middleware "đóng gói" danh sách role được phép (dùng sau verifyToken).
   return (req, res, next) => {
+    // Lấy role đã được verifyToken gắn trước đó; chưa có nghĩa là chưa đăng nhập.
     const role = req.userRole || (req.user && req.user.role);
     if (!role) {
       return res.status(401).json({ message: 'Vui lòng đăng nhập' });
     }
+    // Role không nằm trong whitelist → cấm truy cập.
     if (!allowedRoles.includes(role)) {
       return res.status(403).json({ message: 'Bạn không có quyền truy cập chức năng này' });
     }

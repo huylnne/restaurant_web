@@ -1,3 +1,6 @@
+/**
+ * ORDER STATUS (FE) — tái xuất bộ trạng thái đơn từ shared (dùng chung BE/FE) + hàm đổi status → nhãn tiếng Việt.
+ */
 import shared from "@shared/orderStatus.js";
 
 export const ORDER_STATUS = shared.ORDER_STATUS;
@@ -5,6 +8,7 @@ export const normalizeOrderStatus = shared.normalizeOrderStatus;
 export const isActiveOrderStatus = shared.isActiveOrderStatus;
 export const isLegacyPreorderOrderStatus = shared.isLegacyPreorderOrderStatus;
 
+/** Đổi mã trạng thái đơn thành nhãn hiển thị tiếng Việt; không khớp → trả nguyên status hoặc "-". */
 export function getOrderStatusLabel(status) {
   const n = normalizeOrderStatus(status);
   const map = {

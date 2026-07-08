@@ -12,11 +12,13 @@
       </router-link>
     </div>
 
+    <!-- Đang xin/định vị GPS -->
     <div v-if="phase === 'locating'" class="home-nearby__state">
       <el-icon class="is-loading"><Loading /></el-icon>
       <span>Đang lấy vị trí...</span>
     </div>
 
+    <!-- Người dùng từ chối chia sẻ vị trí (hoặc lỗi định vị) -->
     <div v-else-if="phase === 'denied'" class="home-nearby__state home-nearby__state--muted">
       <p>{{ errorMsg }}</p>
       <router-link to="/branches/nearby">
@@ -24,6 +26,7 @@
       </router-link>
     </div>
 
+    <!-- Có kết quả: hiện lưới chi nhánh gần nhất (chi nhánh đầu tiên gắn nhãn "Gần nhất") -->
     <div v-else-if="nearbyPreview.length" class="home-nearby__grid">
       <router-link
         v-for="(b, i) in nearbyPreview"
@@ -51,6 +54,8 @@
 </template>
 
 <script setup>
+// HomeNearbySection — khối "Chi nhánh gần bạn" ở trang chủ: xin vị trí GPS rồi gợi ý vài chi nhánh gần nhất.
+// Máy trạng thái phase: idle → locating → (ready | empty | denied).
 import { ref, computed, onMounted } from "vue";
 import axios from "axios";
 import { Location, Loading } from "@element-plus/icons-vue";
@@ -58,20 +63,23 @@ import { BRAND } from "@/config/siteContent";
 import { getUserPosition, formatDistanceKm } from "@/utils/geo";
 
 const props = defineProps({
-  limit: { type: Number, default: 2 },
+  limit: { type: Number, default: 2 }, // số chi nhánh xem trước tối đa
 });
 
-const phase = ref("idle");
-const errorMsg = ref("");
-const branches = ref([]);
+const phase = ref("idle");   // trạng thái hiển thị hiện tại
+const errorMsg = ref("");    // thông báo lỗi khi định vị thất bại
+const branches = ref([]);    // toàn bộ chi nhánh gần nhất trả về
+// Chỉ lấy `limit` chi nhánh đầu để xem trước ở trang chủ.
 const nearbyPreview = computed(() => branches.value.slice(0, props.limit));
 
+// Gọi API tìm chi nhánh gần toạ độ (lat, lng); có kết quả → "ready", rỗng → "empty".
 async function fetchNearby(lat, lng) {
   const res = await axios.get("/api/home/branches/nearby", { params: { lat, lng } });
   branches.value = res.data?.branches ?? [];
   phase.value = branches.value.length ? "ready" : "empty";
 }
 
+// Màu tag "bàn trống" theo tỉ lệ còn trống: hết bàn→đỏ, ≤25%→cam, còn nhiều→xanh, chưa có bàn→xám.
 const tableTagType = (b) => {
   const avail = Number(b.available_tables ?? 0);
   const total = Number(b.total_tables ?? 0);
@@ -81,6 +89,7 @@ const tableTagType = (b) => {
   return "success";
 };
 
+// Khi hiện khối: xin vị trí (độ chính xác cao) rồi tải chi nhánh gần; lỗi → chuyển sang "denied".
 onMounted(async () => {
   phase.value = "locating";
   try {

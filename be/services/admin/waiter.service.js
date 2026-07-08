@@ -39,9 +39,12 @@ const waiterService = {
    */
   async findOrCreateSessionOrder({ table_id, branch_id, user_id, transaction }) {
 
+    // Nếu bàn đã có phiên đang phục vụ thì dùng lại (gọi thêm món vào đúng order đó).
     const existing = await findActiveOrderByTableId(table_id, { transaction });
 
     if (existing) return existing;
+
+    // Chưa có phiên → tạo order walk_in mới (khách ngồi rồi mới gọi món).
 
 
 
@@ -89,6 +92,7 @@ const waiterService = {
 
     return sequelize.transaction(async (t) => {
 
+      // Lấy bàn để biết chi nhánh; không có bàn thì lỗi.
       const table = await Table.findByPk(table_id, {
 
         attributes: ['table_id', 'branch_id'],
@@ -101,10 +105,12 @@ const waiterService = {
 
 
 
+      // Dựng payload món (chốt giá + status pending cho bếp).
       const orderItemsPayload = await buildOrderItemPayloads(items, t);
 
 
 
+      // Tìm phiên đang phục vụ hoặc tạo mới để gắn món.
       const order = await this.findOrCreateSessionOrder({
 
         table_id,
@@ -151,6 +157,7 @@ const waiterService = {
 
 
 
+      // Có món tại bàn → chắc chắn bàn đang được phục vụ (occupied).
       await Table.update(
 
         { status: TABLE_STATUS.OCCUPIED },
@@ -161,6 +168,7 @@ const waiterService = {
 
 
 
+      // Nếu order còn ở giai đoạn trước → nâng lên "đang phục vụ" cho khớp thực tế.
       if ([ORDER_STATUS.CONFIRMED, ORDER_STATUS.PRE_ORDERED].includes(order.status)) {
 
         await order.update({ status: ORDER_STATUS.IN_PROGRESS }, { transaction: t });
@@ -244,10 +252,12 @@ const waiterService = {
 
 
 
+    // Cập nhật trạng thái bàn.
     await Table.update({ status }, { where: { table_id } });
 
 
 
+    // Nếu chuyển về trạng thái kết thúc phiên (available/cleaning) → đóng các order chưa kết thúc của bàn.
     if (shouldEndTableSession(status)) {
 
       await Order.update(

@@ -27,10 +27,12 @@ async function getBranchIds(onlyBranch) {
 async function clearMenuData(sequelize, branchIds) {
   const idList = branchIds.join(',');
 
+  // Đảm bảo có cột sale_price (bỏ qua nếu đã có).
   await sequelize.query('ALTER TABLE menu_items ADD COLUMN IF NOT EXISTS sale_price DECIMAL(10, 2);', {
     raw: true,
   }).catch(() => {});
 
+  // Phải xóa order_items tham chiếu tới món của các chi nhánh này TRƯỚC (khóa ngoại), rồi mới xóa menu_items.
   await sequelize.query(
     `DELETE FROM order_items
      WHERE item_id IN (SELECT item_id FROM menu_items WHERE branch_id IN (${idList}))`,

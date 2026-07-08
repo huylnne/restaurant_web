@@ -13,10 +13,10 @@ require('dotenv').config();
 const { assertJwtSecretConfigured } = require('./utils/jwt');
 
 // ========== MIDDLEWARE ==========
-app.use(helmet());
-app.use(cors());
-app.use(express.json({ limit: '100kb' }));
-app.use("/uploads", express.static(path.join(__dirname, "uploads")));
+app.use(helmet()); // set các HTTP header bảo mật (chống XSS, clickjacking...)
+app.use(cors()); // cho phép frontend khác origin gọi API
+app.use(express.json({ limit: '100kb' })); // parse body JSON, giới hạn 100kb chống payload quá lớn
+app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // phục vụ ảnh đã upload dưới dạng file tĩnh
 
 // ========== DATABASE ==========
 const db = require('./models/db');
@@ -141,11 +141,13 @@ const RESERVATION_EXPIRY_SWEEP_MS = 60 * 1000;
 
 /** [NO-SHOW] Quét định kỳ đặt bàn quá grace 15 phút để no_show/giải phóng bàn/khóa khách. Ctrl+F: runReservationExpirySweep */
 async function runReservationExpirySweep(source = 'timer') {
+  // Cờ chống chạy chồng: nếu lần quét trước chưa xong thì bỏ qua lần này (tránh xử lý trùng).
   if (reservationExpiryRunning) return;
   reservationExpiryRunning = true;
 
   try {
     const tableSummaryService = require('./services/admin/tableSummary.service');
+    // Quét lần lượt từng chi nhánh đang hoạt động, giải phóng bàn/đánh dấu no-show cho đơn quá giờ.
     const branches = await db.Branch.findAll({
       attributes: ['branch_id'],
       where: { is_active: true },

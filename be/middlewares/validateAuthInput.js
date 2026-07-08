@@ -3,8 +3,8 @@
  * Ctrl+F: validate auth, validateRegisterBody, validateLoginBody, PHONE_REGEX
  * Luồng demo: Phần 1 — form đăng ký username/password/SĐT/CAPTCHA.
  */
-const PHONE_REGEX = /^0\d{9}$/;
-const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/;
+const PHONE_REGEX = /^0\d{9}$/; // SĐT VN: bắt đầu bằng 0 + đúng 9 chữ số (tổng 10 số)
+const USERNAME_REGEX = /^[a-z0-9_]{3,30}$/; // chỉ chữ thường/số/gạch dưới, dài 3–30 ký tự
 const PASSWORD_MIN_LEN = 8;
 const PASSWORD_MAX_LEN = 32;
 const FULL_NAME_MAX_LEN = 50;
@@ -62,6 +62,7 @@ const validateRegisterBody = (req, res, next) => {
     });
   }
 
+  // Ghi lại giá trị đã chuẩn hóa (trim/lowercase) vào req.body để controller dùng trực tiếp, không phải chuẩn hóa lại.
   req.body.username = username;
   req.body.password = password;
   req.body.full_name = full_name;

@@ -56,18 +56,22 @@
 </template>
 
 <script setup>
+// BillSummary — bảng tóm tắt hóa đơn: liệt kê từng dòng món (SL, đơn giá, giảm giá) + phần tổng.
+// Component "câm" (chỉ hiển thị): mọi con số do cha truyền vào qua props.
 import { computed } from "vue";
 
 const props = defineProps({
-  items: { type: Array, default: () => [] },
-  subtotalBeforeDiscount: { type: Number, default: 0 },
-  discountTotal: { type: Number, default: 0 },
-  totalAmount: { type: Number, default: 0 },
-  totalLabel: { type: String, default: "Tổng thanh toán" },
+  items: { type: Array, default: () => [] },              // danh sách dòng món đã tính sẵn
+  subtotalBeforeDiscount: { type: Number, default: 0 },  // tạm tính trước giảm
+  discountTotal: { type: Number, default: 0 },           // tổng giảm giá
+  totalAmount: { type: Number, default: 0 },             // số tiền phải trả
+  totalLabel: { type: String, default: "Tổng thanh toán" }, // nhãn dòng tổng
 });
 
+// Chỉ hiện các dòng "tạm tính"/"giảm giá" khi thực sự có giảm giá.
 const hasDiscount = computed(() => Number(props.discountTotal) > 0);
 
+// Định dạng tiền VND, ví dụ 25000 → "25.000 đ".
 const formatCurrency = (amount) => {
   const n = Number(amount) || 0;
   return n.toLocaleString("vi-VN") + " đ";

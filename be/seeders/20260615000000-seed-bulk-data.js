@@ -19,6 +19,8 @@ const BATCH = 500;
 const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
 const rand = (min, max) => Math.floor(Math.random() * (max - min + 1)) + min;
 
+// Tạo hàm chọn món ngẫu nhiên có TRỌNG SỐ: món bán chạy xuất hiện 5 lần, món nổi bật 3 lần, còn lại 1 lần
+// trong "pool" → món hot có xác suất được chọn cao hơn, khiến dữ liệu demo giống thực tế.
 function buildWeightedItemPicker(menuItems, branchId) {
   const hotNames = new Set(BRANCH_BESTSELLER_NAMES[branchId] || []);
   const pool = [];
@@ -55,12 +57,14 @@ const LOG_ACTIONS = [
   { action: 'USER_LOGIN', module: 'auth', path: '/api/auth/login' },
 ];
 
+// Chèn theo lô BATCH (500) thay vì 1 lần → tránh câu INSERT quá lớn gây lỗi/chậm.
 async function bulkInsertChunks(queryInterface, table, rows) {
   for (let i = 0; i < rows.length; i += BATCH) {
     await queryInterface.bulkInsert(table, rows.slice(i, i + BATCH), {});
   }
 }
 
+// Sinh giờ ăn ngẫu nhiên: buổi trưa 11–13h, buổi tối 17–21h → phân bố order giống khung giờ cao điểm thật.
 function mealTime(baseDate, mealSlot) {
   const d = new Date(baseDate);
   if (mealSlot === 'lunch') d.setHours(rand(11, 13), rand(0, 59), rand(0, 59), 0);

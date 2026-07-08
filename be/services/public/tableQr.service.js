@@ -31,12 +31,14 @@ async function getTableByToken(token) {
   });
   if (!table) return null;
 
+  // Có được gọi món qua QR không? Cần: đang có order active TRÊN bàn VÀ bàn ở trạng thái cho gọi món.
   const activeOrder = await findActiveOrderByTableId(table.table_id);
   const canOrder = Boolean(activeOrder && isTableOrderableViaQr(table.status));
 
   return {
     ...table.toJSON(),
     can_order: canOrder,
+    // Chỉ phát token gọi món (hạn 4h) khi đủ điều kiện; không thì null (chỉ xem bill).
     order_access_token: canOrder
       ? signTableOrderAccessToken({
           table_id: table.table_id,
@@ -48,8 +50,10 @@ async function getTableByToken(token) {
 
 /** [QR BÀN] Xác thực token gọi món (header x-table-order-token). Ctrl+F: resolveOrderAccessForTable */
 async function resolveOrderAccessForTable({ accessToken, tableId, transaction }) {
+  // Bắt buộc có token gọi món.
   if (!accessToken) throw new Error("ORDER_ACCESS_REQUIRED");
 
+  // Verify token (chữ ký + hạn + đúng loại token gọi món).
   let payload;
   try {
     payload = verifyTableOrderAccessToken(accessToken);
@@ -57,8 +61,10 @@ async function resolveOrderAccessForTable({ accessToken, tableId, transaction })
     throw new Error("ORDER_ACCESS_INVALID");
   }
 
+  // Token phải khớp đúng bàn đang thao tác (chống dùng token bàn này cho bàn khác).
   if (payload.table_id !== Number(tableId)) throw new Error("ORDER_ACCESS_INVALID");
 
+  // Order trong token phải vẫn còn là phiên đang phục vụ trên bàn đó.
   const order = await Order.findOne({
     where: {
       order_id: payload.order_id,
@@ -145,7 +151,9 @@ async function addOrderItemsByToken({ token, accessToken, items = [], note = nul
   const orderNote =
     note != null && String(note).trim() ? String(note).trim().slice(0, 200) : null;
 
+  // Bọc trong transaction: tạo món + cập nhật order phải trọn vẹn hoặc rollback hết.
   const result = await sequelize.transaction(async (transaction) => {
+    // Tìm bàn theo QR token và kiểm tra bàn có đang cho gọi món không.
     const table = await Table.findOne({
       where: { qr_token: token },
       attributes: ["table_id", "status", "branch_id"],
@@ -155,18 +163,22 @@ async function addOrderItemsByToken({ token, accessToken, items = [], note = nul
     if (table.status === TABLE_STATUS.CLEANING) throw new Error("TABLE_CLEANING");
     if (!isTableOrderableViaQr(table.status)) throw new Error("TABLE_NOT_ACTIVE");
 
+    // Xác thực token gọi món → lấy order active để gắn món vào.
     const order = await resolveOrderAccessForTable({
       accessToken,
       tableId: table.table_id,
       transaction,
     });
 
+    // Dựng payload các món (giá chốt, status pending cho bếp).
     const orderItemsPayload = await buildOrderItemPayloads(items, transaction);
 
+    // Lưu ghi chú lần đầu nếu order chưa có note.
     if (orderNote && !order.note) {
       await order.update({ note: orderNote }, { transaction });
     }
 
+    // Tạo tất cả OrderItem song song.
     await Promise.all(
       orderItemsPayload.map((payload) =>
         OrderItem.create(
@@ -179,6 +191,7 @@ async function addOrderItemsByToken({ token, accessToken, items = [], note = nul
       )
     );
 
+    // Khách gọi thêm món → đẩy order sang "đang phục vụ" nếu còn ở giai đoạn trước.
     if ([ORDER_STATUS.PENDING, ORDER_STATUS.CONFIRMED, ORDER_STATUS.PRE_ORDERED].includes(order.status)) {
       await order.update({ status: ORDER_STATUS.IN_PROGRESS }, { transaction });
     }
@@ -191,6 +204,7 @@ async function addOrderItemsByToken({ token, accessToken, items = [], note = nul
     };
   });
 
+  // Ngoài transaction: bắn realtime cho bếp/chi nhánh biết có món mới (lỗi realtime không rollback đơn).
   try {
     realtimeHub.notifyBranch(result.branch_id, {
       type: "order_flow",
@@ -200,6 +214,7 @@ async function addOrderItemsByToken({ token, accessToken, items = [], note = nul
     });
   } catch (_) {}
 
+  // Trả kèm bill mới nhất để FE cập nhật ngay.
   return {
     ...result,
     bill: await billService.getBillByTable(result.table_id),

@@ -22,9 +22,9 @@ const {
   RESERVATION_HOLD_MINUTES,
 } = require("../../utils/branchHours");
 
-const MIN_ADVANCE_MS = 30 * 60 * 1000;
-const MAX_ADVANCE_MS = 14 * 24 * 60 * 60 * 1000;
-const CANCELLATION_MIN_HOURS = 2;
+const MIN_ADVANCE_MS = 30 * 60 * 1000; // phải đặt trước tối thiểu 30 phút
+const MAX_ADVANCE_MS = 14 * 24 * 60 * 60 * 1000; // đặt xa nhất 14 ngày
+const CANCELLATION_MIN_HOURS = 2; // chỉ hủy khi còn ≥ 2 giờ trước giờ đến
 
 /** Map order → response có reservation_id alias (tương thích FE). */
 function mapOrderResponse(order) {
@@ -47,12 +47,14 @@ const createReservation = async (req, res) => {
     const { reservation_time, number_of_guests, note } = req.body;
     const branch_id = parseInt(req.body.branch_id, 10) || 1;
 
+    // B1: parse & kiểm tra thời gian đặt hợp lệ (không rỗng, là ngày giờ đúng định dạng).
     const reservationDate = new Date(reservation_time);
     if (!reservation_time || Number.isNaN(reservationDate.getTime())) {
       return res.status(400).json({
         message: "Thời gian đặt bàn không hợp lệ.",
       });
     }
+    // B2: chặn đặt quá gần (<30 phút) hoặc quá xa (>14 ngày).
     const now = Date.now();
     const reservationMs = reservationDate.getTime();
     if (reservationMs < now + MIN_ADVANCE_MS) {
@@ -66,6 +68,7 @@ const createReservation = async (req, res) => {
       });
     }
 
+    // B3: chi nhánh phải tồn tại và đang hoạt động.
     const branch = await Branch.findByPk(branch_id, {
       attributes: ["branch_id", "open_time", "close_time", "is_active"],
     });
@@ -73,6 +76,7 @@ const createReservation = async (req, res) => {
       return res.status(400).json({ message: "Chi nhánh không hợp lệ." });
     }
 
+    // B4: giờ đặt phải nằm trong giờ mở cửa (còn trừ hao thời gian giữ bàn holdMinutes).
     const hoursError = getBranchHoursValidationMessage(
       reservationDate,
       branch.open_time,
@@ -83,10 +87,12 @@ const createReservation = async (req, res) => {
       return res.status(400).json({ message: hoursError });
     }
 
+    // B5: số khách tối thiểu 1.
     if (!number_of_guests || Number(number_of_guests) < 1) {
       return res.status(400).json({ message: "Số lượng khách không hợp lệ." });
     }
 
+    // B6: giao service xử lý chọn/khóa bàn + tạo order trong transaction (có thể ghép nhiều bàn).
     const result = await reservationService.createReservation({
       user_id,
       branch_id,
@@ -120,11 +126,13 @@ const createReservation = async (req, res) => {
       booking_group_id,
     });
   } catch (err) {
+    // Lỗi nghiệp vụ đã lường trước (hết bàn, quá hạn, user bị khóa...) → trả 400 với message rõ ràng.
     if (
       ["NO_TABLE", "FUTURE_LIMIT", "USER_LOCKED", "BRANCH_INVALID"].includes(err.code)
     ) {
       return res.status(400).json({ message: err.message });
     }
+    // Còn lại là lỗi ngoài dự kiến → 500.
     console.error("Lỗi đặt bàn:", err);
     res.status(500).json({ message: "Lỗi server" });
   }
@@ -269,12 +277,15 @@ const cancelReservation = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đặt bàn" });
     }
 
+    // Điều kiện hủy 1: trạng thái phải cho phép hủy (chưa hoàn tất/đang phục vụ).
     if (!CANCELABLE_RESERVATION_STATUSES.includes(order.status)) {
       return res.status(400).json({ message: "Không thể hủy ở trạng thái này" });
     }
+    // Điều kiện hủy 2: chưa từng check-in.
     if (order.checked_in_at) {
       return res.status(400).json({ message: "Không thể hủy sau khi đã check-in." });
     }
+    // Điều kiện hủy 3: còn ít nhất 2 giờ trước giờ đến.
     const arrivalMs = new Date(order.arrival_time).getTime();
     if (
       Number.isFinite(arrivalMs) &&
@@ -285,13 +296,16 @@ const cancelReservation = async (req, res) => {
         .json({ message: "Chỉ được hủy khi còn ít nhất 2 giờ trước giờ đến." });
     }
 
+    // Hủy cả nhóm (nếu là booking ghép nhiều bàn) rồi giải phóng các bàn liên quan về "available".
     const cancelled = await reservationService.cancelReservationGroup(order);
+    // Gom mọi table_id đã dùng (cả bàn chính lẫn bàn ghép qua bảng nối) để trả bàn.
     const tableIdSet = new Set();
     for (const row of cancelled) {
       const ids = await getTableIdsForOrder(row.order_id);
       ids.forEach((id) => tableIdSet.add(id));
       if (row.table_id) tableIdSet.add(row.table_id);
     }
+    // Chỉ đưa về trống những bàn đang giữ chỗ (pre-ordered/reserved), không đụng bàn đang có khách.
     for (const tableId of tableIdSet) {
       const table = await Table.findByPk(tableId);
       if (table && ["pre-ordered", "reserved"].includes(table.status)) {
@@ -339,10 +353,12 @@ const requestBill = async (req, res) => {
       return res.status(404).json({ message: "Không tìm thấy đơn" });
     }
 
+    // Chỉ đơn đang hoạt động mới được yêu cầu thanh toán.
     if (!ACTIVE_RESERVATION_STATUSES.includes(order.status)) {
       return res.status(400).json({ message: "Đơn này không thể yêu cầu thanh toán" });
     }
 
+    // Nếu là booking nhóm (ghép bàn) → chuyển trạng thái cho toàn bộ đơn cùng nhóm; nếu không chỉ đơn hiện tại.
     const groupOrders = order.booking_group_id
       ? await Order.findAll({
           where: {
@@ -353,6 +369,7 @@ const requestBill = async (req, res) => {
         })
       : [order];
 
+    // Đổi sang "chờ thanh toán" để nhân viên thấy và ra hóa đơn.
     for (const row of groupOrders) {
       row.status = ORDER_STATUS.WAITING_PAYMENT;
       await row.save();

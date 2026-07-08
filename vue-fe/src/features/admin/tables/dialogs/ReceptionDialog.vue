@@ -6,6 +6,7 @@
     destroy-on-close
     @open="onReceptionDialogOpen"
   >
+    <!-- 2 tab: đón khách có đặt trước (tìm + check-in) và khách vãng lai (chọn bàn trống) -->
     <el-tabs v-model="receptionTab" @tab-change="onReceptionTabChange">
       <el-tab-pane label="Có đặt trước" name="reservation">
         <p class="reception-hint">
@@ -130,6 +131,8 @@
 </template>
 
 <script setup>
+// ReceptionDialog — dialog tiếp nhận khách gồm 2 tab: "Có đặt trước" (tìm + check-in) và "Khách vãng lai" (ghép bàn trống).
+// Toàn bộ state/hàm lấy từ context chung của trang bàn.
 import { Search } from "@element-plus/icons-vue";
 import { useTablesContext } from "../composables/tablesContext";
 

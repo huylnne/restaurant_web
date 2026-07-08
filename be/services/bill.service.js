@@ -21,6 +21,7 @@ const orderItemInclude = {
 
 /** [BILL] Order chính để tính tiền khi ghép nhóm booking_group. Ctrl+F: resolvePrimaryBillingOrder */
 async function resolvePrimaryBillingOrder(orderOrId) {
+  // Nhận vào object order sẵn, hoặc chỉ là id → tự load từ DB.
   const order =
     typeof orderOrId === "object" && orderOrId?.order_id
       ? orderOrId
@@ -28,8 +29,10 @@ async function resolvePrimaryBillingOrder(orderOrId) {
           attributes: ["order_id", "table_id", "booking_group_id"],
         });
   if (!order) return null;
+  // Không thuộc nhóm đặt → chính nó là order tính tiền.
   if (!order.booking_group_id) return order;
 
+  // Thuộc nhóm → lấy order đầu nhóm làm order đại diện tính tiền.
   const groupOrders = await findGroupSessionOrders(order);
   return groupOrders[0] || order;
 }
@@ -77,9 +80,11 @@ async function findActiveOrderByUser(userId) {
 
   if (!orders.length) return null;
 
+  // Ưu tiên order mà bàn đang thực sự phục vụ (bàn khác "available").
   const serving = orders.find((o) => o.Table && o.Table.status && o.Table.status !== "available");
   if (serving) return serving;
 
+  // Không có bàn nào đang phục vụ → lấy order theo giờ đến mới nhất.
   return orders[0];
 }
 
@@ -90,31 +95,36 @@ async function findActiveOrderByTable(tableId) {
 
 /** [BILL] Gộp order_items, tính subtotal/discount/total (sale_price). Ctrl+F: computeItemsTotal */
 async function computeItemsTotal(orderItems) {
-  const aggregated = {};
-  let totalAmount = 0;
-  let subtotalBeforeDiscount = 0;
-  let discountTotal = 0;
+  const aggregated = {}; // gom món trùng (cùng id + cùng đơn giá) lại thành 1 dòng
+  let totalAmount = 0; // tổng phải trả (sau giảm giá)
+  let subtotalBeforeDiscount = 0; // tổng theo giá gốc (trước giảm)
+  let discountTotal = 0; // tổng tiền được giảm
 
   (orderItems || []).forEach((oi) => {
     const menu = oi.MenuItem;
-    if (!menu) return;
+    if (!menu) return; // món không còn trong menu → bỏ qua
 
-    const listPrice = Number(menu.price) || 0;
-    const saleUnitPrice = resolveMenuItemUnitPrice(menu);
+    const listPrice = Number(menu.price) || 0; // giá niêm yết hiện tại
+    const saleUnitPrice = resolveMenuItemUnitPrice(menu); // giá sau khuyến mãi (nếu có)
+    // Giá đã "chốt" lúc gọi món (nếu order_item lưu lại).
     const storedPrice =
       oi.price != null && oi.price !== "" ? Number(oi.price) : null;
 
+    // Quyết định đơn giá thực tế của món:
     let unitPrice;
     if (storedPrice != null && storedPrice > 0) {
+      // Có giá chốt: dùng giá chốt, TRỪ khi giá chốt là giá gốc mà hiện đang có sale rẻ hơn → dùng giá sale.
       unitPrice =
         listPrice > 0 && storedPrice >= listPrice && saleUnitPrice < listPrice
           ? saleUnitPrice
           : storedPrice;
     } else {
+      // Không có giá chốt → dùng giá sale/hiện tại.
       unitPrice = saleUnitPrice;
     }
 
-    const originalUnitPrice = listPrice || unitPrice;
+    const originalUnitPrice = listPrice || unitPrice; // giá gốc để tính phần được giảm
+    // Key gom nhóm theo (món + đơn giá) — cùng món nhưng giá khác nhau vẫn tách dòng.
     const key = `${menu.item_id}:${unitPrice}`;
 
     if (!aggregated[key]) {
@@ -126,13 +136,16 @@ async function computeItemsTotal(orderItems) {
         quantity: 0,
       };
     }
+    // Cộng dồn số lượng cho dòng này.
     aggregated[key].quantity += oi.quantity || 0;
   });
 
+  // Tính thành tiền từng dòng và cộng vào các tổng.
   const items = Object.values(aggregated).map((it) => {
     const quantity = it.quantity;
-    const lineTotal = it.unit_price * quantity;
-    const lineOriginalTotal = it.original_unit_price * quantity;
+    const lineTotal = it.unit_price * quantity; // thành tiền (sau giảm)
+    const lineOriginalTotal = it.original_unit_price * quantity; // thành tiền (giá gốc)
+    // Tiền giảm của dòng = chênh lệch giá gốc và giá bán (chỉ khi có giảm).
     const lineDiscount =
       it.original_unit_price > it.unit_price ? lineOriginalTotal - lineTotal : 0;
 
@@ -165,32 +178,38 @@ async function computeItemsTotal(orderItems) {
  * Ctrl+F: buildBill, bill tạm tính
  */
 async function buildBill({ order, tableId }) {
+  // Cần ít nhất order hoặc tableId để biết tính bill cho phiên nào.
   if (!order && !tableId) return null;
 
+  // Nếu chỉ có tableId → tìm order đang active trên bàn đó.
   let sessionOrder = order;
   if (!sessionOrder && tableId) {
     sessionOrder = await findActiveOrderByTable(tableId);
   }
   if (!sessionOrder) return null;
 
+  // Xác định bàn cần dựng bill.
   const table_id = tableId || sessionOrder.table_id;
   if (!table_id) return null;
 
   const table = await Table.findByPk(table_id);
   if (!table) return null;
 
+  // Bàn trống mà không truyền order cụ thể → không có bill để hiển thị.
   if (table.status === "available" && !order) {
     return null;
   }
 
+  // Đảm bảo order đã kèm danh sách món; chưa có thì nạp lại kèm OrderItems.
   if (!sessionOrder.OrderItems) {
     sessionOrder = await Order.findByPk(sessionOrder.order_id, {
       include: [orderItemInclude],
     });
   }
 
+  // Lấy tất cả order trong cùng nhóm đặt (nếu có) → bill gộp cho bàn ghép.
   const groupOrders = await findGroupSessionOrders(sessionOrder);
-  const primaryOrder = groupOrders[0] || sessionOrder;
+  const primaryOrder = groupOrders[0] || sessionOrder; // order đại diện để tính tiền
   const linkedTables = await getTablesForOrder(primaryOrder.order_id);
   const groupTables =
     linkedTables.length > 1
@@ -209,11 +228,14 @@ async function buildBill({ order, tableId }) {
           ? linkedTables
           : [table];
 
+  // Gom toàn bộ món: nhóm nhiều order thì nối món của tất cả, không thì lấy món của order hiện tại.
   const allItems =
     groupOrders.length > 1 ? collectOrderItems(groupOrders) : sessionOrder.OrderItems || [];
+  // Tính tổng tiền/giảm giá từ danh sách món.
   const { items, totalAmount, subtotalBeforeDiscount, discountTotal } =
     await computeItemsTotal(allItems);
 
+  // Đồng bộ total_amount xuống DB nếu lệch (để báo cáo/thanh toán dùng đúng số).
   const ordersToSync = groupOrders.length > 1 ? groupOrders : [sessionOrder];
   for (const groupOrder of ordersToSync) {
     if (Number(groupOrder.total_amount) !== totalAmount) {

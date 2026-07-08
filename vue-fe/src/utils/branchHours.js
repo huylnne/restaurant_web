@@ -1,3 +1,7 @@
+/**
+ * BRANCH HOURS (FE) — tái xuất tiện ích giờ mở cửa từ shared (dùng chung BE/FE) và bọc lại 2 hàm
+ * kiểm tra giờ đặt bàn hợp lệ, để component import gọn từ "@/utils/branchHours".
+ */
 import shared from "@shared/branchHours.js";
 
 export const DEFAULT_OPEN_TIME = shared.DEFAULT_OPEN_TIME;

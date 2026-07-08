@@ -1,3 +1,7 @@
+/**
+ * ADMIN ROUTES — các trang khu quản trị (/admin/...). Mỗi route gắn meta.allowedRoles
+ * để guard chặn theo vai trò (admin/manager/waiter/kitchen).
+ */
 import AdminDashboard from "@/views/admin/AdminDashboard.vue";
 import AdminKitchen from "@/views/admin/AdminKitchen.vue";
 import EmployeeManagement from "@/views/admin/EmployeeManagement.vue";

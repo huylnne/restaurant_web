@@ -5,12 +5,17 @@
  * Bỏ qua lỗi từng câu lệnh (đã áp dụng / không áp dụng được).
  */
 async function applyMigrations(sequelize) {
+  // Helper: chạy 1 câu SQL và NUỐT lỗi (.catch) → mỗi bước là idempotent, chạy lại nhiều lần không sao.
+  // (Ví dụ ADD COLUMN IF NOT EXISTS đã có sẵn thì bỏ qua.)
   const q = (sql) => sequelize.query(sql, { raw: true }).catch(() => {});
 
+  // --- PAYMENTS: bổ sung cột hóa đơn ---
   await q('ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_no VARCHAR(20);');
   await q('ALTER TABLE payments ADD COLUMN IF NOT EXISTS invoice_issued_at TIMESTAMP;');
+  // Chuẩn hóa trạng thái bàn cũ 'reserved' → 'pre-ordered' (tên mới trong hệ thống).
   await q("UPDATE tables SET status = 'pre-ordered' WHERE status = 'reserved';");
 
+  // --- ORDERS: thêm các cột phục vụ luồng đặt bàn/checkin/thanh toán ---
   await q('ALTER TABLE orders ADD COLUMN IF NOT EXISTS arrival_time TIMESTAMP;');
   await q('ALTER TABLE orders ADD COLUMN IF NOT EXISTS number_of_guests INTEGER;');
   await q('ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_amount DECIMAL(10, 2);');
@@ -43,6 +48,8 @@ async function applyMigrations(sequelize) {
        AND status = 'pre-ordered';`
   );
 
+  // --- DI TRÚ DỮ LIỆU CŨ: gộp bảng reservations (cũ) vào orders (mới) ---
+  // Copy các reservation chưa có order tương ứng sang bảng orders.
   await q(
     `INSERT INTO orders (
        user_id, branch_id, table_id, arrival_time, number_of_guests, status, note,
@@ -77,6 +84,7 @@ async function applyMigrations(sequelize) {
      WHERE payment_status IS NULL OR TRIM(payment_status) = '';`
   );
 
+  // --- REVIEWS: chuyển khóa reservation_id → order_id rồi bỏ cột cũ ---
   await q('ALTER TABLE reviews ADD COLUMN IF NOT EXISTS order_id INTEGER;');
   await q(
     `UPDATE reviews rv
@@ -86,6 +94,7 @@ async function applyMigrations(sequelize) {
   await q('ALTER TABLE reviews DROP COLUMN IF EXISTS reservation_id;');
   await q('ALTER TABLE reviews ALTER COLUMN user_id DROP NOT NULL;');
 
+  // --- PAYMENTS: cũng chuyển reservation_id → order_id, sau đó dọn bảng/cột cũ ---
   await q(
     `UPDATE payments p
      SET order_id = o.order_id
@@ -103,6 +112,7 @@ async function applyMigrations(sequelize) {
   await q('ALTER TABLE orders DROP COLUMN IF EXISTS reservation_id;');
   await q('DROP TABLE IF EXISTS reservations CASCADE;');
 
+  // --- CHUẨN HÓA TRẠNG THÁI ORDER: đưa các giá trị cũ/viết hoa về bộ status thống nhất (chữ thường) ---
   await q(
     `UPDATE orders SET status = 'pre-ordered'
      WHERE status IN ('open', 'preorder')
@@ -118,6 +128,7 @@ async function applyMigrations(sequelize) {
   await q(`UPDATE orders SET status = 'completed' WHERE status IN ('COMPLETED');`);
   await q(`UPDATE orders SET status = 'cancelled' WHERE status IN ('CANCELLED');`);
 
+  // --- BRANCHES: giờ mở/đóng mặc định + tọa độ (lat/lng) để tính "chi nhánh gần bạn" ---
   await q(
     `UPDATE branches SET open_time = '08:00' WHERE open_time IS NULL OR TRIM(open_time) = '' OR open_time = '09:00';`
   );
@@ -191,6 +202,7 @@ async function applyMigrations(sequelize) {
      WHERE o.table_id = t.table_id AND o.branch_id IS NULL;`
   );
 
+  // --- ORDER_ITEMS: chốt giá tại thời điểm gọi (ưu tiên sale_price hợp lệ) để bill cũ không đổi khi menu đổi giá ---
   await q('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS price DECIMAL(10, 2);');
   await q('ALTER TABLE order_items ADD COLUMN IF NOT EXISTS note VARCHAR(200);');
   await q(
@@ -215,6 +227,7 @@ async function applyMigrations(sequelize) {
      WHERE oi.order_id = o.order_id AND oi.ordered_at IS NULL;`
   );
 
+  // --- CHỐT: đảm bảo chi nhánh nào chưa có menu thì clone menu mặc định sang (không để branch trống menu) ---
   const { ensureMenuForEmptyBranches } = require('../utils/ensureBranchMenus');
   await ensureMenuForEmptyBranches(sequelize).catch((err) => {
     console.warn('⚠️ ensureMenuForEmptyBranches:', err.message);

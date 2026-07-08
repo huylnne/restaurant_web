@@ -25,7 +25,9 @@
 </template>
 
 <script setup>
+// AddTableDialog — form thêm bàn mới. Số ghế cố định (TABLE_CAPACITY) nên ô nhập bị disabled.
 import { useTablesContext } from "../composables/tablesContext";
 
+// showAddDialog: đóng/mở; newTable: dữ liệu form; addTable: gọi API tạo bàn.
 const { showAddDialog, newTable, TABLE_CAPACITY, addTable } = useTablesContext();
 </script>

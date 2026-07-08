@@ -1,14 +1,24 @@
+<!--
+  MenuItemPrice — hiển thị giá 1 món.
+  - Nếu đang khuyến mãi (is_on_sale): hiện giá sale + giá gốc gạch ngang + nhãn % giảm.
+  - Ngược lại: chỉ hiện giá gốc.
+-->
 <template>
   <p class="menu-item-price" :class="{ 'menu-item-price--sale': dish.is_on_sale }">
+    <!-- Nhánh đang khuyến mãi -->
     <template v-if="dish.is_on_sale">
+      <!-- Giá sau giảm: ưu tiên display_price do BE tính, fallback sale_price -->
       <span class="menu-item-price__sale">
         {{ formatVnd(dish.display_price ?? dish.sale_price) }}
       </span>
+      <!-- Giá gốc (gạch ngang) -->
       <span class="menu-item-price__old">{{ formatVnd(dish.price) }}</span>
+      <!-- Nhãn % giảm (nếu có) -->
       <span v-if="dish.discount_percent" class="menu-item-price__tag">
         -{{ dish.discount_percent }}%
       </span>
     </template>
+    <!-- Nhánh không khuyến mãi: chỉ giá gốc -->
     <strong v-else class="menu-item-price__regular">
       {{ formatVnd(dish.price) }}
     </strong>
@@ -17,9 +27,10 @@
 
 <script setup>
 defineProps({
-  dish: { type: Object, required: true },
+  dish: { type: Object, required: true }, // dữ liệu 1 món (giá, sale, % giảm...)
 });
 
+// Định dạng số tiền sang chuỗi VND, ví dụ 25000 → "25.000 đ"; giá trị không hợp lệ → "0 đ".
 function formatVnd(value) {
   const n = Number(value);
   if (!Number.isFinite(n)) return "0 đ";

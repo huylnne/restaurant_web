@@ -35,9 +35,11 @@ function normalizeReviewInput({ order_id, reservation_id, rating, comment }) {
 /** [ĐÁNH GIÁ] Order đủ điều kiện khi completed hoặc payment succeeded. Ctrl+F: isOrderReviewable */
 async function isOrderReviewable(order) {
   if (!order) return false;
+  // Điều kiện 1: order đã hoàn tất (completed) → cho đánh giá ngay.
   const isCompleted = String(order.status || "").toLowerCase() === ORDER_STATUS.COMPLETED;
   if (isCompleted) return true;
 
+  // Điều kiện 2: đã có thanh toán thành công (dù order chưa kịp chuyển completed).
   const payment = await Payment.findOne({
     where: { order_id: order.order_id, status: "succeeded" },
     attributes: ["payment_id"],
@@ -118,23 +120,27 @@ async function createOrderReview({ orderId, userId = null, tableId = null, ratin
   });
   if (!order) throw new Error("ORDER_NOT_FOUND");
 
+  // Nếu là khách đăng nhập: order phải thuộc chính họ (chống đánh giá hộ đơn người khác).
   if (userId != null) {
     if (order.user_id == null || Number(order.user_id) !== Number(userId)) {
       throw new Error("ORDER_NOT_FOUND");
     }
   }
 
+  // Nếu đánh giá qua QR bàn: order phải thuộc đúng bàn đó (kể cả bàn ghép).
   if (tableId != null) {
     const belongs = await orderBelongsToTable(sessionOrderId, tableId);
     if (!belongs) throw new Error("ORDER_NOT_FOUND");
   }
 
+  // Mỗi order chỉ được đánh giá 1 lần → có review rồi thì chặn.
   const existing = await Review.findOne({
     where: { order_id: sessionOrderId },
     attributes: ["review_id"],
   });
   if (existing) throw new Error("REVIEW_ALREADY_EXISTS");
 
+  // Chỉ cho đánh giá khi order đã completed/đã thanh toán.
   if (!(await isOrderReviewable(order))) {
     throw new Error("REVIEW_NOT_ALLOWED");
   }
@@ -151,6 +157,7 @@ async function createOrderReview({ orderId, userId = null, tableId = null, ratin
     });
     return review;
   } catch (error) {
+    // Chốt chặn cuối: 2 request cùng lúc lọt qua kiểm tra ở trên → DB có unique(order_id) sẽ báo trùng.
     if (error?.name === "SequelizeUniqueConstraintError") {
       throw new Error("REVIEW_ALREADY_EXISTS");
     }

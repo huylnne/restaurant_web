@@ -63,6 +63,8 @@
 </template>
 
 <script setup>
+// TablesSummaryCards — dải thẻ thống kê ở đầu trang bàn (tổng/trống/đang phục vụ/đã đặt/chờ dọn/doanh thu).
+// Lấy dữ liệu từ context dùng chung thay vì nhận props (xem provideTablesContext ở AdminTablesPage).
 import {
   Grid,
   CircleCheck,
@@ -73,5 +75,6 @@ import {
 } from "@element-plus/icons-vue";
 import { useTablesContext } from "../composables/tablesContext";
 
+// summary: các con số; userRole: để ẩn thẻ doanh thu với waiter; formatCurrency: định dạng tiền.
 const { summary, userRole, formatCurrency } = useTablesContext();
 </script>

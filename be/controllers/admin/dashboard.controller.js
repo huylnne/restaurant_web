@@ -17,6 +17,7 @@ const dashboardController = {
     try {
       const branchId = resolveBranchId(req, req.query.branchId, 1);
       const data = await dashboardService.getSummary(branchId);
+      // Lọc theo vai trò trước khi trả về: waiter/kitchen không được thấy số liệu tài chính (doanh thu).
       const role = req.userRole || req.user?.role;
       res.json(filterSummaryForRole(role, data));
     } catch (error) {

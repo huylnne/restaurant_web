@@ -7,11 +7,13 @@ const SOURCE_BRANCH_ID = 1;
 
 /** [SEED/MIGRATION] Clone menu branch 1 cho các chi nhánh active chưa có menu_items. Ctrl+F: ensureMenuForEmptyBranches */
 async function ensureMenuForEmptyBranches(sequelize) {
+  // Lấy tất cả chi nhánh đang hoạt động (is_active khác false → gồm cả true và NULL).
   const branches = await sequelize.query(
     `SELECT branch_id FROM branches WHERE is_active IS DISTINCT FROM false ORDER BY branch_id`,
     { type: sequelize.QueryTypes.SELECT }
   );
 
+  // Đếm số món khả dụng ở chi nhánh nguồn (branch 1) — dùng làm menu mẫu.
   const [sourceCountRow] = await sequelize.query(
     `SELECT COUNT(*)::int AS cnt FROM menu_items WHERE branch_id = :source AND is_available = true`,
     {
@@ -20,14 +22,17 @@ async function ensureMenuForEmptyBranches(sequelize) {
     }
   );
   const sourceCount = sourceCountRow?.cnt ?? 0;
+  // Nếu chi nhánh nguồn chưa có món thì không có gì để clone → thoát sớm.
   if (sourceCount === 0) return { cloned: [] };
 
-  const cloned = [];
+  const cloned = []; // ghi lại các chi nhánh đã được clone menu
 
   for (const row of branches) {
     const branchId = Number(row.branch_id);
+    // Bỏ qua id lỗi và bỏ qua chính chi nhánh nguồn.
     if (!Number.isFinite(branchId) || branchId === SOURCE_BRANCH_ID) continue;
 
+    // Chi nhánh đã có sẵn món rồi thì KHÔNG clone đè (tránh trùng menu).
     const [existing] = await sequelize.query(
       `SELECT COUNT(*)::int AS cnt FROM menu_items WHERE branch_id = :branchId`,
       {
@@ -37,6 +42,7 @@ async function ensureMenuForEmptyBranches(sequelize) {
     );
     if ((existing?.cnt ?? 0) > 0) continue;
 
+    // Copy toàn bộ món khả dụng từ chi nhánh nguồn sang chi nhánh này (gán branch_id mới, created_at = NOW()).
     await sequelize.query(
       `INSERT INTO menu_items (branch_id, name, description, price, sale_price, category, is_available, is_featured, created_at, image_url)
        SELECT :branchId, name, description, price, sale_price, category, is_available, is_featured, NOW(), image_url

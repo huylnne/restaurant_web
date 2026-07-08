@@ -23,32 +23,39 @@ const AT_TABLE_STATUSES = new Set([
  */
 function resolveKitchenServeContext(order) {
   const now = Date.now();
+  // Chuẩn hóa status về chữ thường để so khớp.
   const orderStatus = String(order?.status || "").toLowerCase();
+  // Mốc giờ khách hẹn đến (ms) — chỉ đơn đặt trước mới có ý nghĩa.
   const arrivalMs = order?.arrival_time
     ? new Date(order.arrival_time).getTime()
     : null;
+  // Mốc giờ tạo đơn (ms); thiếu thì lấy "bây giờ".
   const orderAtMs = order?.created_at ? new Date(order.created_at).getTime() : now;
 
+  // TH1: khách đang ở bàn (pre-ordered/in_progress/waiting_payment) → làm món NGAY.
   if (AT_TABLE_STATUSES.has(orderStatus)) {
     return {
       serve_mode: "active",
       serve_label: "Đang phục vụ",
       serve_at: orderAtMs,
       serve_at_iso: new Date(orderAtMs).toISOString(),
-      sort_key: orderAtMs,
+      sort_key: orderAtMs, // sắp theo thời điểm gọi món
       is_urgent: true,
     };
   }
 
+  // TH2: đơn đặt trước có giờ đến → làm món theo lịch (canh giờ khách tới).
   if (order?.order_type === "reservation" && arrivalMs) {
+    // Còn bao nhiêu phút nữa tới giờ khách đến (âm = đã quá giờ).
     const minutesUntil = Math.round((arrivalMs - now) / 60000);
     return {
       serve_mode: "scheduled",
       serve_label: "Giờ phục vụ",
       serve_at: arrivalMs,
       serve_at_iso: new Date(arrivalMs).toISOString(),
-      sort_key: arrivalMs,
+      sort_key: arrivalMs, // sắp theo giờ khách đến
       minutes_until_serve: minutesUntil,
+      // "Sắp phục vụ": trong khoảng [15 phút trước, 30 phút sau] giờ hẹn → nhắc bếp chuẩn bị.
       is_soon: minutesUntil <= SOON_SERVE_MINUTES && minutesUntil >= -OVERDUE_GRACE_MINUTES,
       arrival_time: order.arrival_time,
       order_status: orderStatus,
@@ -56,6 +63,7 @@ function resolveKitchenServeContext(order) {
     };
   }
 
+  // TH3: mặc định (không rơi vào 2 case trên) → coi như đang phục vụ.
   return {
     serve_mode: "active",
     serve_label: "Đang phục vụ",
@@ -84,10 +92,13 @@ function tableGroupKey(row) {
  * Ctrl+F: groupKitchenItemsByTable, gom món theo bàn
  */
 function groupKitchenItemsByTable(itemRows) {
+  // Map key(bàn) → nhóm món, để mỗi bàn hiện thành 1 thẻ trên màn bếp.
   const map = new Map();
 
   for (const row of itemRows) {
+    // Key gom nhóm (ưu tiên theo bàn).
     const key = tableGroupKey(row);
+    // Lần đầu gặp bàn này → khởi tạo object nhóm với đủ thông tin hiển thị.
     if (!map.has(key)) {
       const order = row.Order ?? null;
       const serve = row.serve_context || resolveKitchenServeContext(order);
@@ -114,12 +125,15 @@ function groupKitchenItemsByTable(itemRows) {
       });
     }
 
+    // Đưa món vào nhóm bàn và cộng vào bộ đếm theo trạng thái (pending/processing/done/served).
     const group = map.get(key);
     group.items.push(row);
     const st = String(row.status || "pending").toLowerCase();
     if (group.status_counts[st] != null) group.status_counts[st] += 1;
   }
 
+  // Với nhóm "đang phục vụ": lấy thời điểm gọi món SỚM NHẤT trong nhóm làm mốc sắp xếp
+  // (bàn nào gọi trước thì lên đầu hàng đợi bếp).
   for (const group of map.values()) {
     if (group.serve_mode === "active" && group.items.length) {
       const serveMs = Math.min(...group.items.map(orderedAtMs));
@@ -129,16 +143,20 @@ function groupKitchenItemsByTable(itemRows) {
     }
   }
 
+  // Trả về danh sách nhóm đã sắp xếp ưu tiên.
   return sortKitchenTableGroups([...map.values()]);
 }
 
 /** [BẾP] Sort nhóm bàn: đang phục vụ trước, rồi theo giờ phục vụ/gọi món. Ctrl+F: sortKitchenTableGroups */
 function sortKitchenTableGroups(groups) {
   return groups.sort((a, b) => {
+    // 1) Nhóm "active" (khách đang ở bàn) lên trước nhóm "scheduled" (đặt trước).
     const modeA = a.serve_mode === "active" ? 0 : 1;
     const modeB = b.serve_mode === "active" ? 0 : 1;
     if (modeA !== modeB) return modeA - modeB;
+    // 2) Cùng loại → sắp theo mốc thời gian (gọi món/giờ đến) tăng dần.
     if (a.sort_key !== b.sort_key) return a.sort_key - b.sort_key;
+    // 3) Vẫn hòa → sắp theo số bàn (thiếu số thì đẩy xuống cuối bằng 9999).
     return (a.table_number ?? 9999) - (b.table_number ?? 9999);
   });
 }

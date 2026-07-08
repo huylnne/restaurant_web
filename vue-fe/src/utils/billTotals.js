@@ -1,6 +1,9 @@
 /**
- * Đồng bộ logic tính bill với bill.service.js (backend).
+ * BILL TOTALS (FE) — tính lại tổng bill ở phía frontend, ĐỒNG BỘ đúng logic với bill.service.js (backend)
+ * để số hiển thị trước khi thanh toán khớp với hóa đơn cuối.
  */
+
+/** Giá bán 1 món: ưu tiên sale_price nếu hợp lệ (>0 và < giá gốc), ngược lại dùng giá gốc. */
 export function resolveMenuItemUnitPrice(menuItem) {
   if (!menuItem) return 0;
   const price = Number(menuItem.price) || 0;
@@ -14,6 +17,14 @@ export function resolveMenuItemUnitPrice(menuItem) {
   return price;
 }
 
+/**
+ * Giá 1 dòng order item, giải quyết mâu thuẫn giữa giá lưu trong order (stored) và giá menu hiện tại:
+ *  - Nếu có giá stored > 0:
+ *      + nhưng stored >= giá gốc trong khi menu đang có sale (saleUnitPrice < listPrice)
+ *        → ưu tiên giá sale hiện tại (tránh tính giá cao hơn thực tế đang khuyến mãi).
+ *      + còn lại: tôn trọng giá đã chốt lúc gọi món.
+ *  - Nếu không có stored: dùng giá sale hiện tại.
+ */
 function resolveOrderItemUnitPrice(orderItem) {
   const menu = orderItem?.MenuItem;
   const listPrice = Number(menu?.price) || 0;
@@ -32,6 +43,11 @@ function resolveOrderItemUnitPrice(orderItem) {
   return saleUnitPrice;
 }
 
+/**
+ * Tính tổng bill từ danh sách order item:
+ *  - Gộp các dòng cùng món + cùng đơn giá lại (aggregated) để hiển thị gọn.
+ *  - Cộng dồn: total_amount (sau giảm), subtotal (trước giảm), discount_total (phần được giảm).
+ */
 export function computeBillTotals(orderItems) {
   const aggregated = {};
   let totalAmount = 0;
@@ -44,6 +60,7 @@ export function computeBillTotals(orderItems) {
 
     const unitPrice = resolveOrderItemUnitPrice(oi);
     const originalUnitPrice = Number(menu.price) || unitPrice;
+    // Khóa gộp gồm cả đơn giá → cùng món nhưng khác giá (vd 1 phần mua lúc sale) vẫn tách dòng riêng.
     const key = `${menu.item_id}:${unitPrice}`;
 
     if (!aggregated[key]) {

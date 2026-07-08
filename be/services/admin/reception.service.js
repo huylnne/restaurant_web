@@ -226,8 +226,10 @@ async function searchArrivals(branchId, query) {
  * Luồng demo: Phần 3 — Bước 3.2 (nút Tiếp nhận / Check-in). Ctrl+F: confirmArrival, check-in
  */
 async function confirmArrival(orderId, branchId) {
+  // Dọn no-show trước để không check-in nhầm đơn đã quá hạn.
   await tableSummaryService.expireReservationsForBranch(branchId);
 
+  // Tìm đơn đặt bàn cần tiếp nhận (đúng chi nhánh, loại reservation).
   const order = await Order.findOne({
     where: { order_id: orderId, branch_id: branchId, order_type: "reservation" },
     include: [{ model: Table }],
@@ -239,6 +241,7 @@ async function confirmArrival(orderId, branchId) {
     throw err;
   }
 
+  // Xác định "nhóm" cần check-in cùng lúc: bàn ghép (order_tables) hoặc các order cùng booking_group.
   const linkedTables = await getTablesForOrder(order.order_id);
   const groupId = order.booking_group_id;
   const partyOrders =
@@ -249,6 +252,7 @@ async function confirmArrival(orderId, branchId) {
         })
       : [order];
 
+  // Cả nhóm đã check-in rồi → trả về, không làm gì thêm.
   const allCheckedIn = partyOrders.every((o) => isOrderCheckedIn(o));
   if (allCheckedIn) {
     return {
@@ -299,8 +303,10 @@ async function confirmArrival(orderId, branchId) {
     }
   }
 
+  // Thực hiện check-in trong transaction: cập nhật order + chiếm bàn phải cùng thành công.
   await sequelize.transaction(async (t) => {
     const now = new Date();
+    // Đánh dấu thời điểm khách tới; nếu đang pending/confirmed thì nâng lên pre-ordered.
     for (const sess of toCheckIn) {
       const updates = { checked_in_at: now };
       if ([ORDER_STATUS.CONFIRMED, ORDER_STATUS.PENDING].includes(sess.status)) {
@@ -309,11 +315,13 @@ async function confirmArrival(orderId, branchId) {
       await sess.update(updates, { transaction: t });
     }
 
+    // Tập bàn cần chuyển sang "đang phục vụ" (bàn ghép hoặc bàn của từng order).
     const tableIds =
       linkedTables.length > 1
         ? linkedTables.map((tbl) => tbl.table_id)
         : toCheckIn.map((sess) => sess.table_id).filter(Boolean);
 
+    // Chỉ đổi các bàn còn ở trạng thái cho phép check-in (available/pre-ordered) → occupied.
     for (const tableId of tableIds) {
       const table = await Table.findByPk(tableId, { transaction: t });
       if (table && isCheckInableTableStatus(table.status)) {
@@ -404,6 +412,7 @@ async function walkInCheckIn({ branchId, tableId, tableIds, numberOfGuests, staf
     throw err;
   }
 
+  // Chặn xếp walk-in lên bàn SẮP có khách đặt trước (tránh giành bàn của người đã đặt).
   const now = new Date();
   const upcoming = await Order.findOne({
     where: {
@@ -444,6 +453,7 @@ async function walkInCheckIn({ branchId, tableId, tableIds, numberOfGuests, staf
     }
   }
 
+  // Tạo order walk_in + chiếm bàn trong transaction (bàn đầu là bàn chính).
   const primaryTable = selectedTables[0];
   const tableLabel = selectedTables.map((table) => `B${table.table_number}`).join(", ");
   let order;

@@ -40,7 +40,8 @@ const UPCOMING_RESERVATION_STATUSES = [
 const tableService = {
   /** [QR BÀN] Đảm bảo mỗi bàn có qr_token public duy nhất cho link /t/{token}. Ctrl+F: ensureQrToken */
   async ensureQrToken(table) {
-    if (table.qr_token) return table.qr_token;
+    if (table.qr_token) return table.qr_token; // đã có token thì dùng lại, không sinh mới.
+    // Thử tối đa 5 lần: sinh chuỗi hex 32 ký tự ngẫu nhiên, kiểm tra trùng trong DB rồi mới gán.
     for (let i = 0; i < 5; i++) {
       const token = crypto.randomBytes(16).toString("hex");
       const exists = await Table.findOne({ where: { qr_token: token }, attributes: ["table_id"] });
@@ -49,15 +50,19 @@ const tableService = {
         return token;
       }
     }
+    // Rất hiếm khi 5 lần đều trùng → coi như lỗi hệ thống.
     throw new Error("Không thể sinh QR token cho bàn");
   },
 
   /** [SƠ ĐỒ BÀN] Lấy danh sách bàn kèm order active, khách, món, QR token, doanh thu tạm tính. Ctrl+F: getTables table service */
   async getTables(branchId = DEFAULT_BRANCH_ID) {
+    // B1: dọn trước các reservation quá giờ (no-show) để sơ đồ phản ánh đúng trạng thái hiện tại.
     await tableSummaryService.expireReservationsForBranch(branchId);
 
+    // Chỉ quan tâm order chưa ở trạng thái kết thúc (pending/confirmed/occupied...), bỏ completed/cancelled.
     const ACTIVE_ORDER_STATUSES = notTerminalOrderStatusWhere();
 
+    // B2: lấy toàn bộ bàn của chi nhánh kèm order gắn TRỰC TIẾP (table_id) + khách + món (để tính tiền tạm).
     const tables = await Table.findAll({
       where: { branch_id: branchId },
       include: [
@@ -89,12 +94,14 @@ const tableService = {
       order: [["table_number", "ASC"]],
     });
 
+    // B3: bàn nào chưa có QR token thì sinh bổ sung (chạy song song, lỗi 1 bàn không chặn cả list).
     await Promise.all(
       tables
         .filter((t) => !t.qr_token)
         .map((t) => this.ensureQrToken(t).catch(() => null))
     );
 
+    // B4: lấy order gắn GIÁN TIẾP qua bảng nối OrderTable (trường hợp ghép nhiều bàn cho 1 order).
     const linkedRows = await OrderTable.findAll({
       include: [
         {
@@ -123,6 +130,7 @@ const tableService = {
       ],
     });
 
+    // Gom các order ghép-bàn theo table_id → Map(table_id → [order,...]), tránh trùng order_id.
     const linkedOrdersByTable = new Map();
     for (const link of linkedRows) {
       const orderJson = link.Order?.toJSON?.() ?? link.Order;
@@ -135,11 +143,13 @@ const tableService = {
       }
     }
 
+    // B5: với mỗi bàn, hợp nhất order trực tiếp + order ghép rồi tính các thông tin hiển thị.
     return tables.map((table) => {
       const tableData = table.toJSON();
       const now = new Date();
-      const directOrders = tableData.TableOrders || [];
-      const linkedOrders = linkedOrdersByTable.get(tableData.table_id) || [];
+      const directOrders = tableData.TableOrders || []; // order gắn thẳng table_id
+      const linkedOrders = linkedOrdersByTable.get(tableData.table_id) || []; // order ghép bàn
+      // Hợp nhất 2 nguồn, loại trùng theo order_id.
       const activeOrders = [...directOrders];
       for (const linked of linkedOrders) {
         if (!activeOrders.some((o) => o.order_id === linked.order_id)) {
@@ -147,16 +157,20 @@ const tableService = {
         }
       }
 
+      // activeReservation = đơn đang phục vụ/khách sắp tới trong khoảng ±2 giờ so với hiện tại,
+      // chỉ xét khi bàn KHÔNG trống và KHÔNG dọn dẹp.
       const activeReservation =
         tableData.status !== TABLE_STATUS.AVAILABLE &&
         tableData.status !== TABLE_STATUS.CLEANING
           ? (activeOrders.find((o) => {
               const arrival = new Date(o.arrival_time || o.created_at);
-              const timeDiff = (arrival - now) / (1000 * 60 * 60);
+              const timeDiff = (arrival - now) / (1000 * 60 * 60); // chênh lệch giờ (âm = đã qua giờ hẹn)
               return timeDiff >= -2 && timeDiff <= 2;
             }) ?? null)
           : null;
 
+      // upcomingReservation = đặt bàn tương lai (0 → 24h tới) khi bàn đang TRỐNG,
+      // để hiển thị "bàn này sắp có khách đặt".
       const upcomingReservation =
         tableData.status === TABLE_STATUS.AVAILABLE
           ? (activeOrders.find((o) => {
@@ -172,6 +186,8 @@ const tableService = {
             }) ?? null)
           : null;
 
+      // Doanh thu tạm tính của bàn = tổng (đơn giá × số lượng) mọi món trong các order active.
+      // Chỉ tính khi bàn đang có khách (không trống, không dọn dẹp).
       let totalRevenue = 0;
       if (
         tableData.status !== TABLE_STATUS.AVAILABLE &&
@@ -179,6 +195,7 @@ const tableService = {
       ) {
         activeOrders.forEach((order) => {
           (order.OrderItems || []).forEach((item) => {
+            // Ưu tiên giá menu hiện tại; nếu thiếu thì lấy giá lưu trong order_item.
             const price = item.MenuItem?.price ?? item.price ?? 0;
             totalRevenue += Number(price) * Number(item.quantity ?? 0);
           });
@@ -258,6 +275,8 @@ const tableService = {
       status: status || table.status,
     });
 
+    // Nếu chuyển sang trạng thái kết thúc phiên (vd available/cleaning) → đóng mọi order chưa terminal của bàn,
+    // tránh còn "đơn treo" khi bàn đã được dọn/giải phóng.
     if (status && shouldEndTableSession(status)) {
       await Order.update(
         { status: ORDER_STATUS.COMPLETED },

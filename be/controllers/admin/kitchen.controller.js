@@ -33,6 +33,7 @@ const kitchenController = {
       const updated = await kitchenService.updateOrderItemStatus(id, status, branchId);
       const branchIdNum = Number(branchId);
       try {
+        // Bắn realtime kèm đầy đủ thông tin bàn + tên món để phục vụ/khách thấy chi tiết.
         const plain = updated.toJSON ? updated.toJSON() : updated;
         realtimeHub.notifyBranch(branchIdNum, {
           type: 'order_item_status',
@@ -42,6 +43,7 @@ const kitchenController = {
           menu_name: plain.MenuItem?.name ?? null,
         });
       } catch (_) {
+        // Nếu dựng payload chi tiết lỗi → vẫn bắn bản tối thiểu để client không lỡ cập nhật.
         realtimeHub.notifyBranch(branchIdNum, { type: 'order_item_status', order_item_id: Number(id), status });
       }
       return res.json(updated);

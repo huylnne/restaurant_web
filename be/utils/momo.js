@@ -95,6 +95,7 @@ function buildIpnRawSignature({
 
 /** [MOMO] So sánh chữ ký MoMo gửi về với chữ ký hệ thống tự tính. Ctrl+F: verifyIpnSignature */
 function verifyIpnSignature(payload, { accessKey, secretKey }) {
+  // Tự dựng lại chuỗi raw signature ĐÚNG thứ tự field theo chuẩn MoMo từ dữ liệu webhook.
   const raw = buildIpnRawSignature({
     accessKey,
     amount: payload.amount,
@@ -110,7 +111,9 @@ function verifyIpnSignature(payload, { accessKey, secretKey }) {
     resultCode: payload.resultCode,
     transId: payload.transId,
   });
+  // Ký lại chuỗi raw bằng secretKey của mình → chữ ký kỳ vọng.
   const expected = hmacSha256(raw, secretKey);
+  // So khớp (không phân biệt hoa/thường) với chữ ký MoMo gửi kèm → chống giả mạo webhook.
   return String(expected).toLowerCase() === String(payload.signature || "").toLowerCase();
 }
 
@@ -123,10 +126,13 @@ function encodeExtraData(obj) {
 /** [MOMO] Đọc extraData từ webhook, lỗi thì trả object rỗng để không crash server. Ctrl+F: decodeExtraData */
 function decodeExtraData(extraData) {
   try {
+    // Rỗng → object rỗng.
     if (!extraData) return {};
+    // Giải base64 về JSON string rồi parse thành object (chứa order_id/reservation_id...).
     const json = Buffer.from(extraData, "base64").toString("utf8");
     return JSON.parse(json);
   } catch {
+    // Dữ liệu hỏng/không parse được → trả rỗng để KHÔNG làm sập server khi nhận webhook lạ.
     return {};
   }
 }
