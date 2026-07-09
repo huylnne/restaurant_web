@@ -74,7 +74,7 @@
               <p v-if="b.phone"><el-icon><Phone /></el-icon> {{ b.phone }}</p>
               <p v-if="b.open_time">
                 <el-icon><Clock /></el-icon>
-                {{ b.open_time }} – {{ b.close_time || "24:00" }}
+                {{ formatBranchHoursDisplayVi(b.open_time, b.close_time) }}
               </p>
               <el-tag v-if="b.available_tables != null" type="success" size="small">
                 {{ b.available_tables }} / {{ b.total_tables }} bàn trống
@@ -93,6 +93,7 @@ import axios from "axios";
 import { Location, Phone, Clock } from "@element-plus/icons-vue";
 import StaticPageHero from "@/components/StaticPageHero.vue";
 import { BRAND, ABOUT_VALUES, ABOUT_MILESTONES } from "@/config/siteContent";
+import { formatBranchHoursDisplayVi } from "@/utils/branchHours";
 
 const branches = ref([]);
 const intro = ref({

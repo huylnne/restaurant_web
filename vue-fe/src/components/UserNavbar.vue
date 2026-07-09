@@ -95,7 +95,7 @@
         <div class="info-items">
           <div class="info">
             <el-icon class="info-icon"><Clock /></el-icon>
-            <div><strong>OPEN:</strong><br />{{ BRAND.hoursDisplay }}</div>
+            <div><strong>MỞ CỬA:</strong><br />{{ BRAND.hours }}</div>
           </div>
           <div class="info">
             <el-icon class="info-icon"><Message /></el-icon>

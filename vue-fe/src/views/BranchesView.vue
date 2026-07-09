@@ -87,6 +87,7 @@ import { Location, Phone, Clock } from "@element-plus/icons-vue";
 import StaticPageHero from "@/components/StaticPageHero.vue";
 import { BRAND } from "@/config/siteContent";
 import { apiUrl } from "@/config/api";
+import { formatBranchHoursDisplayVi } from "@/utils/branchHours";
 
 const branches = ref([]);
 const loading = ref(true);
@@ -107,11 +108,7 @@ const branchImageStyle = (b) => {
   return { backgroundImage: `url(${url})` };
 };
 
-const formatHours = (b) => {
-  const open = b.open_time || "08:00";
-  const close = b.close_time || "24:00";
-  return `Mở cửa ${open} – ${close}`;
-};
+const formatHours = (b) => `Mở cửa ${formatBranchHoursDisplayVi(b.open_time, b.close_time)}`;
 
 const tableTagType = (b) => {
   const avail = Number(b.available_tables ?? 0);

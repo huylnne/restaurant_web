@@ -1,5 +1,13 @@
 /** Nội dung tĩnh cho trang Giới thiệu, Khuyến mãi, Tin tức, Liên hệ */
 
+import {
+  DEFAULT_OPEN_TIME,
+  DEFAULT_CLOSE_TIME,
+  formatBranchHoursDisplayVi,
+} from "@shared/branchHours.js";
+
+const defaultHoursDisplay = formatBranchHoursDisplayVi(DEFAULT_OPEN_TIME, DEFAULT_CLOSE_TIME);
+
 export const BRAND = {
   name: "ABC Restaurant",
   shortName: "ABC",
@@ -7,8 +15,7 @@ export const BRAND = {
   tagline: "Hương vị tinh tế — trải nghiệm ẩm thực trong không gian ấm cúng",
   hotline: "19001234",
   email: "contact@abcrestaurant.vn",
-  hours: "8:00 – 24:00",
-  hoursDisplay: "8AM - 12AM",
+  hours: defaultHoursDisplay,
 };
 
 export const ABOUT_VALUES = [

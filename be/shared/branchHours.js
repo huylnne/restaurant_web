@@ -80,7 +80,7 @@ function getBranchHoursValidationMessage(date, openTime, closeTime, options = {}
   }
   // Đặt trước giờ mở hoặc sau giờ đóng → ngoài giờ phục vụ.
   if (resMin < openMin || resMin > closeMin) {
-    return `Thời gian đặt bàn phải nằm trong giờ mở cửa (${open} – ${close}).`;
+    return `Thời gian đặt bàn phải nằm trong giờ mở cửa (${formatBranchHoursDisplayVi(open, close)}).`;
   }
   // Nếu có yêu cầu giữ bàn: giờ đến + thời lượng giữ mà vượt giờ đóng cửa → từ chối.
   if (holdMinutes > 0 && resMin + holdMinutes > closeMin) {
@@ -116,6 +116,33 @@ function formatBranchHoursLabel(openTime, closeTime) {
   return `${open} – ${close}`;
 }
 
+/** [HIỂN THỊ] Đổi HH:mm sang dạng đọc tiếng Việt (vd. 08:00 → 8h sáng, 24:00 → 12h đêm). */
+function formatHmDisplayVi(timeText) {
+  const hm = parseHm(timeText);
+  if (!hm) return String(timeText || "").trim();
+  const { h, min } = hm;
+  const minSuffix = min === 0 ? "" : String(min).padStart(2, "0");
+
+  if (h === 24 || h === 0) {
+    return min === 0 ? "12h đêm" : `12h${minSuffix} đêm`;
+  }
+  if (h === 12) {
+    return min === 0 ? "12h trưa" : `12h${minSuffix} trưa`;
+  }
+  if (h < 12) {
+    return min === 0 ? `${h}h sáng` : `${h}h${minSuffix} sáng`;
+  }
+  const pmHour = h - 12;
+  const period = h < 18 ? "chiều" : "tối";
+  return min === 0 ? `${pmHour}h ${period}` : `${pmHour}h${minSuffix} ${period}`;
+}
+
+/** [HIỂN THỊ] Label giờ mở cửa tiếng Việt cho UI khách hàng. Ctrl+F: formatBranchHoursDisplayVi */
+function formatBranchHoursDisplayVi(openTime, closeTime) {
+  const { open, close } = resolveBranchHours(openTime, closeTime);
+  return `${formatHmDisplayVi(open)} – ${formatHmDisplayVi(close)}`;
+}
+
 module.exports = {
   DEFAULT_OPEN_TIME,
   DEFAULT_CLOSE_TIME,
@@ -127,4 +154,6 @@ module.exports = {
   isWithinBranchHours,
   buildLocalReservationDate,
   formatBranchHoursLabel,
+  formatHmDisplayVi,
+  formatBranchHoursDisplayVi,
 };
