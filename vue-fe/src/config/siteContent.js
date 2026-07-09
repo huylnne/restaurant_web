@@ -7,8 +7,8 @@ export const BRAND = {
   tagline: "Hương vị tinh tế — trải nghiệm ẩm thực trong không gian ấm cúng",
   hotline: "19001234",
   email: "contact@abcrestaurant.vn",
-  hours: "8:00 – 22:00",
-  hoursDisplay: "8AM - 10PM",
+  hours: "8:00 – 24:00",
+  hoursDisplay: "8AM - 12AM",
 };
 
 export const ABOUT_VALUES = [

@@ -74,7 +74,7 @@
               <p v-if="b.phone"><el-icon><Phone /></el-icon> {{ b.phone }}</p>
               <p v-if="b.open_time">
                 <el-icon><Clock /></el-icon>
-                {{ b.open_time }} – {{ b.close_time || "22:00" }}
+                {{ b.open_time }} – {{ b.close_time || "24:00" }}
               </p>
               <el-tag v-if="b.available_tables != null" type="success" size="small">
                 {{ b.available_tables }} / {{ b.total_tables }} bàn trống

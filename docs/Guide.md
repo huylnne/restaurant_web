@@ -1,299 +1,200 @@
-# Câu hỏi đọc code Backend — tìm đúng chỗ ngay
+# Câu hỏi đọc code Backend — theo luồng demo chính
 
-> **Cách dùng:** Bị hỏi gì → tra bảng dưới → mở **1 file** → `Ctrl+F` từ khóa → đọc/sửa đúng hàm đó.  
-> Chỉ mở thêm file phụ khi thầy hỏi sâu (route, middleware).
+> **Kịch bản:** `Kich_ban_demo.docx` (mục 9)  
+> **Mẫu trả lời mới:** `Trả lời nghiệp vụ trước → Chỉ chỗ code → Giải thích chỗ này làm gì`  
+> **Mẹo:** Khi bị hỏi, nói 1-2 câu nghiệp vụ trước rồi mới mở file.
 
-**Luồng chung:** `Route → Middleware → Controller → Service → Utils`  
-**Quy tắc:** Logic nghiệp vụ nằm ở **Service**. Muốn sửa hành vi → vào Service trước.
+**Luồng code:** `Route → Middleware → Controller → Service → Utils`  
+**Quy tắc:** Muốn đổi hành vi nghiệp vụ, sửa ở **Service** trước.
 
 ---
 
-## Bảng tra nhanh
+## Bảng tra nhanh (theo đúng thứ tự demo)
 
-| Bị hỏi về… | Mở file này | `Ctrl+F` | Hàm / đoạn cần xem |
+| Bước | Trả lời nghiệp vụ nhanh | File mở chính | `Ctrl+F` |
 |---|---|---|---|
-
-| Đăng ký + hash mật khẩu | `be/controllers/user/auth.controller.js` | `register` | dòng 37 `bcrypt.hash` → 39–48 `User.create` |
-| CAPTCHA đăng ký | `be/middlewares/verifyCaptcha.js` | `verifyRegisterCaptcha` | middleware trước `auth.controller.register` |
-| Chống spam đăng ký | `be/middlewares/rateLimit.js` | `registerLimiter` | dòng 23 `max: 5` / 1 giờ |
-
-| Đặt bàn, ghép bàn, buffer 2h | `be/services/reservation.service.js` | `createReservation` | `expected_end_time`, `pickAvailableTableWithLock` |
-
-| Thuật toán ghép bàn | `be/utils/tableAllocation.js` | `planTableAllocation` | `multi: true` khi ghép nhiều bàn |
-
-| Trùng lịch bàn | `be/utils/orderTableLinks.js` | `hasOverlappingBooking` | kiểm overlap `arrival_time` → `expected_end_time` |
-
-| Check-in khách đặt trước | `be/services/admin/reception.service.js` | `confirmArrival` | `checked_in_at`, bàn → `occupied` |
-
-| No-show tự động | `be/services/admin/tableSummary.service.js` | `expireReservationsForBranch` | `OVERDUE_MINUTES = 15`, khóa `users.locked` |
-
-| Gọi món (phục vụ) | `be/services/admin/waiter.service.js` | `createOrder` | `orderItemFactory` → `order_items` status `pending` |
-| Đẩy bếp khi gọi món | `be/controllers/admin/waiter.controller.js` | `createOrder` | dòng ~77 `notifyBranch` reason `waiter_new_order` |
-| Bếp đổi trạng thái món | `be/controllers/admin/kitchen.controller.js` | `changeOrderItemStatus` | dòng ~37 `notifyBranch` type `order_item_status` |
-
-| WebSocket đẩy realtime | `be/realtimeHub.js` | `notifyBranch` | broadcast theo `branchId` |
-
-| Thanh toán xong đổi bàn | `be/services/payment.service.js` | `onPaymentSucceededByOrder` | order → `completed`, bàn → `cleaning` |
-
-| Xác nhận thanh toán phục vụ | `be/services/payment.service.js` | `finalizeReservationPayment` | entry khi nhân viên bấm thanh toán |
-
-| Điều kiện được đánh giá | `be/services/review.service.js` | `isOrderReviewable` | chỉ khi `completed` hoặc payment `succeeded` |
-
-| Ghi nhật ký thao tác | `be/middlewares/operationLog.js` | `auditLog` | dòng 34 `res.on('finish')` |
-| Phân quyền role | `be/middlewares/auth.js` | `authorizeRole` | dòng 120–121 trả 403 |
-| Giới hạn chi nhánh | `be/utils/branchScope.js` | `resolveBranchId` | manager không override sang chi nhánh khác |
+| 1 | Đăng ký đi qua chống spam + CAPTCHA, mật khẩu luôn hash trước khi lưu | `be/controllers/user/auth.controller.js` | `register` |
+| 2 | Đặt bàn kiểm tra giờ hợp lệ, lock bàn, ưu tiên 1 bàn rồi mới ghép bàn | `be/services/reservation.service.js` | `createReservation` |
+| 2 | Đặt món trước chỉ thêm `order_items`, chưa phải check-in | `be/controllers/user/order.controller.js` | `createOrder` |
+| 3 | Check-in do nhân viên xác nhận, khi check-in thì bàn chuyển `occupied` | `be/services/admin/reception.service.js` | `confirmArrival` |
+| 3 | Gọi món tạo `order_items` trạng thái `pending` và bắn realtime cho bếp | `be/services/admin/waiter.service.js` | `createOrder` |
+| 4 | Bếp đổi status món theo thời gian thực và broadcast cho chi nhánh | `be/controllers/admin/kitchen.controller.js` | `changeOrderItemStatus` |
+| 5 | Khách theo dõi tại bàn qua trang cá nhân hoặc QR, chỉ gửi yêu cầu thanh toán | `be/controllers/user/reservation.controller.js` | `requestBill` |
+| 6 | Phục vụ xác nhận thanh toán xong thì order `completed`, bàn `cleaning` | `be/services/payment.service.js` | `onPaymentSucceededByOrder` |
+| 7 | Chỉ được đánh giá sau khi hoàn tất phiên/đã thanh toán thành công | `be/services/review.service.js` | `isOrderReviewable` |
+| 8 | Admin xem báo cáo, phân quyền chi nhánh, audit log truy vết thao tác | `be/routes/admin/report.routes.js` | `revenue-by-day` |
 
 ---
 
-## 1. Đăng ký có CAPTCHA và chống spam?
+## 1) Đăng ký khách hàng
 
-**Câu hỏi:** Spam đăng ký chặn ở đâu? CAPTCHA kiểm tra thế nào? Vì sao không lưu mật khẩu gốc?
+### Trả lời nghiệp vụ trước
+Đăng ký không đi thẳng vào tạo user. Hệ thống chặn spam bằng rate limit, bắt buộc qua CAPTCHA, rồi mới tạo tài khoản; mật khẩu luôn hash bằng bcrypt nên DB không có mật khẩu thô.
 
-### Mở ngay
+### Chỉ chỗ code
+- `be/routes/user/auth.routes.js` → `router.post('/register'`
+- `be/controllers/user/auth.controller.js` → `register`
+- `be/middlewares/rateLimit.js` → `registerLimiter`
+- `be/middlewares/verifyCaptcha.js` → `verifyRegisterCaptcha`
 
-```
-be/controllers/user/auth.controller.js  →  Ctrl+F: register
-```
-
-**Đọc đoạn này:**
-- dòng 24–35: kiểm tra username/SĐT trùng
-- dòng 37: `bcrypt.hash(password, 10)` — **mật khẩu hash trước khi lưu**
-- dòng 39–48: `User.create` role `user`
-
-**CAPTCHA + rate limit (trước khi vào `register`):** `be/routes/user/auth.routes.js` dòng 28–40 — `registerLimiter` → `verifyRegisterCaptcha` → `authController.register`
-
-### Muốn sửa thì sửa ở đâu
-
-| Muốn đổi… | File | `Ctrl+F` |
-|---|---|---|
-| Giới hạn 5 lần/giờ/IP | `be/middlewares/rateLimit.js` | `registerLimiter` |
-| Logic verify CAPTCHA | `be/middlewares/verifyCaptcha.js` | `verifyRegisterCaptcha` |
-| Sinh mã CAPTCHA | `be/services/captcha.service.js` | `createCodeChallenge` |
-| Chuỗi middleware route | `be/routes/user/auth.routes.js` | `router.post('/register'` |
-
-**Trả lời ngắn:** Request qua rate limit + CAPTCHA trước khi vào `register`. Mật khẩu hash bcrypt, DB không có plain text.
+### Giải thích chỗ này làm gì
+- Route nối chuỗi middleware: `registerLimiter` → `validateRegisterBody` → `verifyRegisterCaptcha` → `auditLog` → controller.
+- `register` kiểm tra trùng username/SDT, hash bằng `bcrypt.hash(password, 10)`, rồi `User.create`.
+- Nếu cần chỉnh chính sách chống spam thì đổi ở `registerLimiter`; nếu cần đổi cơ chế CAPTCHA thì sửa `verifyRegisterCaptcha`.
 
 ---
 
-## 2. Chọn bàn và ghép bàn?
+## 2) Đặt bàn (+ đặt món trước)
 
-**Câu hỏi:** 10 người xếp bàn sao? Ghép bàn ở đâu? Tránh trùng lịch thế nào?
+### Trả lời nghiệp vụ trước
+Đặt bàn có 3 lớp: validate thời gian đặt, tìm bàn khả dụng có khóa đồng thời (tránh race), và tự động ghép bàn nếu không có 1 bàn đủ chỗ. Đặt món trước chỉ là ghi món vào order đặt bàn, không thay cho check-in.
 
-### Mở ngay
+### Chỉ chỗ code
+- `be/controllers/user/reservation.controller.js` → `createReservation`
+- `be/services/reservation.service.js` → `createReservation`
+- `be/utils/tableAllocation.js` → `planTableAllocation`
+- `be/utils/orderTableLinks.js` → `hasOverlappingBooking`
+- `be/controllers/user/order.controller.js` → `createOrder`
 
-```
-be/services/reservation.service.js  →  Ctrl+F: createReservation
-```
-
-**Đọc đoạn này:**
-- dòng 242: `expected_end_time` = arrival + `RESERVATION_BUFFER_MS` (2 giờ)
-- dòng 268: tối đa **2** lượt đặt tương lai (`FUTURE_ACTIVE_LIMIT`)
-- dòng 286: `pickAvailableTableWithLock` — chọn bàn trong transaction
-- dòng 294, 323–324: `multi = picked.tables.length > 1` → `linkTablesToOrder` ghép bàn
-
-### Muốn sửa thì sửa ở đâu
-
-| Muốn đổi… | File | `Ctrl+F` |
-|---|---|---|
-| Thuật toán ghép bàn liền kề | `be/utils/tableAllocation.js` | `planTableAllocation` |
-| Kiểm tra 2 khách trùng bàn | `be/utils/orderTableLinks.js` | `hasOverlappingBooking` |
-| Validate 30 phút / 14 ngày / giờ mở cửa | `be/controllers/user/reservation.controller.js` | `createReservation controller` (dòng 58–66, 76–83) |
-
-**Trong `planTableAllocation`:** 1 bàn đủ chỗ → `multi: false`; không đủ → tìm cụm bàn liền kề → `multi: true`.
-
-**Trả lời ngắn:** Vào transaction, lock bàn, ưu tiên 1 bàn vừa chỗ, không được thì ghép bàn liền kề. Trùng lịch kiểm bằng khung giữ bàn 2 tiếng.
+### Giải thích chỗ này làm gì
+- Controller validate mốc thời gian: tối thiểu 30 phút, tối đa 14 ngày, và trong giờ mở cửa.
+- Service tính `expected_end_time` (khung giữ bàn 2h), giới hạn số lượt đặt tương lai, rồi `pickAvailableTableWithLock` trong transaction.
+- `planTableAllocation` ưu tiên 1 bàn đủ chỗ (`multi: false`), không đủ mới ghép cụm liền kề (`multi: true`).
+- `hasOverlappingBooking` dùng để chặn trùng lịch bàn.
+- `order.controller.createOrder` tạo `order_items` cho pre-order và bắn realtime `user_preorder`, nhưng chưa gắn `checked_in_at`.
 
 ---
 
-## 3. Vì sao khách không tự check-in?
+## 3) Check-in và phục vụ
 
-**Câu hỏi:** Đặt online = đã ngồi chưa? Check-in ở đâu? Bàn đổi trạng thái thế nào?
+### Trả lời nghiệp vụ trước
+Khách đặt online chưa được tính là đã vào bàn. Chỉ khi nhân viên check-in thì phiên mới chuyển sang đang phục vụ và bàn chuyển `occupied`. Sau đó phục vụ gọi món thì bếp nhận ngay.
 
-### Mở ngay
+### Chỉ chỗ code
+- `be/services/admin/reception.service.js` → `confirmArrival`
+- `be/routes/admin/reception.routes.js` → `router.post('/check-in'`
+- `be/services/admin/reception.service.js` → `walkInCheckIn`
+- `be/services/admin/waiter.service.js` → `createOrder`
+- `be/controllers/admin/waiter.controller.js` → `createOrder`
 
-```
-be/services/admin/reception.service.js  →  Ctrl+F: confirmArrival
-```
-
-**Đọc đoạn này:**
-- dòng 302–310: set `checked_in_at`, order → `pre-ordered` (nếu đang pending/confirmed)
-- dòng 317–321: bàn → `TABLE_STATUS.OCCUPIED`
-
-### Muốn sửa thì sửa ở đâu
-
-| Muốn đổi… | File | `Ctrl+F` |
-|---|---|---|
-| API route check-in | `be/routes/admin/reception.routes.js` | `router.post('/check-in'` |
-| Controller gọi service | `be/controllers/admin/reception.controller.js` | `confirmArrival` |
-| Hằng số trạng thái bàn | `be/shared/tableStatus.js` (hoặc `be/utils/tableStatus.js` re-export) | `TABLE_STATUS` |
-
-**Trả lời ngắn:** Đặt online chỉ giữ bàn. Nhân viên bấm tiếp nhận → `confirmArrival` set `checked_in_at` và bàn `occupied`.
+### Giải thích chỗ này làm gì
+- `confirmArrival` set `checked_in_at`; nếu trạng thái đang pending/confirmed thì nâng lên luồng phục vụ và đổi bàn sang `occupied`.
+- `walkInCheckIn` xử lý khách vãng lai, tạo phiên phục vụ mới khi có bàn phù hợp.
+- `waiter.service.createOrder` dựng payload món (`buildOrderItemPayloads`) với status `pending`.
+- `waiter.controller.createOrder` gọi `notifyBranch` reason `waiter_new_order` để bếp/phục vụ cập nhật realtime.
 
 ---
 
-## 4. Bếp nhận món realtime?
+## 4) Bếp chế biến (realtime)
 
-**Câu hỏi:** Gọi món xong bếp thấy ở đâu? WebSocket nằm chỗ nào?
+### Trả lời nghiệp vụ trước
+Bếp nhận hàng đợi món theo trạng thái, đổi từ `pending` sang `processing/done`, và mọi thay đổi được đẩy realtime để phục vụ/khách nhìn thấy ngay.
 
-### Mở ngay (3 chỗ, theo thứ tự)
+### Chỉ chỗ code
+- `be/services/admin/kitchen.service.js` → `getOrderItemsByStatus`
+- `be/controllers/admin/kitchen.controller.js` → `changeOrderItemStatus`
+- `be/realtimeHub.js` → `notifyBranch`
 
-**Bước 1 — Tạo món:**
-```
-be/services/admin/waiter.service.js  →  Ctrl+F: createOrder
-```
-→ `buildOrderItemPayloads` tạo `order_items` status `pending` (xem `be/utils/orderItemFactory.js` dòng 44)
-
-**Bước 2 — Đẩy realtime cho bếp khi vừa gọi món:**
-```
-be/controllers/admin/waiter.controller.js  →  Ctrl+F: createOrder
-```
-→ dòng ~77 `realtimeHub.notifyBranch` với `reason: 'waiter_new_order'`
-
-**Bước 3 — Bếp đổi trạng thái món + đẩy realtime:**
-```
-be/controllers/admin/kitchen.controller.js  →  Ctrl+F: changeOrderItemStatus
-```
-→ dòng ~37 `realtimeHub.notifyBranch` type `order_item_status`
-
-**WebSocket hub:**
-```
-be/realtimeHub.js  →  Ctrl+F: notifyBranch
-```
-
-**Hàng đợi bếp (poll):** `be/services/admin/kitchen.service.js` → `getOrderItemsByStatus`
-
-**Trả lời ngắn:** Gọi món tạo `order_items` pending, controller phục vụ bắn WebSocket cho bếp. Bếp cũng có thể poll API; khi đổi status món thì `notifyBranch` cập nhật realtime cho cả chi nhánh.
+### Giải thích chỗ này làm gì
+- `getOrderItemsByStatus` trả danh sách món cho màn bếp theo branch và status.
+- `changeOrderItemStatus` cập nhật DB qua service, sau đó bắn `notifyBranch` với event `order_item_status`.
+- `realtimeHub.notifyBranch` là điểm broadcast theo `branchId`.
 
 ---
 
-## 5. Thanh toán xong order và bàn đổi thế nào?
+## 5) Khách theo dõi tại bàn
 
-**Câu hỏi:** Xác nhận tiền mặt đóng phiên ở đâu? Vì sao bàn → chờ dọn?
+### Trả lời nghiệp vụ trước
+Trong phiên đang ăn, khách theo dõi món và bill tạm qua trang "Bàn của tôi" hoặc QR tại bàn. Khi cần thanh toán, khách chỉ gửi yêu cầu; quyền chốt thanh toán thuộc nhân viên.
 
-### Mở ngay
+### Chỉ chỗ code
+- `be/controllers/user/user.controller.js` → `getCurrentTableSession`, `getCurrentBill`
+- `be/services/public/tableQr.service.js` → `getTableByToken`, `getBillByToken`
+- `be/controllers/user/reservation.controller.js` → `requestBill`
 
-```
-be/services/payment.service.js  →  Ctrl+F: onPaymentSucceededByOrder
-```
-
-**Đọc đoạn này:**
-- dòng 319–325: order → `completed`, `payment_status` → `succeeded`
-- dòng 328–330: bàn → `TABLE_STATUS.CLEANING` ← **chỗ quan trọng nhất**
-- dòng 342: `notifyBranch` báo thanh toán xong
-
-### Muốn sửa thì sửa ở đâu
-
-| Muốn đổi… | File | `Ctrl+F` |
-|---|---|---|
-| Nhân viên bấm thanh toán | `be/controllers/admin/waiter.controller.js` | `finalizePayment` |
-| Entry service thanh toán | `be/services/payment.service.js` | `finalizeReservationPayment` |
-| Tính tổng bill | `be/services/bill.service.js` | `buildBill` |
-| Xuất PDF | `be/services/invoice.service.js` | `buildInvoicePdf` |
-
-**Trả lời ngắn:** `finalizePayment` → `finalizeReservationPayment` → `onPaymentSucceededByOrder`. Order complete, bàn `cleaning` để nhân viên dọn.
+### Giải thích chỗ này làm gì
+- `getCurrentTableSession` và `getCurrentBill` trả dữ liệu phiên hiện tại cho user đã đăng nhập.
+- `getTableByToken` quyết định `can_order` theo trạng thái bàn + order active, đồng thời phát `order_access_token` khi đủ điều kiện.
+- `requestBill` đổi trạng thái order sang `waiting_payment` để nhân viên biết bàn đang chờ thanh toán.
 
 ---
 
-## 6. Đánh giá sau bữa ăn kiểm soát thế nào?
+## 6) Thanh toán
 
-**Câu hỏi:** Vì sao chỉ đánh giá sau thanh toán? Một order đánh giá mấy lần?
+### Trả lời nghiệp vụ trước
+Thanh toán là luồng 2 bước: khách yêu cầu trước, nhân viên xác nhận sau. Khi xác nhận thành công, hệ thống đóng phiên phục vụ và đưa bàn sang `cleaning` để dọn dẹp.
 
-### Mở ngay
+### Chỉ chỗ code
+- `be/controllers/admin/waiter.controller.js` → `finalizePayment`
+- `be/services/payment.service.js` → `finalizeReservationPayment`
+- `be/services/payment.service.js` → `onPaymentSucceededByOrder`
+- `be/services/bill.service.js` → `buildBill`
 
-```
-be/services/review.service.js  →  Ctrl+F: isOrderReviewable
-```
-
-**Đọc đoạn này:**
-- dòng 36–45: `isOrderReviewable` — chỉ `completed` hoặc payment `succeeded` mới được review
-- dòng 108+: `createOrderReview` — logic tạo review, chặn trùng
-
-**Ràng buộc DB:** `be/models/Review.js` → `Ctrl+F: unique` → `order_id` unique (1 order = 1 review)
-
-**Review qua QR:** `be/services/public/tableQr.service.js` → `Ctrl+F: createReviewByToken`
-
-**Trả lời ngắn:** `isOrderReviewable` chặn trước khi tạo. DB unique `order_id` → mỗi phiên chỉ 1 đánh giá.
+### Giải thích chỗ này làm gì
+- `finalizePayment` nhận thao tác từ nhân viên, chuyển sang payment service.
+- `finalizeReservationPayment` xác định order cần chốt theo `tableId/orderId/reservationId`.
+- `onPaymentSucceededByOrder` cập nhật order `completed` + `payment_status=succeeded`, đồng thời đổi bàn `cleaning`.
+- Sau khi cập nhật xong, service bắn `notifyBranch` reason `payment_succeeded` để UI đồng bộ realtime.
 
 ---
 
-## 7. Nhật ký thao tác (audit log)?
+## 7) Đánh giá sau bữa ăn
 
-**Câu hỏi:** Log ghi khi nào? Có lưu password không?
+### Trả lời nghiệp vụ trước
+Khách chỉ được đánh giá khi phiên đã hoàn tất hoặc đã ghi nhận thanh toán thành công. Mỗi order chỉ được 1 review.
 
-### Mở ngay
+### Chỉ chỗ code
+- `be/services/review.service.js` → `isOrderReviewable`
+- `be/services/review.service.js` → `createOrderReview`
+- `be/models/Review.js` → unique `order_id`
+- `be/services/public/tableQr.service.js` → `createReviewByToken`
 
-```
-be/middlewares/operationLog.js  →  Ctrl+F: auditLog
-```
-
-**Đọc đoạn này:**
-- dòng 34: `res.on('finish')` — **ghi sau khi response xong**, không chặn request
-
-**Che password/token:**
-```
-be/services/operationLog.service.js  →  Ctrl+F: sanitizeBody
-```
-→ hàm `sanitizeBody` dòng 22
-
-**Trả lời ngắn:** Middleware `auditLog` gắn route quan trọng, ghi sau response. Body được `sanitizeBody` che mật khẩu/token.
+### Giải thích chỗ này làm gì
+- `isOrderReviewable` kiểm điều kiện nghiệp vụ: `completed` hoặc payment `succeeded`.
+- `createOrderReview` tạo review khi đủ điều kiện, chặn các case không hợp lệ.
+- Unique `order_id` ở model là chặn cứng tầng dữ liệu: 1 phiên/1 đánh giá.
+- `createReviewByToken` cho kênh QR dùng cùng policy review.
 
 ---
 
-## 8. Phân quyền role và chi nhánh?
+## 8) Admin kiểm tra dữ liệu sau demo
 
-**Câu hỏi:** Waiter/kitchen/manager khác nhau ở đâu? Manager xem chi nhánh khác được không?
+### Trả lời nghiệp vụ trước
+Sau demo, admin phải chứng minh hệ thống ghi nhận xuyên suốt: báo cáo doanh thu, phân quyền theo vai trò/chi nhánh, và truy vết thao tác qua audit log.
 
-### Mở ngay
+### Chỉ chỗ code
+- `be/routes/admin/report.routes.js` → `revenue-by-day`, `top-selling`, `overview`
+- `be/middlewares/operationLog.js` → `auditLog`
+- `be/services/operationLog.service.js` → `sanitizeBody`
+- `be/middlewares/auth.js` → `authorizeRole`
+- `be/utils/branchScope.js` → `resolveBranchId`
 
-```
-be/middlewares/auth.js  →  Ctrl+F: authorizeRole
-```
-
-**Đọc đoạn này:**
-- dòng 120–121: role không trong list → **403**
-
-**Giới hạn chi nhánh:**
-```
-be/utils/branchScope.js  →  Ctrl+F: resolveBranchId
-```
-
-**Ví dụ route chặn role:** `be/routes/admin/report.routes.js` → `enforceReportBranchScope`
-
-**Trả lời ngắn:** `authorizeRole` chặn vai trò. `resolveBranchId` khóa manager/nhân viên vào `branch_id` của tài khoản.
+### Giải thích chỗ này làm gì
+- Report routes có scope cho manager, không cho override chi nhánh ngoài quyền.
+- `auditLog` ghi sau response (`res.on('finish')`) nên không làm chậm luồng chính.
+- `sanitizeBody` che dữ liệu nhạy cảm (password/token) trước khi ghi log.
+- `authorizeRole` chặn role không đủ quyền (403); `resolveBranchId` khóa phạm vi branch theo user.
 
 ---
 
-## 9. No-show (hay bị hỏi thêm)
+## Phụ lục — No-show (ngoài luồng demo chính)
 
-### Mở ngay
+### Trả lời nghiệp vụ trước
+Khách quá giờ không check-in sẽ bị đánh dấu no-show để giải phóng tài nguyên bàn và xử lý ràng buộc tài khoản nếu cần.
 
-```
-be/services/admin/tableSummary.service.js  →  Ctrl+F: expireReservationsForBranch
-```
+### Chỉ chỗ code
+- `be/services/admin/tableSummary.service.js` → `expireReservationsForBranch`
+- `be/index.js` → `startReservationExpiryScheduler`
 
-**Đọc đoạn này:**
-- dòng 15: `OVERDUE_MINUTES = 15`
-- dòng 31–58: SQL update `status = 'no_show'` + `users.locked = true`
-
-**Scheduler gọi mỗi 60s:** `be/index.js` → `Ctrl+F: startReservationExpiryScheduler` (dòng 140 `RESERVATION_EXPIRY_SWEEP_MS`, dòng 155 gọi `expireReservationsForBranch`)
-
----
-
-## Bài tập tự luyện (Ctrl+F là đủ)
-
-| # | `Ctrl+F` | File gợi ý | Cần trả lời |
-|---|---|---|---|
-| 1 | `requestBill` | `be/controllers/user/reservation.controller.js` | Order → `waiting_payment` (dòng 357) |
-| 2 | `tableQrOrderLimiter` | `be/middlewares/rateLimit.js` | Key `IP:token` ở dòng 65 — chống spam theo từng bàn |
-| 3 | `planTableAllocation` | `be/utils/tableAllocation.js` | `multi: true` khi không có 1 bàn đủ chỗ, ghép cụm liền kề (dòng 106) |
-| 4 | `onPaymentSucceededByOrder` | `be/services/payment.service.js` | Dòng 330 đổi bàn sang `cleaning` |
-| 5 | `verifyToken` | `be/middlewares/auth.js` | Token hết hạn → **403** (dòng 59); hàm verify nằm ở `be/utils/jwt.js` |
-| 6 | `getReviewEligibilityByToken` | `be/services/public/tableQr.service.js` | Dòng 219 `orderBelongsToTable` kiểm order thuộc bàn QR |
+### Giải thích chỗ này làm gì
+- Dùng ngưỡng `OVERDUE_MINUTES = 15` để xác định no-show.
+- Scheduler chạy định kỳ để quét và cập nhật trạng thái tự động.
 
 ---
 
-## Mẹo khi bảo vệ
+## Mẫu trả lời miệng khi demo
 
-1. **Bị hỏi "code ở đâu"** → nói tên **Service + hàm**, không đọc lan man nhiều file.
-2. **Bị hỏi "sửa X thì sửa đâu"** → Service trước, Controller chỉ validate/gọi service.
-3. **Bị hỏi sâu route** → mở file `be/routes/...` tương ứng, nhìn chuỗi middleware trên 1 dòng `router.post/get`.
+1. **Nghiệp vụ trước:** "Luồng này xử lý như sau..." (1-2 câu).
+2. **Chỉ chỗ:** "Em mở `service X`, hàm `Y`."
+3. **Giải thích:** "Đoạn này làm A, đoạn kia làm B."
+4. **Nếu hỏi sửa ở đâu:** trả lời Service trước, rồi mới Controller/Route.

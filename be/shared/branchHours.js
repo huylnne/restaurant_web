@@ -4,7 +4,7 @@
  * Luồng demo: Phần 2 — đặt bàn phải nằm trong giờ mở cửa và còn đủ 2 giờ giữ bàn.
  */
 const DEFAULT_OPEN_TIME = "08:00";
-const DEFAULT_CLOSE_TIME = "22:00";
+const DEFAULT_CLOSE_TIME = "24:00";
 /** Buffer giữ bàn khi đặt trước (UC05) */
 const RESERVATION_HOLD_MINUTES = 120;
 
@@ -19,12 +19,14 @@ function parseHm(timeText) {
   // m[1] = giờ, m[2] = phút (đã tách bởi nhóm bắt trong regex).
   const h = Number(m[1]);
   const min = Number(m[2]);
-  // Chặn giờ > 23 hoặc phút > 59 (dữ liệu sai giờ đồng hồ) → null.
-  if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return null;
+  // Cho phép 24:00 như mốc "kết thúc ngày"; các giá trị khác >23 vẫn không hợp lệ.
+  if (!Number.isFinite(h) || !Number.isFinite(min) || min > 59) return null;
+  if (h > 24) return null;
+  if (h === 24 && min !== 0) return null;
   return { h, min };
 }
 
-/** [GIỜ MỞ CỬA] Nếu chi nhánh chưa cấu hình thì dùng mặc định 08:00–22:00. Ctrl+F: resolveBranchHours */
+/** [GIỜ MỞ CỬA] Nếu chi nhánh chưa cấu hình thì dùng mặc định 08:00–24:00. Ctrl+F: resolveBranchHours */
 function resolveBranchHours(openTime, closeTime) {
   const open =
     openTime != null && String(openTime).trim() !== "" ? String(openTime).trim() : DEFAULT_OPEN_TIME;
@@ -56,7 +58,7 @@ function getBranchHoursValidationMessage(date, openTime, closeTime, options = {}
   const { holdMinutes = 0, getMinutes } = options;
   // Không có ngày giờ → coi như dữ liệu không hợp lệ.
   if (!date) return "Thời gian đặt bàn không hợp lệ.";
-  // Lấy giờ mở/đóng thật của chi nhánh, thiếu thì rơi về mặc định 08:00–22:00.
+  // Lấy giờ mở/đóng thật của chi nhánh, thiếu thì rơi về mặc định 08:00–24:00.
   const { open, close } = resolveBranchHours(openTime, closeTime);
   // Tách giờ/phút của mốc mở và đóng cửa.
   const openHm = parseHm(open);

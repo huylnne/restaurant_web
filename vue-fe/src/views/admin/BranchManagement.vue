@@ -68,7 +68,7 @@
               <el-input v-model="myBranchForm.open_time" placeholder="VD: 08:00" />
             </el-col>
             <el-col :span="12">
-              <el-input v-model="myBranchForm.close_time" placeholder="VD: 22:00" />
+              <el-input v-model="myBranchForm.close_time" placeholder="VD: 24:00" />
             </el-col>
           </el-row>
         </el-form-item>
@@ -110,7 +110,7 @@
               <el-input v-model="formData.open_time" placeholder="VD: 08:00" />
             </el-col>
             <el-col :span="12">
-              <el-input v-model="formData.close_time" placeholder="VD: 22:00" />
+              <el-input v-model="formData.close_time" placeholder="VD: 24:00" />
             </el-col>
           </el-row>
         </el-form-item>

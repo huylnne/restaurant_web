@@ -109,7 +109,7 @@ const branchImageStyle = (b) => {
 
 const formatHours = (b) => {
   const open = b.open_time || "08:00";
-  const close = b.close_time || "22:00";
+  const close = b.close_time || "24:00";
   return `Mở cửa ${open} – ${close}`;
 };
 

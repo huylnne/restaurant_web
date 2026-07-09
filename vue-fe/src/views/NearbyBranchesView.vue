@@ -62,7 +62,7 @@
               </p>
               <p v-if="b.open_time" class="nearby-card__row">
                 <el-icon><Clock /></el-icon>
-                {{ b.open_time }} – {{ b.close_time || "22:00" }}
+                {{ b.open_time }} – {{ b.close_time || "24:00" }}
               </p>
               <el-tag :type="tableTagType(b)" size="small">
                 {{ b.available_tables ?? 0 }}/{{ b.total_tables ?? 0 }} bàn trống

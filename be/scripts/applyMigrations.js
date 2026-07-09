@@ -133,7 +133,7 @@ async function applyMigrations(sequelize) {
     `UPDATE branches SET open_time = '08:00' WHERE open_time IS NULL OR TRIM(open_time) = '' OR open_time = '09:00';`
   );
   await q(
-    `UPDATE branches SET close_time = '22:00' WHERE close_time IS NULL OR TRIM(close_time) = '';`
+    `UPDATE branches SET close_time = '24:00' WHERE close_time IS NULL OR TRIM(close_time) = '';`
   );
   await q('ALTER TABLE branches ADD COLUMN IF NOT EXISTS latitude DECIMAL(10, 7);');
   await q('ALTER TABLE branches ADD COLUMN IF NOT EXISTS longitude DECIMAL(10, 7);');

@@ -1,5 +1,5 @@
 const DEFAULT_OPEN_TIME = "08:00";
-const DEFAULT_CLOSE_TIME = "22:00";
+const DEFAULT_CLOSE_TIME = "24:00";
 /** Buffer giữ bàn khi đặt trước (UC05) */
 const RESERVATION_HOLD_MINUTES = 120;
 
@@ -9,7 +9,9 @@ function parseHm(timeText) {
   if (!m) return null;
   const h = Number(m[1]);
   const min = Number(m[2]);
-  if (!Number.isFinite(h) || !Number.isFinite(min) || h > 23 || min > 59) return null;
+  if (!Number.isFinite(h) || !Number.isFinite(min) || min > 59) return null;
+  if (h > 24) return null;
+  if (h === 24 && min !== 0) return null;
   return { h, min };
 }
 
