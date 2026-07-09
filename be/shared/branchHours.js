@@ -80,11 +80,10 @@ function getBranchHoursValidationMessage(date, openTime, closeTime, options = {}
 
   const latestBookableMin = holdMinutes > 0 ? closeMin - holdMinutes : closeMin;
   if (resMin < openMin || resMin > latestBookableMin) {
-    const windowLabel =
-      holdMinutes > 0
-        ? formatBranchHoursBookingWindowVi(open, close, holdMinutes)
-        : formatBranchHoursDisplayVi(open, close);
-    return `Thời gian đặt bàn phải nằm trong giờ mở cửa (${windowLabel}).`;
+    if (holdMinutes > 0) {
+      return "Thời gian đặt bàn phải nằm trong giờ mở cửa và 2 tiếng trước giờ đóng cửa.";
+    }
+    return `Thời gian đặt bàn phải nằm trong giờ mở cửa (${formatBranchHoursDisplayVi(open, close)}).`;
   }
   return null;
 }
