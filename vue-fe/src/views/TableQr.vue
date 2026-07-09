@@ -64,8 +64,8 @@
           type="info"
           :closable="false"
           show-icon
-          title="Chưa thể gọi món"
-          description="Bàn chưa mở phiên phục vụ hoặc phiên đã kết thúc. Vui lòng đợi nhân viên tiếp nhận hoặc tải lại trang khi đã ngồi bàn."
+          :title="orderBlockedTitle"
+          :description="orderBlockedDescription"
           class="order-blocked-alert"
         />
         <el-empty v-else-if="!menuItems.length" description="Chi nhánh này chưa có thực đơn." />
@@ -198,8 +198,16 @@ const fetchAll = async () => {
     await Promise.all([refreshBill(), loadMenu()]);
   } catch (err) {
     console.error(err);
-    error.value =
-      err.response?.data?.message || "Không thể tải thông tin bàn. Vui lòng thử lại.";
+    const status = err.response?.status;
+    if (status === 404) {
+      error.value = "Không tìm thấy bàn với mã QR này.";
+    } else if (!err.response) {
+      error.value =
+        "Không kết nối được máy chủ. Kiểm tra mạng điện thoại hoặc thử lại sau.";
+    } else {
+      error.value =
+        err.response?.data?.message || "Không thể tải thông tin bàn. Vui lòng thử lại.";
+    }
   } finally {
     loading.value = false;
   }
@@ -272,6 +280,24 @@ const selectedItems = computed(() =>
 const tableStatusText = computed(() => getTableStatusLabel(tableInfo.value?.status));
 
 const canOrder = computed(() => Boolean(tableInfo.value?.can_order));
+
+const orderBlockedTitle = computed(() => {
+  const status = String(tableInfo.value?.status || "").toLowerCase();
+  if (status === "cleaning") return "Bàn đang chờ dọn";
+  if (status === "available") return "Chưa mở phiên phục vụ";
+  return "Chưa thể gọi món";
+});
+
+const orderBlockedDescription = computed(() => {
+  const status = String(tableInfo.value?.status || "").toLowerCase();
+  if (status === "cleaning") {
+    return "Bàn vừa kết thúc phiên trước và đang chờ nhân viên dọn. Sau khi dọn xong và tiếp nhận khách mới, hãy quét lại QR để gọi món.";
+  }
+  if (status === "available") {
+    return "Nhân viên chưa check-in / tạo đơn cho bàn này. Vui lòng đợi tiếp nhận rồi tải lại trang.";
+  }
+  return "Bàn chưa mở phiên phục vụ hoặc phiên đã kết thúc. Vui lòng đợi nhân viên tiếp nhận hoặc tải lại trang khi đã ngồi bàn.";
+});
 
 const refreshBill = async () => {
   billLoading.value = true;

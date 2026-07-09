@@ -32,19 +32,32 @@ async function getTableByToken(token) {
   if (!table) return null;
 
   // Có được gọi món qua QR không? Cần: đang có order active TRÊN bàn VÀ bàn ở trạng thái cho gọi món.
-  const activeOrder = await findActiveOrderByTableId(table.table_id);
+  let activeOrder = null;
+  try {
+    activeOrder = await findActiveOrderByTableId(table.table_id);
+  } catch (err) {
+    // Không để lỗi tìm order làm sập cả trang QR — vẫn trả thông tin bàn để khách xem được.
+    console.error("getTableByToken findActiveOrder error:", err);
+  }
   const canOrder = Boolean(activeOrder && isTableOrderableViaQr(table.status));
+
+  let orderAccessToken = null;
+  if (canOrder) {
+    try {
+      // Chỉ phát token gọi món (hạn 4h) khi đủ điều kiện; lỗi ký JWT không được trả 500 cho khách.
+      orderAccessToken = signTableOrderAccessToken({
+        table_id: table.table_id,
+        order_id: activeOrder.order_id,
+      });
+    } catch (err) {
+      console.error("getTableByToken signOrderAccessToken error:", err);
+    }
+  }
 
   return {
     ...table.toJSON(),
-    can_order: canOrder,
-    // Chỉ phát token gọi món (hạn 4h) khi đủ điều kiện; không thì null (chỉ xem bill).
-    order_access_token: canOrder
-      ? signTableOrderAccessToken({
-          table_id: table.table_id,
-          order_id: activeOrder.order_id,
-        })
-      : null,
+    can_order: canOrder && Boolean(orderAccessToken),
+    order_access_token: orderAccessToken,
   };
 }
 

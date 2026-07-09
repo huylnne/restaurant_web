@@ -13,7 +13,13 @@ require('dotenv').config();
 const { assertJwtSecretConfigured } = require('./utils/jwt');
 
 // ========== MIDDLEWARE ==========
-app.use(helmet()); // set các HTTP header bảo mật (chống XSS, clickjacking...)
+// CORP cross-origin: FE (hl-restaurant.com) gọi API domain khác; same-origin mặc định của helmet
+// có thể chặn một số trình duyệt/WebView khi tải tài nguyên cross-origin.
+app.use(
+  helmet({
+    crossOriginResourcePolicy: { policy: "cross-origin" },
+  })
+);
 app.use(cors()); // cho phép frontend khác origin gọi API
 app.use(express.json({ limit: '100kb' })); // parse body JSON, giới hạn 100kb chống payload quá lớn
 app.use("/uploads", express.static(path.join(__dirname, "uploads"))); // phục vụ ảnh đã upload dưới dạng file tĩnh
