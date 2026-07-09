@@ -12,7 +12,10 @@ export const resolveBranchHours = shared.resolveBranchHours;
 export const buildLocalReservationDate = shared.buildLocalReservationDate;
 export const formatBranchHoursLabel = shared.formatBranchHoursLabel;
 export const formatHmDisplayVi = shared.formatHmDisplayVi;
+export const formatHmDisplayUi = shared.formatHmDisplayUi;
 export const formatBranchHoursDisplayVi = shared.formatBranchHoursDisplayVi;
+export const formatBranchHoursBookingWindowVi = shared.formatBranchHoursBookingWindowVi;
+export const formatBranchHoursDisplayUi = shared.formatBranchHoursDisplayUi;
 
 export function getOpeningHoursError(date, openTime, closeTime, options = {}) {
   return shared.getBranchHoursValidationMessage(date, openTime, closeTime, options);

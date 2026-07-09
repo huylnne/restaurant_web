@@ -43,6 +43,13 @@ function hmToMinutes(hm) {
   return hm.h * 60 + hm.min;
 }
 
+function minutesToHmString(totalMin) {
+  if (totalMin == null || !Number.isFinite(totalMin)) return null;
+  const h = Math.floor(totalMin / 60);
+  const min = totalMin % 60;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
 /**
  * [ĐẶT BÀN] Trả về thông báo lỗi nếu giờ đặt ngoài giờ mở cửa hoặc quá sát giờ đóng cửa.
  * Ctrl+F: getBranchHoursValidationMessage, giờ đặt quá gần giờ đóng cửa
@@ -53,41 +60,32 @@ function hmToMinutes(hm) {
  * @param {{ holdMinutes?: number, getMinutes?: (d: Date) => number|null }} options
  */
 function getBranchHoursValidationMessage(date, openTime, closeTime, options = {}) {
-  // holdMinutes: số phút giữ bàn sau giờ đến (mặc định 0 = không kiểm tra buffer).
-  // getMinutes: hàm tùy chọn để lấy "phút trong ngày" từ date (dùng khi cần xử lý timezone riêng).
   const { holdMinutes = 0, getMinutes } = options;
-  // Không có ngày giờ → coi như dữ liệu không hợp lệ.
   if (!date) return "Thời gian đặt bàn không hợp lệ.";
-  // Lấy giờ mở/đóng thật của chi nhánh, thiếu thì rơi về mặc định 08:00–24:00.
   const { open, close } = resolveBranchHours(openTime, closeTime);
-  // Tách giờ/phút của mốc mở và đóng cửa.
   const openHm = parseHm(open);
   const closeHm = parseHm(close);
-  // Nếu cấu hình giờ chi nhánh hỏng (parse ra null) → báo lỗi cấu hình.
   if (!openHm || !closeHm) return "Giờ mở cửa chi nhánh chưa được cấu hình hợp lệ.";
 
-  // Quy đổi thời điểm đặt bàn thành "số phút kể từ 00:00" để so sánh số học cho dễ.
   const resMin =
     typeof getMinutes === "function"
-      ? getMinutes(date) // dùng hàm tùy biến nếu được truyền vào
-      : date.getHours() * 60 + date.getMinutes(); // mặc định lấy theo giờ local
+      ? getMinutes(date)
+      : date.getHours() * 60 + date.getMinutes();
   const openMin = hmToMinutes(openHm);
   const closeMin = hmToMinutes(closeHm);
 
-  // Bất kỳ mốc phút nào không tính được → dữ liệu không hợp lệ.
   if (resMin == null || openMin == null || closeMin == null) {
     return "Thời gian đặt bàn không hợp lệ.";
   }
-  // Đặt trước giờ mở hoặc sau giờ đóng → ngoài giờ phục vụ.
-  if (resMin < openMin || resMin > closeMin) {
-    return `Thời gian đặt bàn phải nằm trong giờ mở cửa (${formatBranchHoursDisplayVi(open, close)}).`;
+
+  const latestBookableMin = holdMinutes > 0 ? closeMin - holdMinutes : closeMin;
+  if (resMin < openMin || resMin > latestBookableMin) {
+    const windowLabel =
+      holdMinutes > 0
+        ? formatBranchHoursBookingWindowVi(open, close, holdMinutes)
+        : formatBranchHoursDisplayVi(open, close);
+    return `Thời gian đặt bàn phải nằm trong giờ mở cửa (${windowLabel}).`;
   }
-  // Nếu có yêu cầu giữ bàn: giờ đến + thời lượng giữ mà vượt giờ đóng cửa → từ chối.
-  if (holdMinutes > 0 && resMin + holdMinutes > closeMin) {
-    const holdHours = holdMinutes / 60; // đổi phút → giờ để hiển thị cho dễ đọc
-    return `Giờ đặt quá gần giờ đóng cửa. Hệ thống giữ bàn ${holdHours} giờ sau giờ đến — vui lòng chọn sớm hơn.`;
-  }
-  // Qua hết các rào chắn → hợp lệ, không có thông báo lỗi.
   return null;
 }
 
@@ -137,10 +135,49 @@ function formatHmDisplayVi(timeText) {
   return min === 0 ? `${pmHour}h ${period}` : `${pmHour}h${minSuffix} ${period}`;
 }
 
+/** [HIỂN THỊ] Đổi HH:mm sang dạng hiển thị UI (vd. 08:00 → 8 AM, 24:00 → 24:00 PM). */
+function formatHmDisplayUi(timeText) {
+  const hm = parseHm(timeText);
+  if (!hm) return String(timeText || "").trim();
+  const { h, min } = hm;
+  const minText = String(min).padStart(2, "0");
+
+  if (h === 24 || (h === 0 && min === 0)) {
+    return min === 0 ? "24:00 PM" : `24:${minText} PM`;
+  }
+  if (h === 0) {
+    return min === 0 ? "12 AM" : `12:${minText} AM`;
+  }
+  if (h < 12) {
+    return min === 0 ? `${h} AM` : `${h}:${minText} AM`;
+  }
+  if (h === 12) {
+    return min === 0 ? "12 PM" : `12:${minText} PM`;
+  }
+  const pmHour = h - 12;
+  return min === 0 ? `${pmHour} PM` : `${pmHour}:${minText} PM`;
+}
+
 /** [HIỂN THỊ] Label giờ mở cửa tiếng Việt cho UI khách hàng. Ctrl+F: formatBranchHoursDisplayVi */
 function formatBranchHoursDisplayVi(openTime, closeTime) {
   const { open, close } = resolveBranchHours(openTime, closeTime);
   return `${formatHmDisplayVi(open)} – ${formatHmDisplayVi(close)}`;
+}
+
+/** [ĐẶT BÀN] Label khung giờ được phép đặt bàn (trừ buffer giữ bàn). Ctrl+F: formatBranchHoursBookingWindowVi */
+function formatBranchHoursBookingWindowVi(openTime, closeTime, holdMinutes = RESERVATION_HOLD_MINUTES) {
+  const { open, close } = resolveBranchHours(openTime, closeTime);
+  const closeHm = parseHm(close);
+  const closeMin = hmToMinutes(closeHm);
+  const latestMin = holdMinutes > 0 && closeMin != null ? closeMin - holdMinutes : closeMin;
+  const latestHm = minutesToHmString(latestMin);
+  return `${formatHmDisplayVi(open)} – ${formatHmDisplayVi(latestHm || close)}`;
+}
+
+/** [HIỂN THỊ] Label giờ mở cửa cho UI header/trang tĩnh. Ctrl+F: formatBranchHoursDisplayUi */
+function formatBranchHoursDisplayUi(openTime, closeTime) {
+  const { open, close } = resolveBranchHours(openTime, closeTime);
+  return `${formatHmDisplayUi(open)} - ${formatHmDisplayUi(close)}`;
 }
 
 module.exports = {
@@ -150,10 +187,14 @@ module.exports = {
   parseHm,
   resolveBranchHours,
   hmToMinutes,
+  minutesToHmString,
   getBranchHoursValidationMessage,
   isWithinBranchHours,
   buildLocalReservationDate,
   formatBranchHoursLabel,
   formatHmDisplayVi,
+  formatHmDisplayUi,
   formatBranchHoursDisplayVi,
+  formatBranchHoursBookingWindowVi,
+  formatBranchHoursDisplayUi,
 };

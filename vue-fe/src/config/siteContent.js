@@ -3,10 +3,10 @@
 import {
   DEFAULT_OPEN_TIME,
   DEFAULT_CLOSE_TIME,
-  formatBranchHoursDisplayVi,
+  formatBranchHoursDisplayUi,
 } from "@shared/branchHours.js";
 
-const defaultHoursDisplay = formatBranchHoursDisplayVi(DEFAULT_OPEN_TIME, DEFAULT_CLOSE_TIME);
+const defaultHoursDisplay = formatBranchHoursDisplayUi(DEFAULT_OPEN_TIME, DEFAULT_CLOSE_TIME);
 
 export const BRAND = {
   name: "ABC Restaurant",

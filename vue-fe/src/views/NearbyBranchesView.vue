@@ -62,7 +62,7 @@
               </p>
               <p v-if="b.open_time" class="nearby-card__row">
                 <el-icon><Clock /></el-icon>
-                {{ formatBranchHoursDisplayVi(b.open_time, b.close_time) }}
+                {{ formatBranchHoursDisplayUi(b.open_time, b.close_time) }}
               </p>
               <el-tag :type="tableTagType(b)" size="small">
                 {{ b.available_tables ?? 0 }}/{{ b.total_tables ?? 0 }} bàn trống
@@ -101,7 +101,7 @@ import axios from "axios";
 import { Location, Phone, Clock, Loading, Warning, Refresh } from "@element-plus/icons-vue";
 import StaticPageHero from "@/components/StaticPageHero.vue";
 import { getUserPosition, formatDistanceKm, mapsDirectionsUrl } from "@/utils/geo";
-import { formatBranchHoursDisplayVi } from "@/utils/branchHours";
+import { formatBranchHoursDisplayUi } from "@/utils/branchHours";
 
 const phase = ref("idle");
 const branches = ref([]);

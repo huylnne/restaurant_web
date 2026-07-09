@@ -30,6 +30,13 @@ function hmToMinutes(hm) {
   return hm.h * 60 + hm.min;
 }
 
+function minutesToHmString(totalMin) {
+  if (totalMin == null || !Number.isFinite(totalMin)) return null;
+  const h = Math.floor(totalMin / 60);
+  const min = totalMin % 60;
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
+}
+
 /**
  * @param {Date} date
  * @param {string} openTime
@@ -54,12 +61,14 @@ function getBranchHoursValidationMessage(date, openTime, closeTime, options = {}
   if (resMin == null || openMin == null || closeMin == null) {
     return "Thời gian đặt bàn không hợp lệ.";
   }
-  if (resMin < openMin || resMin > closeMin) {
-    return `Thời gian đặt bàn phải nằm trong giờ mở cửa (${formatBranchHoursDisplayVi(open, close)}).`;
-  }
-  if (holdMinutes > 0 && resMin + holdMinutes > closeMin) {
-    const holdHours = holdMinutes / 60;
-    return `Giờ đặt quá gần giờ đóng cửa. Hệ thống giữ bàn ${holdHours} giờ sau giờ đến — vui lòng chọn sớm hơn.`;
+
+  const latestBookableMin = holdMinutes > 0 ? closeMin - holdMinutes : closeMin;
+  if (resMin < openMin || resMin > latestBookableMin) {
+    const windowLabel =
+      holdMinutes > 0
+        ? formatBranchHoursBookingWindowVi(open, close, holdMinutes)
+        : formatBranchHoursDisplayVi(open, close);
+    return `Thời gian đặt bàn phải nằm trong giờ mở cửa (${windowLabel}).`;
   }
   return null;
 }
@@ -102,10 +111,49 @@ function formatHmDisplayVi(timeText) {
   return min === 0 ? `${pmHour}h ${period}` : `${pmHour}h${minSuffix} ${period}`;
 }
 
+/** Đổi HH:mm sang dạng hiển thị UI (vd. 08:00 → 8 AM, 24:00 → 24:00 PM). */
+function formatHmDisplayUi(timeText) {
+  const hm = parseHm(timeText);
+  if (!hm) return String(timeText || "").trim();
+  const { h, min } = hm;
+  const minText = String(min).padStart(2, "0");
+
+  if (h === 24 || (h === 0 && min === 0)) {
+    return min === 0 ? "24:00 PM" : `24:${minText} PM`;
+  }
+  if (h === 0) {
+    return min === 0 ? "12 AM" : `12:${minText} AM`;
+  }
+  if (h < 12) {
+    return min === 0 ? `${h} AM` : `${h}:${minText} AM`;
+  }
+  if (h === 12) {
+    return min === 0 ? "12 PM" : `12:${minText} PM`;
+  }
+  const pmHour = h - 12;
+  return min === 0 ? `${pmHour} PM` : `${pmHour}:${minText} PM`;
+}
+
 /** Label giờ mở cửa tiếng Việt cho UI khách hàng. */
 function formatBranchHoursDisplayVi(openTime, closeTime) {
   const { open, close } = resolveBranchHours(openTime, closeTime);
   return `${formatHmDisplayVi(open)} – ${formatHmDisplayVi(close)}`;
+}
+
+/** Label khung giờ được phép đặt bàn (trừ buffer giữ bàn trước giờ đóng cửa). */
+function formatBranchHoursBookingWindowVi(openTime, closeTime, holdMinutes = RESERVATION_HOLD_MINUTES) {
+  const { open, close } = resolveBranchHours(openTime, closeTime);
+  const closeHm = parseHm(close);
+  const closeMin = hmToMinutes(closeHm);
+  const latestMin = holdMinutes > 0 && closeMin != null ? closeMin - holdMinutes : closeMin;
+  const latestHm = minutesToHmString(latestMin);
+  return `${formatHmDisplayVi(open)} – ${formatHmDisplayVi(latestHm || close)}`;
+}
+
+/** Label giờ mở cửa cho UI header/trang tĩnh (vd. 8 AM - 24:00 PM). */
+function formatBranchHoursDisplayUi(openTime, closeTime) {
+  const { open, close } = resolveBranchHours(openTime, closeTime);
+  return `${formatHmDisplayUi(open)} - ${formatHmDisplayUi(close)}`;
 }
 
 module.exports = {
@@ -115,10 +163,14 @@ module.exports = {
   parseHm,
   resolveBranchHours,
   hmToMinutes,
+  minutesToHmString,
   getBranchHoursValidationMessage,
   isWithinBranchHours,
   buildLocalReservationDate,
   formatBranchHoursLabel,
   formatHmDisplayVi,
+  formatHmDisplayUi,
   formatBranchHoursDisplayVi,
+  formatBranchHoursBookingWindowVi,
+  formatBranchHoursDisplayUi,
 };
