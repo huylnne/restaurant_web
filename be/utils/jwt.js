@@ -37,6 +37,7 @@ function verifyAccessToken(token) {
 
 module.exports = {
   JWT_EXPIRES_IN,
+  getJwtSecret,
   assertJwtSecretConfigured,
   signAccessToken,
   verifyAccessToken,
