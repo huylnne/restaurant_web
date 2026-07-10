@@ -34,7 +34,7 @@
             <el-time-picker
               v-model="form.time"
               placeholder="Chọn giờ"
-              format="HH:mm"
+              format="HH:m"
             />
           </el-form-item>
 
