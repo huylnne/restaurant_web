@@ -79,9 +79,28 @@ function isWithinBranchHours(date, openTime, closeTime, options = {}) {
 function buildLocalReservationDate(datePart, timePart) {
   if (!datePart || !timePart) return null;
   const d = datePart instanceof Date ? datePart : new Date(datePart);
-  const t = timePart instanceof Date ? timePart : new Date(timePart);
-  if (Number.isNaN(d.getTime()) || Number.isNaN(t.getTime())) return null;
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+  if (Number.isNaN(d.getTime())) return null;
+
+  let hours;
+  let minutes;
+  if (timePart instanceof Date) {
+    if (Number.isNaN(timePart.getTime())) return null;
+    hours = timePart.getHours();
+    minutes = timePart.getMinutes();
+  } else {
+    const hm = parseHm(String(timePart));
+    if (hm) {
+      hours = hm.h;
+      minutes = hm.min;
+    } else {
+      const t = new Date(timePart);
+      if (Number.isNaN(t.getTime())) return null;
+      hours = t.getHours();
+      minutes = t.getMinutes();
+    }
+  }
+
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hours, minutes, 0, 0);
 }
 
 function formatBranchHoursLabel(openTime, closeTime) {

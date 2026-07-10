@@ -37,8 +37,6 @@
               start="00:00"
               end="23:30"
               step="00:30"
-              :max-time="timeSelectEnd"
-              :min-time="timeSelectStart"
             />
           </el-form-item>
 
@@ -137,13 +135,6 @@ const timeError = computed(() => {
   if (hoursErr) return hoursErr;
   return "";
 });
-
-
-/** Chỉ cho chọn giờ theo bước 30 phút (:00, :30) */
-const disabledMinute = () =>
-  Array.from({ length: 60 }, (_, minute) => minute).filter(
-    (minute) => minute !== 0 && minute !== 30
-  );
 
 
 const availabilityMessage = ref("");

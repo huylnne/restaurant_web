@@ -97,14 +97,32 @@ function isWithinBranchHours(date, openTime, closeTime, options = {}) {
 function buildLocalReservationDate(datePart, timePart) {
   // Thiếu ngày hoặc giờ thì không ghép được.
   if (!datePart || !timePart) return null;
-  // Cho phép nhận vào Date sẵn hoặc chuỗi/parse được thành Date.
+  // Phần ngày: Date sẵn hoặc chuỗi/parse được thành Date.
   const d = datePart instanceof Date ? datePart : new Date(datePart);
-  const t = timePart instanceof Date ? timePart : new Date(timePart);
-  // Nếu một trong hai không parse được (Invalid Date) → null.
-  if (Number.isNaN(d.getTime()) || Number.isNaN(t.getTime())) return null;
-  // Lấy PHẦN NGÀY từ d và PHẦN GIỜ từ t, dựng Date theo giờ local.
-  // Dùng constructor local (không phải UTC) để tránh lệch múi giờ khi người dùng chọn booking.
-  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), t.getHours(), t.getMinutes(), 0, 0);
+  if (Number.isNaN(d.getTime())) return null;
+
+  let hours;
+  let minutes;
+  if (timePart instanceof Date) {
+    if (Number.isNaN(timePart.getTime())) return null;
+    hours = timePart.getHours();
+    minutes = timePart.getMinutes();
+  } else {
+    // FE time-select trả "HH:mm" — parse trực tiếp, không qua new Date("HH:mm").
+    const hm = parseHm(String(timePart));
+    if (hm) {
+      hours = hm.h;
+      minutes = hm.min;
+    } else {
+      const t = new Date(timePart);
+      if (Number.isNaN(t.getTime())) return null;
+      hours = t.getHours();
+      minutes = t.getMinutes();
+    }
+  }
+
+  // Lấy PHẦN NGÀY từ d và PHẦN GIỜ từ time, dựng Date theo giờ local.
+  return new Date(d.getFullYear(), d.getMonth(), d.getDate(), hours, minutes, 0, 0);
 }
 
 /** [HIỂN THỊ] Label giờ mở cửa cho UI chi nhánh. Ctrl+F: formatBranchHoursLabel */
