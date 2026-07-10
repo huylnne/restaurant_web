@@ -34,6 +34,7 @@
             <el-time-picker
               v-model="form.time"
               placeholder="Chọn giờ"
+              format="HH:mm"
               value-format="HH:mm"
               :disabled-minutes="disabledMinute"
             />
@@ -135,9 +136,13 @@ const timeError = computed(() => {
   return "";
 });
 
-const disabledMinute =  () => {
-  return Array.from({length:60},(_,minute) => minute).filter{minute => minute !== 0 && minute !==30}
-};
+
+/** Chỉ cho chọn giờ theo bước 30 phút (:00, :30) */
+const disabledMinute = () =>
+  Array.from({ length: 60 }, (_, minute) => minute).filter(
+    (minute) => minute !== 0 && minute !== 30
+  );
+
 
 const availabilityMessage = ref("");
 const canSubmit = ref(false);
