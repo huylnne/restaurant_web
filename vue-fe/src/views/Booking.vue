@@ -31,12 +31,14 @@
           </el-form-item>
 
           <el-form-item label="Giờ" :error="timeError">
-            <el-time-picker
+            <el-time-select
               v-model="form.time"
               placeholder="Chọn giờ"
-              format="HH:mm"
-              value-format="HH:mm"
-              :disabled-minutes="disabledMinute"
+              start="00:00"
+              end="23:30"
+              step="00:30"
+              :max-time="timeSelectEnd"
+              :min-time="timeSelectStart"
             />
           </el-form-item>
 
