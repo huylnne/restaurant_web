@@ -5,7 +5,7 @@
  * API: POST /api/reservations, GET /api/reservations/available-tables
  */
 const db = require("../models");
-const { Order, Table, Branch, User } = db;
+const { Order, OrderTable, Table, Branch, User } = db;
 const sequelize = db.sequelize;
 const { Op } = require("sequelize");
 const {
@@ -15,10 +15,14 @@ const {
 } = require("../utils/tableAllocation");
 const {
   linkTablesToOrder,
-  getTableIdsForOrder,
+  buildBookingConflictWhere,
   getConflictTableIds: getLinkedConflictTableIds,
   hasOverlappingBooking: hasLinkedOverlappingBooking,
 } = require("../utils/orderTableLinks");
+const {
+  findBestReservationAllocation,
+  sameTableSet,
+} = require("../utils/reservationReallocation");
 const tableSummaryService = require("./admin/tableSummary.service");
 const { CANCELABLE_RESERVATION_STATUSES } = require("../utils/reservationStatus");
 const { ORDER_STATUS } = require("../utils/orderStatus");
@@ -27,6 +31,9 @@ const { ORDER_STATUS } = require("../utils/orderStatus");
 const RESERVATION_BUFFER_MS = 2 * 60 * 60 * 1000;
 // Mỗi khách chỉ được giữ tối đa 2 lượt đặt trong tương lai (chống ôm bàn / spam đặt).
 const FUTURE_ACTIVE_LIMIT = 2;
+// Giới hạn số booking được phép đổi bàn trong một lần cứu hộ để thời gian tìm kiếm luôn hữu hạn.
+const MAX_REALLOCATABLE_BOOKINGS = 8;
+const NEW_BOOKING_ID = "__new_reservation__";
 
 /** [ĐẶT BÀN] Tính khung giữ bàn: từ giờ đến + buffer 2 giờ (RESERVATION_BUFFER_MS). Ctrl+F: buffer, time window */
 function getTimeWindow(arrivalTime) {
@@ -36,6 +43,231 @@ function getTimeWindow(arrivalTime) {
     windowStart: t,
     // Mốc kết thúc = giờ đến + 2 giờ; trong khoảng này bàn coi như bị giữ.
     windowEnd: new Date(t.getTime() + RESERVATION_BUFFER_MS),
+  };
+}
+
+function getOrderWindow(order) {
+  const windowStart = new Date(order.arrival_time);
+  const fallbackEnd = new Date(windowStart.getTime() + RESERVATION_BUFFER_MS);
+  return {
+    windowStart,
+    windowEnd: order.expected_end_time
+      ? new Date(order.expected_end_time)
+      : fallbackEnd,
+  };
+}
+
+/**
+ * Lấy toàn bộ cụm booking có khung giờ nối tiếp/giao nhau với yêu cầu mới.
+ * Việc mở rộng tới khi ổn định bảo đảm một booking được dời bàn không va vào
+ * booking ở phần đầu/cuối khung giờ mà truy vấn ban đầu chưa nhìn thấy.
+ */
+async function getConnectedConflictOrders(branchId, arrivalTime, { transaction } = {}) {
+  let { windowStart, windowEnd } = getTimeWindow(arrivalTime);
+  let orders = [];
+
+  for (let iteration = 0; iteration < 24; iteration++) {
+    orders = await Order.findAll({
+      where: buildBookingConflictWhere(branchId, windowStart, windowEnd),
+      attributes: [
+        "order_id",
+        "table_id",
+        "order_type",
+        "status",
+        "checked_in_at",
+        "number_of_guests",
+        "arrival_time",
+        "expected_end_time",
+        "note",
+      ],
+      transaction,
+      ...(transaction ? { lock: transaction.LOCK.UPDATE } : {}),
+    });
+
+    let expandedStart = windowStart;
+    let expandedEnd = windowEnd;
+    for (const order of orders) {
+      const orderWindow = getOrderWindow(order);
+      if (orderWindow.windowStart < expandedStart) expandedStart = orderWindow.windowStart;
+      if (orderWindow.windowEnd > expandedEnd) expandedEnd = orderWindow.windowEnd;
+    }
+
+    if (
+      expandedStart.getTime() === windowStart.getTime() &&
+      expandedEnd.getTime() === windowEnd.getTime()
+    ) {
+      return orders;
+    }
+    windowStart = expandedStart;
+    windowEnd = expandedEnd;
+  }
+
+  // Cụm thời gian bất thường quá dài: dừng cứu hộ, không mạo hiểm đổi bàn thiếu dữ liệu.
+  return [];
+}
+
+function replaceAllocationNote(note, guests, tables) {
+  const withoutOldAllocation = String(note || "")
+    .replace(/\s*\(Nhóm \d+ khách — ghép bàn liền kề: [^)]+\)\s*$/u, "")
+    .trim();
+  if (tables.length <= 1) return withoutOldAllocation || null;
+
+  const tableLabel = formatTableNumbers(tables);
+  return [
+    withoutOldAllocation,
+    `(Nhóm ${guests} khách — ghép bàn liền kề: ${tableLabel})`,
+  ]
+    .filter(Boolean)
+    .join(" ");
+}
+
+/**
+ * Fallback khi cách xếp tham lam không còn phương án.
+ * Chỉ pending/confirmed chưa check-in được phép đổi bàn; các phiên khác được
+ * đưa vào bộ giải dưới dạng cố định. Khi apply=true, mọi thay đổi nằm trong
+ * transaction đang tạo reservation mới.
+ */
+async function tryReallocateForRequest(
+  branchId,
+  guests,
+  arrivalTime,
+  { transaction, apply = false } = {}
+) {
+  const orders = await getConnectedConflictOrders(branchId, arrivalTime, { transaction });
+  if (!orders.length) return null;
+
+  const orderIds = orders.map((order) => order.order_id);
+  const links = await OrderTable.findAll({
+    where: { order_id: { [Op.in]: orderIds } },
+    attributes: ["order_id", "table_id", "is_primary"],
+    order: [
+      ["is_primary", "DESC"],
+      ["table_id", "ASC"],
+    ],
+    transaction,
+    ...(transaction ? { lock: transaction.LOCK.UPDATE } : {}),
+  });
+  const linkedIdsByOrder = new Map();
+  for (const link of links) {
+    if (!linkedIdsByOrder.has(link.order_id)) linkedIdsByOrder.set(link.order_id, []);
+    linkedIdsByOrder.get(link.order_id).push(link.table_id);
+  }
+
+  const currentIdsByOrder = new Map();
+  for (const order of orders) {
+    const linkedIds = linkedIdsByOrder.get(order.order_id) || [];
+    currentIdsByOrder.set(
+      order.order_id,
+      linkedIds.length ? linkedIds : [order.table_id].filter(Boolean)
+    );
+  }
+
+  const movableOrders = orders.filter(
+    (order) =>
+      order.order_type === "reservation" &&
+      CANCELABLE_RESERVATION_STATUSES.includes(order.status) &&
+      !order.checked_in_at &&
+      Number(order.number_of_guests) > 0 &&
+      (currentIdsByOrder.get(order.order_id) || []).length > 0
+  );
+  if (!movableOrders.length || movableOrders.length > MAX_REALLOCATABLE_BOOKINGS) {
+    return null;
+  }
+  const movableIds = new Set(movableOrders.map((order) => order.order_id));
+  const movableTableIds = new Set(
+    movableOrders.flatMap((order) => currentIdsByOrder.get(order.order_id) || [])
+  );
+
+  // Khóa cả sơ đồ bàn để hai yêu cầu cứu hộ không tái phân bổ chéo nhau.
+  const tableRows = await Table.findAll({
+    where: { branch_id: branchId },
+    order: [["table_number", "ASC"]],
+    transaction,
+    ...(transaction ? { lock: transaction.LOCK.UPDATE } : {}),
+  });
+  const tables = tableRows.map((row) => {
+    const table = row.toJSON ? row.toJSON() : { ...row };
+    return {
+      ...table,
+      isAllocatable:
+        table.status === "available" || movableTableIds.has(table.table_id),
+    };
+  });
+
+  const bookings = orders
+    .filter((order) => (currentIdsByOrder.get(order.order_id) || []).length > 0)
+    .map((order) => {
+      const window = getOrderWindow(order);
+      return {
+        id: order.order_id,
+        guests: Number(order.number_of_guests) || 1,
+        currentTableIds: currentIdsByOrder.get(order.order_id),
+        fixed: !movableIds.has(order.order_id),
+        ...window,
+      };
+    });
+  const requestedWindow = getTimeWindow(arrivalTime);
+  bookings.push({
+    id: NEW_BOOKING_ID,
+    guests,
+    currentTableIds: [],
+    fixed: false,
+    isNew: true,
+    ...requestedWindow,
+  });
+
+  const solution = findBestReservationAllocation({ bookings, tables });
+  if (!solution) return null;
+
+  const newAssignment = solution.assignments.find(
+    (assignment) => assignment.bookingId === NEW_BOOKING_ID
+  );
+  if (!newAssignment?.tableIds.length) return null;
+
+  const tableById = new Map(tableRows.map((table) => [table.table_id, table]));
+  const selectedTables = newAssignment.tableIds
+    .map((tableId) => tableById.get(tableId))
+    .filter(Boolean);
+  if (selectedTables.length !== newAssignment.tableIds.length) return null;
+
+  if (apply) {
+    if (!transaction) {
+      throw new Error("Tái phân bổ bàn chỉ được áp dụng bên trong transaction.");
+    }
+
+    for (const assignment of solution.assignments) {
+      if (assignment.isNew || !movableIds.has(assignment.bookingId)) continue;
+      const currentIds = currentIdsByOrder.get(assignment.bookingId) || [];
+      if (sameTableSet(currentIds, assignment.tableIds)) continue;
+
+      const order = orders.find((row) => row.order_id === assignment.bookingId);
+      const assignedTables = assignment.tableIds.map((id) => tableById.get(id));
+      await OrderTable.destroy({
+        where: { order_id: order.order_id },
+        transaction,
+      });
+      await order.update(
+        {
+          table_id: assignment.tableIds[0],
+          note: replaceAllocationNote(
+            order.note,
+            Number(order.number_of_guests),
+            assignedTables.map((table) => table.toJSON())
+          ),
+        },
+        { transaction }
+      );
+      if (assignedTables.length > 1) {
+        await linkTablesToOrder(order.order_id, assignedTables, { transaction });
+      }
+    }
+  }
+
+  return {
+    tables: selectedTables,
+    table: selectedTables[0],
+    multi: selectedTables.length > 1,
+    reallocated: solution.cost.moved > 0,
   };
 }
 
@@ -167,6 +399,14 @@ async function pickAvailableTable(branch_id, number_of_guests, arrivalTime) {
     return { tables, table: tables[0], multi: plan.multi };
   }
 
+  // Preview cả phương án tái phân bổ để GET không báo hết bàn trong khi POST có thể cứu hộ.
+  const reallocated = await tryReallocateForRequest(
+    branch_id,
+    guests,
+    arrivalTime
+  );
+  if (reallocated) return reallocated;
+
   // Không có phương án → trả thông báo lỗi giải thích lý do hết bàn.
   const conflictIds = await getConflictTableIds(branch_id, arrivalTime);
   const fallback = await resolveNoTableMessage(branch_id, guests, arrivalTime, conflictIds);
@@ -218,6 +458,14 @@ async function pickAvailableTableWithLock(branch_id, number_of_guests, arrivalTi
 
     // Không có phương án nào → sinh thông báo lỗi phù hợp và trả về (thoát vòng lặp).
     if (!plan) {
+      const reallocated = await tryReallocateForRequest(
+        branch_id,
+        guests,
+        arrivalTime,
+        { transaction, apply: true }
+      );
+      if (reallocated) return reallocated;
+
       const fallback = await resolveNoTableMessage(branch_id, guests, arrivalTime, [
         ...triedTableIds,
       ], { transaction });

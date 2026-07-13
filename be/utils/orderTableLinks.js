@@ -250,6 +250,7 @@ function buildRealtimeTablePayload(order) {
 
 module.exports = {
   BOOKING_ORDER_TYPES,
+  buildBookingConflictWhere,
   linkTablesToOrder,
   getTableIdsForOrder,
   getTablesForOrder,

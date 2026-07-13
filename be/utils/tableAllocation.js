@@ -101,6 +101,53 @@ function findBestPlanInCluster(guests, cluster) {
 }
 
 /**
+ * Sinh các phương án bàn hợp lệ cho một nhóm khách.
+ *
+ * Khác với planTableAllocation (chỉ trả phương án tham lam tốt nhất), hàm này
+ * giữ lại nhiều phương án để bộ tái phân bổ có thể cân bằng tất cả booking trong
+ * cùng khung giờ. Mỗi điểm bắt đầu chỉ cần dãy ngắn nhất đủ chỗ; nối thêm bàn
+ * sau khi đã đủ chỗ luôn tốn nhiều tài nguyên hơn mà không tăng tính khả thi.
+ */
+function generateTableAllocationPlans(guests, availableTables) {
+  const g = Number(guests);
+  if (!Number.isFinite(g) || g < 1 || !availableTables?.length) return [];
+
+  const plansByKey = new Map();
+  for (const cluster of clusterByProximity(availableTables)) {
+    const sorted = sortByTableNumber(cluster);
+    for (let start = 0; start < sorted.length; start++) {
+      let seats = 0;
+      for (let end = start; end < sorted.length; end++) {
+        if (end > start) {
+          const gap =
+            (sorted[end].table_number ?? 0) -
+            (sorted[end - 1].table_number ?? 0);
+          if (gap > ADJACENCY_GAP) break;
+        }
+
+        seats += Number(sorted[end].capacity) || 0;
+        if (seats < g) continue;
+
+        const tables = sorted.slice(start, end + 1);
+        const plan = {
+          tables,
+          multi: tables.length > 1,
+          waste: seats - g,
+          span:
+            (tables[tables.length - 1].table_number ?? 0) -
+            (tables[0].table_number ?? 0),
+        };
+        const key = tables.map((table) => table.table_id).join(",");
+        plansByKey.set(key, plan);
+        break;
+      }
+    }
+  }
+
+  return [...plansByKey.values()].sort(comparePlans);
+}
+
+/**
  * Lập kế hoạch phân bàn: một bàn vừa đủ, hoặc ghép các bàn liền kề (theo table_number).
  */
 function planTableAllocation(guests, availableTables) {
@@ -158,6 +205,7 @@ function formatTableNumbers(tables) {
 module.exports = {
   ADJACENCY_GAP,
   planTableAllocation,
+  generateTableAllocationPlans,
   formatTableNumbers,
   clusterByProximity,
   maxAdjacentSeats,
