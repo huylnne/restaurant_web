@@ -164,6 +164,19 @@ module.exports = (sequelize, DataTypes) => {
 
       },
 
+      // [PHỤC VỤ] Nhân viên phụ trách phiên bàn (để đánh giá hiệu suất phục vụ).
+      assigned_waiter_id: {
+
+        type: DataTypes.INTEGER,
+
+        allowNull: true,
+
+        references: { model: 'users', key: 'user_id' },
+
+        comment: 'user_id của waiter phụ trách phiên phục vụ',
+
+      },
+
       created_at: {
 
         type: DataTypes.DATE,
@@ -196,6 +209,11 @@ module.exports = (sequelize, DataTypes) => {
     Order.belongsTo(models.Table, { foreignKey: 'table_id' });
 
     Order.belongsTo(models.User, { foreignKey: 'user_id' });
+
+    Order.belongsTo(models.User, {
+      foreignKey: 'assigned_waiter_id',
+      as: 'AssignedWaiter',
+    });
 
     Order.hasMany(models.OrderItem, { foreignKey: 'order_id' });
 

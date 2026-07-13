@@ -27,6 +27,10 @@
             {{ formatTime(table.activeOrder.arrival_time) }}
           </p>
           <p class="revenue">{{ formatCurrency(table.totalRevenue) }}</p>
+          <p v-if="getAssignedWaiterName(table)" class="waiter-name">
+            <el-icon><User /></el-icon>
+            PV: {{ getAssignedWaiterName(table) }}
+          </p>
         </div>
 
         <!-- Bàn trống nhưng có đơn đặt trước sắp tới: hiện nhắc "đặt trước lúc..." -->
@@ -82,4 +86,14 @@ const {
   formatTime,
   viewTableDetail,      // mở chi tiết khi click vào thẻ bàn
 } = useTablesContext();
+
+function getAssignedWaiterName(table) {
+  const waiter =
+    table.assigned_waiter ||
+    table.activeOrder?.assigned_waiter ||
+    table.activeOrder?.AssignedWaiter ||
+    table.activeReservation?.assigned_waiter ||
+    table.activeReservation?.AssignedWaiter;
+  return waiter?.full_name || null;
+}
 </script>

@@ -159,6 +159,7 @@ Khách chỉ được đánh giá khi phiên đã hoàn tất hoặc đã ghi nh
 
 ## 8) Admin kiểm tra dữ liệu sau demo
 
+
 ### Trả lời nghiệp vụ trước
 Sau demo, admin phải chứng minh hệ thống ghi nhận xuyên suốt: báo cáo doanh thu, phân quyền theo vai trò/chi nhánh, và truy vết thao tác qua audit log.
 

@@ -60,6 +60,21 @@
       </div>
     </div>
 
+    <el-card class="waiter-stats-card" v-if="waiterStats.length">
+      <template #header>
+        <span>Đánh giá theo nhân viên phục vụ</span>
+      </template>
+      <el-table :data="waiterStats" size="small" stripe>
+        <el-table-column prop="waiter_name" label="Nhân viên" min-width="160" />
+        <el-table-column prop="reviewCount" label="Số đánh giá" width="110" />
+        <el-table-column label="Điểm TB" width="100">
+          <template #default="{ row }">{{ row.avgRating.toFixed(2) }}</template>
+        </el-table-column>
+        <el-table-column prop="fiveStar" label="5 sao" width="80" />
+        <el-table-column prop="lowRating" label="≤2 sao" width="80" />
+      </el-table>
+    </el-card>
+
     <el-card class="reviews-table-card">
       <el-table :data="reviews" v-loading="loading" stripe style="width: 100%">
         <el-table-column label="Thời gian" width="170">
@@ -69,6 +84,9 @@
         </el-table-column>
         <el-table-column prop="full_name" label="Khách hàng" width="180" />
         <el-table-column prop="phone" label="SĐT" width="130" />
+        <el-table-column label="Phục vụ" width="160">
+          <template #default="{ row }">{{ row.waiter_name || "—" }}</template>
+        </el-table-column>
         <el-table-column label="Order" width="110">
           <template #default="{ row }">#{{ row.order_id }}</template>
         </el-table-column>
@@ -124,6 +142,7 @@ const summary = ref({
   fiveStar: 0,
   lowRating: 0,
 });
+const waiterStats = ref([]);
 
 const token = () => localStorage.getItem("token");
 
@@ -162,15 +181,17 @@ async function fetchAll() {
     const headers = { Authorization: `Bearer ${token()}` };
     const params = buildParams();
 
-    const [listRes, summaryRes] = await Promise.all([
+    const [listRes, summaryRes, waiterStatsRes] = await Promise.all([
       axios.get(`${API_BASE}/api/admin/reviews`, { headers, params }),
       axios.get(`${API_BASE}/api/admin/reviews/summary`, { headers, params }),
+      axios.get(`${API_BASE}/api/admin/reviews/waiter-stats`, { headers, params }),
     ]);
 
     const data = listRes.data || {};
     reviews.value = Array.isArray(data) ? data : data.reviews || [];
     total.value = Array.isArray(data) ? data.length : Number(data.total || 0);
     summary.value = summaryRes.data || summary.value;
+    waiterStats.value = waiterStatsRes.data?.stats || [];
   } catch (error) {
     ElMessage.error(error.response?.data?.message || "Không thể tải dữ liệu đánh giá");
   } finally {
@@ -261,6 +282,10 @@ onMounted(async () => {
   font-size: 24px;
   font-weight: 700;
   color: var(--hl-text);
+}
+
+.waiter-stats-card {
+  margin-bottom: 16px;
 }
 
 .reviews-table-card {

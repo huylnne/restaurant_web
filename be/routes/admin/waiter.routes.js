@@ -9,8 +9,20 @@ const waiterController = require('../../controllers/admin/waiter.controller');
 const { verifyToken, authorizeRole } = require('../../middlewares/auth');
 const { auditLog } = require('../../middlewares/operationLog');
 
-// [PHÂN QUYỀN] Chỉ admin hoặc waiter được dùng nghiệp vụ phục vụ.
-router.use(verifyToken, authorizeRole('admin', 'waiter'));
+router.use(verifyToken, authorizeRole('admin', 'waiter', 'manager'));
+
+router.get('/branch-waiters', waiterController.listBranchWaiters);
+
+router.patch(
+  '/orders/:orderId/assign-waiter',
+  auditLog({
+    action: 'WAITER_ASSIGN',
+    module: 'orders',
+    description: (req) => `Gán phục vụ cho phiên #${req.params.orderId}`,
+    entityType: 'order',
+  }),
+  waiterController.assignWaiter
+);
 
 // [GỌI MÓN] Phục vụ tạo/thêm món cho một bàn.
 router.post(

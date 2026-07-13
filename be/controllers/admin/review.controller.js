@@ -29,3 +29,15 @@ exports.getReviewSummary = async (req, res) => {
     return res.status(500).json({ message: "Không thể lấy tổng quan đánh giá" });
   }
 };
+
+/** [ĐÁNH GIÁ] Thống kê điểm theo nhân viên phục vụ. */
+exports.getWaiterReviewStats = async (req, res) => {
+  try {
+    const branchId = resolveBranchId(req, req.query.branchId, 1);
+    const stats = await reviewService.getWaiterReviewStats(branchId, req.query || {});
+    return res.json({ stats });
+  } catch (error) {
+    console.error("Lỗi getWaiterReviewStats:", error);
+    return res.status(500).json({ message: "Không thể lấy thống kê nhân viên phục vụ" });
+  }
+};

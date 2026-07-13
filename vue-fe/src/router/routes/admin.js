@@ -5,6 +5,7 @@
 import AdminDashboard from "@/views/admin/AdminDashboard.vue";
 import AdminKitchen from "@/views/admin/AdminKitchen.vue";
 import EmployeeManagement from "@/views/admin/EmployeeManagement.vue";
+import WorkShiftManagement from "@/views/admin/WorkShiftManagement.vue";
 import CustomerAccounts from "@/views/admin/CustomerAccounts.vue";
 const AdminReportsPage = () => import("@/features/admin/reports/pages/AdminReportsPage.vue");
 import AdminReviews from "@/views/admin/AdminReviews.vue";
@@ -46,6 +47,12 @@ export const adminChildRoutes = [
     name: "EmployeeManagement",
     component: EmployeeManagement,
     meta: { allowedRoles: ["admin"] },
+  },
+  {
+    path: "admin/work-shifts",
+    name: "WorkShiftManagement",
+    component: WorkShiftManagement,
+    meta: { allowedRoles: ["admin", "manager"] },
   },
   {
     path: "admin/customer-accounts",

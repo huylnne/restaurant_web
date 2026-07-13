@@ -42,7 +42,7 @@ exports.confirmArrival = async (req, res) => {
     if (!orderId) {
       return res.status(400).json({ message: "Thiếu order_id" });
     }
-    const result = await receptionService.confirmArrival(orderId, branchId);
+    const result = await receptionService.confirmArrival(orderId, branchId, req.user?.user_id);
     req.audit = {
       entityId: orderId,
       description: `Tiếp nhận đặt bàn #${orderId}`,

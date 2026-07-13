@@ -4,7 +4,7 @@
  * Luồng demo: Phần 3 — Bước 3.3 (gọi món), 3.5 (đánh dấu served)
  * API: POST /api/admin/waiter/orders, PATCH .../serve
  */
-const { Order, OrderItem, Table, MenuItem, OrderTable, sequelize } = require('../../models');
+const { Order, OrderItem, Table, MenuItem, OrderTable, User, Employee, sequelize } = require('../../models');
 
 const { Op } = require('sequelize');
 
@@ -131,6 +131,11 @@ const waiterService = {
 
       }
 
+      // Gán waiter phụ trách nếu chưa có (dùng nhân viên đang thao tác).
+      if (createdBy && !order.assigned_waiter_id) {
+        await order.update({ assigned_waiter_id: createdBy }, { transaction: t });
+      }
+
 
 
       const orderItems = await Promise.all(
@@ -206,6 +211,12 @@ const waiterService = {
         },
         { model: Table, attributes: ['table_id', 'table_number'] },
         {
+          model: User,
+          as: 'AssignedWaiter',
+          required: false,
+          attributes: ['user_id', 'full_name', 'phone'],
+        },
+        {
           model: OrderTable,
           attributes: ['table_id', 'is_primary'],
           required: false,
@@ -214,6 +225,80 @@ const waiterService = {
       ],
     });
     return order ? [order] : [];
+  },
+
+  /**
+   * [PHỤC VỤ] Gán hoặc đổi nhân viên phụ trách phiên bàn.
+   * Ctrl+F: assignWaiterToOrder, gán phục vụ
+   */
+  async assignWaiterToOrder(orderId, waiterUserId, branchId) {
+    const order = await Order.findOne({
+      where: { order_id: orderId, branch_id: branchId },
+    });
+    if (!order) {
+      const err = new Error('Không tìm thấy phiên phục vụ');
+      err.code = 'NOT_FOUND';
+      throw err;
+    }
+
+    const waiter = await User.findOne({
+      where: {
+        user_id: waiterUserId,
+        branch_id: branchId,
+        role: { [Op.in]: ['waiter', 'admin'] },
+        is_active: true,
+      },
+    });
+
+    if (!waiter) {
+      const err = new Error('Nhân viên phục vụ không hợp lệ hoặc không thuộc chi nhánh');
+      err.code = 'INVALID_WAITER';
+      throw err;
+    }
+
+    await order.update({ assigned_waiter_id: waiterUserId });
+
+    const reloaded = await Order.findByPk(orderId, {
+      include: [
+        {
+          model: User,
+          as: 'AssignedWaiter',
+          attributes: ['user_id', 'full_name', 'phone'],
+        },
+        { model: Table, attributes: ['table_id', 'table_number'] },
+      ],
+    });
+
+    return reloaded;
+  },
+
+  /** Danh sách waiter active của chi nhánh (dropdown gán bàn). */
+  async listBranchWaiters(branchId) {
+    const rows = await Employee.findAll({
+      where: {
+        branch_id: branchId,
+        status: 'active',
+        position: { [Op.in]: ['waiter', 'cashier'] },
+      },
+      include: [
+        {
+          model: User,
+          attributes: ['user_id', 'full_name', 'phone', 'role'],
+          where: { role: { [Op.in]: ['waiter', 'admin'] }, is_active: true },
+        },
+      ],
+      order: [['employee_id', 'ASC']],
+    });
+
+    return rows.map((row) => {
+      const data = row.toJSON();
+      return {
+        user_id: data.User?.user_id,
+        full_name: data.User?.full_name,
+        phone: data.User?.phone,
+        employee_id: data.employee_id,
+      };
+    }).filter((w) => w.user_id);
   },
 
 

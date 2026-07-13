@@ -21,6 +21,7 @@ const { OrderItem, MenuItem, Order, Table } = db;
 
 const { ACTIVE_SESSION_STATUSES } = require('../../utils/reservationStatus');
 const { findActiveOrderByTableId, buildRealtimeTablePayload, getTablesForOrder } = require('../../utils/orderTableLinks');
+const { resolveBranchId } = require('../../utils/branchScope');
 
 
 
@@ -482,6 +483,42 @@ const waiterController = {
 
     }
 
+  },
+
+  /** [PHỤC VỤ] GET — danh sách waiter của chi nhánh để gán bàn. */
+  async listBranchWaiters(req, res) {
+    try {
+      const branchId = resolveBranchId(req, req.query.branchId, 1);
+      const waiters = await waiterService.listBranchWaiters(branchId);
+      return res.json({ waiters });
+    } catch (err) {
+      console.error('waiter.listBranchWaiters', err);
+      return res.status(500).json({ message: err.message || 'Server error' });
+    }
+  },
+
+  /** [PHỤC VỤ] PATCH — gán/đổi nhân viên phụ trách phiên bàn. */
+  async assignWaiter(req, res) {
+    try {
+      const orderId = req.params.orderId;
+      const waiterUserId = req.body.waiter_user_id || req.body.assigned_waiter_id;
+      if (!orderId || !waiterUserId) {
+        return res.status(400).json({ message: 'Thiếu order_id hoặc waiter_user_id' });
+      }
+      const branchId = resolveBranchId(req, req.body.branch_id || req.query.branchId, 1);
+      const order = await waiterService.assignWaiterToOrder(orderId, waiterUserId, branchId);
+      req.audit = {
+        entityId: orderId,
+        description: `Gán phục vụ #${waiterUserId} cho phiên #${orderId}`,
+        metadata: { waiter_user_id: waiterUserId, branchId },
+      };
+      return res.json({ message: 'Đã gán nhân viên phục vụ', order });
+    } catch (err) {
+      console.error('waiter.assignWaiter', err);
+      const status =
+        err.code === 'NOT_FOUND' ? 404 : err.code === 'INVALID_WAITER' ? 400 : 500;
+      return res.status(status).json({ message: err.message, code: err.code });
+    }
   },
 
 };

@@ -40,5 +40,6 @@ router.use(verifyToken, authorizeRole("admin", "manager"), enforceReviewBranchSc
 router.get("/", reviewController.getReviews);
 // [ĐÁNH GIÁ] Tổng hợp số sao/trung bình review.
 router.get("/summary", reviewController.getReviewSummary);
+router.get("/waiter-stats", reviewController.getWaiterReviewStats);
 
 module.exports = router;

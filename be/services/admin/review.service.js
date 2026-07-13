@@ -60,6 +60,7 @@ const reviewService = {
       JOIN orders o ON o.order_id = rv.order_id
       LEFT JOIN users u ON u.user_id = rv.user_id
       LEFT JOIN tables t ON t.table_id = o.table_id
+      LEFT JOIN users w ON w.user_id = o.assigned_waiter_id
       WHERE ${whereParts.join(" AND ")}
     `;
 
@@ -81,9 +82,12 @@ const reviewService = {
         o.arrival_time,
         o.arrival_time AS reservation_time,
         o.number_of_guests,
+        o.assigned_waiter_id,
         COALESCE(u.full_name, 'Khách QR') AS full_name,
         u.phone,
-        t.table_number
+        t.table_number,
+        COALESCE(w.full_name, '—') AS waiter_name,
+        w.phone AS waiter_phone
       ${fromClause}
       ORDER BY rv.created_at DESC
       LIMIT :limit OFFSET :offset
@@ -139,6 +143,48 @@ const reviewService = {
       fiveStar: Number(row?.five_star || 0),
       lowRating: Number(row?.low_rating || 0),
     };
+  },
+
+  /** [ĐÁNH GIÁ] Thống kê điểm theo từng nhân viên phục vụ. */
+  async getWaiterReviewStats(branchId, { startDate, endDate } = {}) {
+    const whereParts = ["o.branch_id = :branchId", "o.assigned_waiter_id IS NOT NULL"];
+    const replacements = { branchId };
+
+    if (startDate && endDate) {
+      whereParts.push("rv.created_at BETWEEN :startDate AND :endDate");
+      replacements.startDate = startDate;
+      replacements.endDate = endDate;
+    }
+
+    const query = `
+      SELECT
+        o.assigned_waiter_id,
+        COALESCE(w.full_name, '—') AS waiter_name,
+        COUNT(rv.review_id)::int AS review_count,
+        COALESCE(AVG(rv.rating), 0)::numeric(10,2) AS avg_rating,
+        COUNT(*) FILTER (WHERE rv.rating = 5)::int AS five_star,
+        COUNT(*) FILTER (WHERE rv.rating <= 2)::int AS low_rating
+      FROM reviews rv
+      JOIN orders o ON o.order_id = rv.order_id
+      LEFT JOIN users w ON w.user_id = o.assigned_waiter_id
+      WHERE ${whereParts.join(" AND ")}
+      GROUP BY o.assigned_waiter_id, w.full_name
+      ORDER BY avg_rating DESC, review_count DESC
+    `;
+
+    const rows = await db.sequelize.query(query, {
+      replacements,
+      type: Sequelize.QueryTypes.SELECT,
+    });
+
+    return rows.map((row) => ({
+      waiter_user_id: row.assigned_waiter_id,
+      waiter_name: row.waiter_name,
+      reviewCount: Number(row.review_count || 0),
+      avgRating: Number(row.avg_rating || 0),
+      fiveStar: Number(row.five_star || 0),
+      lowRating: Number(row.low_rating || 0),
+    }));
   },
 };
 

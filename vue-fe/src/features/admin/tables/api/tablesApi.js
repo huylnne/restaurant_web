@@ -7,4 +7,5 @@ import { API_ORIGIN } from "@/config/api";
 export const TABLE_API = `${API_ORIGIN}/api/admin/table`;      // CRUD + sơ đồ bàn
 export const WAITER_API = `${API_ORIGIN}/api/admin/waiter`;    // nghiệp vụ phục vụ (gọi món, thanh toán)
 export const RECEPTION_API = `${API_ORIGIN}/api/admin/reception`; // tiếp nhận/check-in
+export const WORK_SHIFT_API = `${API_ORIGIN}/api/admin/work-shifts`; // ca làm việc nhân viên
 export const BRANCH_API = `${API_ORIGIN}/api/home/branches`;   // danh sách chi nhánh

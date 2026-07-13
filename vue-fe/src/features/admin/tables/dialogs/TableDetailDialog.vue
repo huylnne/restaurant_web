@@ -16,6 +16,10 @@
         <el-descriptions-item label="Doanh thu">{{
           formatCurrency(selectedTable.totalRevenue)
         }}</el-descriptions-item>
+        <el-descriptions-item label="Phục vụ">
+          <span v-if="currentAssignedWaiter?.full_name">{{ currentAssignedWaiter.full_name }}</span>
+          <span v-else class="text-muted">Chưa gán</span>
+        </el-descriptions-item>
         <el-descriptions-item label="QR">
           <div class="qr-token-row">
             <el-tag type="info" size="small">{{ selectedTable.qr_token || "—" }}</el-tag>
@@ -37,6 +41,39 @@
           </div>
         </el-descriptions-item>
       </el-descriptions>
+
+      <div
+        v-if="activeSessionOrderId && normalizeTableStatus(selectedTable?.status) !== 'available'"
+        class="orders-section waiter-assign-section"
+      >
+        <div class="orders-section-header">
+          <h4>Nhân viên phục vụ</h4>
+        </div>
+        <div class="waiter-assign-row">
+          <el-select
+            v-model="selectedWaiterUserId"
+            placeholder="Chọn nhân viên phục vụ"
+            filterable
+            :loading="branchWaitersLoading"
+            style="flex: 1"
+          >
+            <el-option
+              v-for="w in branchWaiters"
+              :key="w.user_id"
+              :label="w.full_name"
+              :value="w.user_id"
+            />
+          </el-select>
+          <el-button
+            type="primary"
+            :loading="assignWaiterLoading"
+            :disabled="!selectedWaiterUserId"
+            @click="assignWaiterToSession"
+          >
+            Gán phục vụ
+          </el-button>
+        </div>
+      </div>
 
       <!-- Cảnh báo: bàn trống nhưng có đơn đặt trước sắp tới (không nên xếp khách vãng lai vào) -->
       <div v-if="selectedTable?.upcomingOrder && normalizeTableStatus(selectedTable?.status) === 'available'"
@@ -261,5 +298,12 @@ const {
   deleteTable,
   userRole,
   onDetailDialogOpen,
+  branchWaiters,
+  branchWaitersLoading,
+  selectedWaiterUserId,
+  assignWaiterLoading,
+  activeSessionOrderId,
+  currentAssignedWaiter,
+  assignWaiterToSession,
 } = useTablesContext();
 </script>

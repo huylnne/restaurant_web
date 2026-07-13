@@ -34,7 +34,7 @@
 // AdminSidebar — menu dọc bên trái khu vực quản lý. Các mục hiển thị lọc theo vai trò đăng nhập.
 import { computed } from "vue";
 import { useRoute } from "vue-router";
-import { KnifeFork, Grid, DataLine, User, Dish, Setting, OfficeBuilding, Document } from "@element-plus/icons-vue";
+import { KnifeFork, Grid, DataLine, User, Dish, Setting, OfficeBuilding, Document, Clock } from "@element-plus/icons-vue";
 import { getMenuByRole } from "@/config/sidebarMenu.js";
 import { getCurrentRole } from "@/utils/auth.js";
 
@@ -53,6 +53,7 @@ const iconMap = {
   Setting,
   OfficeBuilding,
   Document,
+  Clock,
 };
 // Trả về component icon theo tên; không khớp thì dùng Grid mặc định.
 function iconComponent(name) {

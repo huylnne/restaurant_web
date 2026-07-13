@@ -78,6 +78,12 @@ const tableService = {
               attributes: ["user_id", "full_name", "phone"],
             },
             {
+              model: User,
+              as: "AssignedWaiter",
+              required: false,
+              attributes: ["user_id", "full_name", "phone"],
+            },
+            {
               model: OrderItem,
               required: false,
               include: [
@@ -111,6 +117,12 @@ const tableService = {
           include: [
             {
               model: User,
+              required: false,
+              attributes: ["user_id", "full_name", "phone"],
+            },
+            {
+              model: User,
+              as: "AssignedWaiter",
               required: false,
               attributes: ["user_id", "full_name", "phone"],
             },
@@ -207,6 +219,7 @@ const tableService = {
             ...activeReservation,
             reservation_id: activeReservation.order_id,
             reservation_time: activeReservation.arrival_time,
+            assigned_waiter: activeReservation.AssignedWaiter || null,
           }
         : null;
       const mappedUpcoming = upcomingReservation
@@ -223,9 +236,13 @@ const tableService = {
           ...o,
           reservation_id: o.order_id,
           reservation_time: o.arrival_time,
+          assigned_waiter: o.AssignedWaiter || null,
         })),
         activeReservation: mappedActive,
         upcomingReservation: mappedUpcoming,
+        activeOrder: mappedActive,
+        upcomingOrder: mappedUpcoming,
+        assigned_waiter: mappedActive?.assigned_waiter || mappedActive?.AssignedWaiter || null,
         totalRevenue,
       };
     });

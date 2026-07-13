@@ -20,8 +20,8 @@ class EmployeeService {
     // Nếu có từ khoá: khớp LIKE %search% trên tên HOẶC email (áp lên bảng User qua include).
     const includeWhere = search ? {
       [Op.or]: [
-        { name: { [Op.like]: `%${search}%` } },
-        { email: { [Op.like]: `%${search}%` } }
+        { full_name: { [Op.iLike]: `%${search}%` } },
+        { phone: { [Op.iLike]: `%${search}%` } }
       ]
     } : {};
 

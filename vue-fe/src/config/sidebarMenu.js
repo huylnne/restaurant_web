@@ -36,6 +36,13 @@ export const SIDEBAR_MENU = [
     roles: ["admin"],
   },
   {
+    key: "work-shifts",
+    label: "Ca làm việc",
+    icon: "Clock",
+    route: "/admin/work-shifts",
+    roles: ["admin", "manager"],
+  },
+  {
     key: "customer-accounts",
     label: "Tài khoản khách",
     icon: "User",

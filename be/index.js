@@ -92,6 +92,9 @@ app.use('/api/admin/menu', adminMenuRoutes);
 const adminEmployeeRoutes = require('./routes/admin/employee.routes')
 app.use('/api/admin/employees',adminEmployeeRoutes)
 
+const adminWorkShiftRoutes = require('./routes/admin/workShift.routes');
+app.use('/api/admin/work-shifts', adminWorkShiftRoutes);
+
 const adminUserAccountRoutes = require('./routes/admin/userAccount.routes');
 app.use('/api/admin/users', adminUserAccountRoutes);
 

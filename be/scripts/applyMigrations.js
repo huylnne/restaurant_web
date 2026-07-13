@@ -227,6 +227,31 @@ async function applyMigrations(sequelize) {
      WHERE oi.order_id = o.order_id AND oi.ordered_at IS NULL;`
   );
 
+  await q('ALTER TABLE orders ADD COLUMN IF NOT EXISTS assigned_waiter_id INTEGER REFERENCES users(user_id);');
+  await q(
+    'CREATE INDEX IF NOT EXISTS orders_assigned_waiter_idx ON orders(assigned_waiter_id) WHERE assigned_waiter_id IS NOT NULL;'
+  );
+
+  await q(
+    `CREATE TABLE IF NOT EXISTS work_shifts (
+       shift_id SERIAL PRIMARY KEY,
+       employee_id INTEGER NOT NULL REFERENCES employees(employee_id) ON DELETE CASCADE,
+       branch_id INTEGER NOT NULL REFERENCES branches(branch_id),
+       shift_date DATE NOT NULL,
+       start_time VARCHAR(5) NOT NULL,
+       end_time VARCHAR(5) NOT NULL,
+       note VARCHAR(200),
+       created_at TIMESTAMP DEFAULT NOW(),
+       updated_at TIMESTAMP DEFAULT NOW()
+     );`
+  );
+  await q(
+    'CREATE INDEX IF NOT EXISTS work_shifts_branch_date_idx ON work_shifts(branch_id, shift_date);'
+  );
+  await q(
+    'CREATE UNIQUE INDEX IF NOT EXISTS work_shifts_employee_date_start_idx ON work_shifts(employee_id, shift_date, start_time);'
+  );
+
   // --- CHỐT: đảm bảo chi nhánh nào chưa có menu thì clone menu mặc định sang (không để branch trống menu) ---
   const { ensureMenuForEmptyBranches } = require('../utils/ensureBranchMenus');
   await ensureMenuForEmptyBranches(sequelize).catch((err) => {

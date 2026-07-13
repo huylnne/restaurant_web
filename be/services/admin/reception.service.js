@@ -225,7 +225,7 @@ async function searchArrivals(branchId, query) {
  * [CHECK-IN] Xác nhận khách đã tới — set checked_in_at, bàn → occupied, status pre_ordered nếu có món trước.
  * Luồng demo: Phần 3 — Bước 3.2 (nút Tiếp nhận / Check-in). Ctrl+F: confirmArrival, check-in
  */
-async function confirmArrival(orderId, branchId) {
+async function confirmArrival(orderId, branchId, assignedWaiterId = null) {
   // Dọn no-show trước để không check-in nhầm đơn đã quá hạn.
   await tableSummaryService.expireReservationsForBranch(branchId);
 
@@ -309,6 +309,9 @@ async function confirmArrival(orderId, branchId) {
     // Đánh dấu thời điểm khách tới; nếu đang pending/confirmed thì nâng lên pre-ordered.
     for (const sess of toCheckIn) {
       const updates = { checked_in_at: now };
+      if (assignedWaiterId && !sess.assigned_waiter_id) {
+        updates.assigned_waiter_id = assignedWaiterId;
+      }
       if ([ORDER_STATUS.CONFIRMED, ORDER_STATUS.PENDING].includes(sess.status)) {
         updates.status = RESERVATION_STATUS.PRE_ORDERED;
       }
@@ -473,6 +476,7 @@ async function walkInCheckIn({ branchId, tableId, tableIds, numberOfGuests, staf
         order_type: "walk_in",
         payment_status: "unpaid",
         checked_in_at: now,
+        assigned_waiter_id: staffUserId || null,
         created_at: now,
       },
       { transaction: t }

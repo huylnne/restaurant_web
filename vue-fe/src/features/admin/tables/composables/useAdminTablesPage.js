@@ -201,6 +201,29 @@ export function useAdminTablesPage() {
   const walkInSelectedTableIds = ref([]);     // các bàn đã chọn để ghép cho nhóm khách
   const walkInSubmitLoading = ref(false);
 
+  const branchWaiters = ref([]);
+  const branchWaitersLoading = ref(false);
+  const selectedWaiterUserId = ref(null);
+  const assignWaiterLoading = ref(false);
+
+  const activeSessionOrderId = computed(() => {
+    const fromOrders = tableOrders.value.find((o) => o.order_id);
+    if (fromOrders?.order_id) return fromOrders.order_id;
+    return selectedTable.value?.activeOrder?.order_id || null;
+  });
+
+  const currentAssignedWaiter = computed(() => {
+    const order = tableOrders.value[0];
+    if (order?.AssignedWaiter) return order.AssignedWaiter;
+    if (order?.assigned_waiter) return order.assigned_waiter;
+    return (
+      selectedTable.value?.assigned_waiter ||
+      selectedTable.value?.activeOrder?.assigned_waiter ||
+      selectedTable.value?.activeOrder?.AssignedWaiter ||
+      null
+    );
+  });
+
   // Tổng sức chứa của các bàn đã chọn cho walk-in.
   const walkInSelectedCapacity = computed(() =>
     walkInTables.value
@@ -407,10 +430,65 @@ export function useAdminTablesPage() {
   // Khi mở dialog chi tiết bàn: reset snapshot rồi nạp đồng thời đơn + bill + trạng thái thanh toán.
   const onDetailDialogOpen = () => {
     resetOrderItemStatusSnapshot();
+    fetchBranchWaiters();
     if (selectedTable.value?.table_id) {
       fetchTableOrders(selectedTable.value.table_id);
       fetchTableBill(selectedTable.value.table_id);
       fetchTablePayment(selectedTable.value.table_id);
+    }
+  };
+
+  const fetchBranchWaiters = async () => {
+    branchWaitersLoading.value = true;
+    try {
+      const res = await axios.get(`${WAITER_API}/branch-waiters`, {
+        params: { branchId: selectedBranchId.value },
+        headers: authHeaders(),
+      });
+      branchWaiters.value = res.data?.waiters || [];
+    } catch (err) {
+      console.error("fetchBranchWaiters:", err);
+      branchWaiters.value = [];
+    } finally {
+      branchWaitersLoading.value = false;
+    }
+  };
+
+  const syncSelectedWaiterFromOrders = () => {
+    const waiter =
+      tableOrders.value[0]?.AssignedWaiter ||
+      tableOrders.value[0]?.assigned_waiter ||
+      currentAssignedWaiter.value;
+    selectedWaiterUserId.value = waiter?.user_id || null;
+  };
+
+  watch(tableOrders, () => syncSelectedWaiterFromOrders(), { deep: true });
+
+  const assignWaiterToSession = async () => {
+    const orderId = activeSessionOrderId.value;
+    if (!orderId || !selectedWaiterUserId.value) {
+      ElMessage.warning("Chọn nhân viên phục vụ trước");
+      return;
+    }
+    assignWaiterLoading.value = true;
+    try {
+      await axios.patch(
+        `${WAITER_API}/orders/${orderId}/assign-waiter`,
+        {
+          waiter_user_id: selectedWaiterUserId.value,
+          branch_id: selectedBranchId.value,
+        },
+        { headers: authHeaders() }
+      );
+      ElMessage.success("Đã gán nhân viên phục vụ");
+      if (selectedTable.value?.table_id) {
+        await fetchTableOrders(selectedTable.value.table_id);
+      }
+      await fetchTables();
+    } catch (err) {
+      ElMessage.error(err.response?.data?.message || "Không thể gán nhân viên");
+    } finally {
+      assignWaiterLoading.value = false;
     }
   };
 
@@ -1164,5 +1242,12 @@ export function useAdminTablesPage() {
     toggleWalkInTable,
     submitWalkIn,
     openTableAfterReception,
+    branchWaiters,
+    branchWaitersLoading,
+    selectedWaiterUserId,
+    assignWaiterLoading,
+    activeSessionOrderId,
+    currentAssignedWaiter,
+    assignWaiterToSession,
   };
 }

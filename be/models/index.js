@@ -104,6 +104,15 @@ db.User.hasOne(db.Employee, { foreignKey: 'user_id' });
 
 db.Employee.belongsTo(db.User, { foreignKey: 'user_id' });
 
+// [EMPLOYEE ↔ WORK SHIFT] Nhân viên có nhiều ca làm việc.
+db.Employee.hasMany(db.WorkShift, { foreignKey: 'employee_id' });
+db.WorkShift.belongsTo(db.Employee, { foreignKey: 'employee_id' });
+db.Branch.hasMany(db.WorkShift, { foreignKey: 'branch_id' });
+db.WorkShift.belongsTo(db.Branch, { foreignKey: 'branch_id' });
+
+// [ORDER ↔ WAITER] Phiên phục vụ gắn với nhân viên phụ trách.
+db.User.hasMany(db.Order, { foreignKey: 'assigned_waiter_id', as: 'AssignedOrders' });
+
 
 
 // [USER ↔ OPERATION LOG] Một user tạo nhiều nhật ký thao tác.
