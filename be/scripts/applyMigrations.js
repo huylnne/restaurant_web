@@ -257,6 +257,30 @@ async function applyMigrations(sequelize) {
   await ensureMenuForEmptyBranches(sequelize).catch((err) => {
     console.warn('⚠️ ensureMenuForEmptyBranches:', err.message);
   });
+
+  // --- AUTO-SEED WORK SHIFTS: seed ca làm việc mẫu nếu bảng trống ---
+  // Xóa rows seed cũ (note = 'seed_work_shift') và insert lại theo ngày hiện tại.
+  // Shifts do user tự tạo (note khác) KHÔNG bị xóa.
+  try {
+    const [[{ cnt }]] = await sequelize.query(
+      `SELECT COUNT(*) AS cnt FROM work_shifts WHERE note = 'seed_work_shift'`,
+      { raw: true }
+    );
+    // Chỉ seed lại khi không có data (deploy lần đầu) hoặc data cũ (shift_date tối đa < hôm nay)
+    const [[{ max_date }]] = await sequelize.query(
+      `SELECT MAX(shift_date) AS max_date FROM work_shifts WHERE note = 'seed_work_shift'`,
+      { raw: true }
+    );
+    const today = new Date().toISOString().slice(0, 10);
+    const needReseed = Number(cnt) === 0 || !max_date || max_date < today;
+    if (needReseed) {
+      const { Sequelize } = require('sequelize');
+      const workShiftSeeder = require('../seeders/20260713100000-seed-work-shifts');
+      await workShiftSeeder.up(sequelize.getQueryInterface(), Sequelize);
+    }
+  } catch (err) {
+    console.warn('⚠️ Auto-seed work_shifts:', err.message);
+  }
 }
 
 module.exports = { applyMigrations };
