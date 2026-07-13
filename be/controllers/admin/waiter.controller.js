@@ -219,7 +219,11 @@ const waiterController = {
 
       if (!status) return res.status(400).json({ message: 'status is required' });
 
-      const table = await waiterService.updateTableStatus(table_id, status);
+      const table = await waiterService.updateTableStatus(
+        table_id,
+        status,
+        req.user?.user_id || null
+      );
 
       return res.json(table);
 
@@ -494,6 +498,30 @@ const waiterController = {
     } catch (err) {
       console.error('waiter.listBranchWaiters', err);
       return res.status(500).json({ message: err.message || 'Server error' });
+    }
+  },
+
+  /** [PHỤC VỤ] PATCH — gán nhân viên theo bàn (tạo phiên nếu chưa có). */
+  async assignWaiterToTable(req, res) {
+    try {
+      const tableId = req.params.id;
+      const waiterUserId = req.body.waiter_user_id || req.body.assigned_waiter_id || req.user?.user_id;
+      if (!tableId || !waiterUserId) {
+        return res.status(400).json({ message: 'Thiếu table_id hoặc waiter_user_id' });
+      }
+      const branchId = resolveBranchId(req, req.body.branch_id || req.query.branchId, 1);
+      const order = await waiterService.assignWaiterToTable(tableId, waiterUserId, branchId);
+      req.audit = {
+        entityId: tableId,
+        description: `Gán phục vụ #${waiterUserId} cho bàn #${tableId}`,
+        metadata: { waiter_user_id: waiterUserId, order_id: order?.order_id, branchId },
+      };
+      return res.json({ message: 'Đã gán nhân viên phục vụ', order });
+    } catch (err) {
+      console.error('waiter.assignWaiterToTable', err);
+      const status =
+        err.code === 'NOT_FOUND' ? 404 : err.code === 'INVALID_WAITER' ? 400 : 500;
+      return res.status(status).json({ message: err.message, code: err.code });
     }
   },
 

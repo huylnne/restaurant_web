@@ -29,6 +29,7 @@ import {
   handleKitchenRealtimeMessage,
   notifyKitchenDishDone,
 } from "@/utils/kitchenDoneAlert";
+import { getCurrentUser } from "@/utils/adminScope";
 import { API_ORIGIN } from "@/config/api";
 import { TABLE_CAPACITY, MAX_GUESTS } from "@/constants/reservation";
 import {
@@ -459,32 +460,48 @@ export function useAdminTablesPage() {
       tableOrders.value[0]?.AssignedWaiter ||
       tableOrders.value[0]?.assigned_waiter ||
       currentAssignedWaiter.value;
-    selectedWaiterUserId.value = waiter?.user_id || null;
+    selectedWaiterUserId.value =
+      waiter?.user_id || getCurrentUser()?.user_id || null;
   };
+
+  const isTableServing = computed(() => {
+    const st = normalizeTableStatus(selectedTable.value?.status);
+    return st === "occupied" || st === "pre-ordered";
+  });
 
   watch(tableOrders, () => syncSelectedWaiterFromOrders(), { deep: true });
 
   const assignWaiterToSession = async () => {
-    const orderId = activeSessionOrderId.value;
-    if (!orderId || !selectedWaiterUserId.value) {
+    if (!selectedWaiterUserId.value || !selectedTable.value?.table_id) {
       ElMessage.warning("Chọn nhân viên phục vụ trước");
       return;
     }
     assignWaiterLoading.value = true;
     try {
-      await axios.patch(
-        `${WAITER_API}/orders/${orderId}/assign-waiter`,
-        {
-          waiter_user_id: selectedWaiterUserId.value,
-          branch_id: selectedBranchId.value,
-        },
-        { headers: authHeaders() }
-      );
+      const orderId = activeSessionOrderId.value;
+      const payload = {
+        waiter_user_id: selectedWaiterUserId.value,
+        branch_id: selectedBranchId.value,
+      };
+      if (orderId) {
+        await axios.patch(
+          `${WAITER_API}/orders/${orderId}/assign-waiter`,
+          payload,
+          { headers: authHeaders() }
+        );
+      } else {
+        await axios.patch(
+          `${WAITER_API}/tables/${selectedTable.value.table_id}/assign-waiter`,
+          payload,
+          { headers: authHeaders() }
+        );
+      }
       ElMessage.success("Đã gán nhân viên phục vụ");
       if (selectedTable.value?.table_id) {
         await fetchTableOrders(selectedTable.value.table_id);
       }
       await fetchTables();
+      syncSelectedWaiterFromOrders();
     } catch (err) {
       ElMessage.error(err.response?.data?.message || "Không thể gán nhân viên");
     } finally {
@@ -1249,5 +1266,6 @@ export function useAdminTablesPage() {
     activeSessionOrderId,
     currentAssignedWaiter,
     assignWaiterToSession,
+    isTableServing,
   };
 }

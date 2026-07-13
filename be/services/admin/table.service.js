@@ -169,16 +169,15 @@ const tableService = {
         }
       }
 
-      // activeReservation = đơn đang phục vụ/khách sắp tới trong khoảng ±2 giờ so với hiện tại,
-      // chỉ xét khi bàn KHÔNG trống và KHÔNG dọn dẹp.
+      // activeReservation = đơn đang phục vụ; ưu tiên khung ±2h, fallback order active đầu tiên.
       const activeReservation =
         tableData.status !== TABLE_STATUS.AVAILABLE &&
         tableData.status !== TABLE_STATUS.CLEANING
           ? (activeOrders.find((o) => {
               const arrival = new Date(o.arrival_time || o.created_at);
-              const timeDiff = (arrival - now) / (1000 * 60 * 60); // chênh lệch giờ (âm = đã qua giờ hẹn)
+              const timeDiff = (arrival - now) / (1000 * 60 * 60);
               return timeDiff >= -2 && timeDiff <= 2;
-            }) ?? null)
+            }) ?? activeOrders[0] ?? null)
           : null;
 
       // upcomingReservation = đặt bàn tương lai (0 → 24h tới) khi bàn đang TRỐNG,
@@ -242,7 +241,11 @@ const tableService = {
         upcomingReservation: mappedUpcoming,
         activeOrder: mappedActive,
         upcomingOrder: mappedUpcoming,
-        assigned_waiter: mappedActive?.assigned_waiter || mappedActive?.AssignedWaiter || null,
+        assigned_waiter:
+          mappedActive?.assigned_waiter ||
+          mappedActive?.AssignedWaiter ||
+          activeOrders[0]?.AssignedWaiter ||
+          null,
         totalRevenue,
       };
     });

@@ -16,6 +16,8 @@ const {
 
   shouldEndTableSession,
 
+  normalizeTableStatus,
+
 } = require('../../utils/tableStatus');
 
 const { ORDER_STATUS, notTerminalOrderStatusWhere } = require('../../utils/orderStatus');
@@ -37,16 +39,27 @@ const waiterService = {
    * [PHỤC VỤ] Tìm order đang active trên bàn hoặc tạo phiên walk_in mới khi gọi món.
    * Ctrl+F: findOrCreateSessionOrder, phiên bàn
    */
-  async findOrCreateSessionOrder({ table_id, branch_id, user_id, transaction }) {
+  async findOrCreateSessionOrder({ table_id, branch_id, user_id, assigned_waiter_id, transaction }) {
 
     // Nếu bàn đã có phiên đang phục vụ thì dùng lại (gọi thêm món vào đúng order đó).
     const existing = await findActiveOrderByTableId(table_id, { transaction });
 
-    if (existing) return existing;
+    if (existing) {
+      const updates = {};
+      if (assigned_waiter_id && !existing.assigned_waiter_id) {
+        updates.assigned_waiter_id = assigned_waiter_id;
+      }
+      if (!existing.checked_in_at) {
+        updates.checked_in_at = new Date();
+      }
+      if (Object.keys(updates).length) {
+        await existing.update(updates, { transaction });
+      }
+      return existing;
+    }
 
     // Chưa có phiên → tạo order walk_in mới (khách ngồi rồi mới gọi món).
-
-
+    const now = new Date();
 
     return Order.create(
 
@@ -58,15 +71,21 @@ const waiterService = {
 
         user_id: user_id || null,
 
+        assigned_waiter_id: assigned_waiter_id || null,
+
         status: ORDER_STATUS.PRE_ORDERED,
 
         order_type: 'walk_in',
 
         payment_status: 'unpaid',
 
-        arrival_time: new Date(),
+        arrival_time: now,
+
+        checked_in_at: now,
 
         number_of_guests: 1,
+
+        created_at: now,
 
       },
 
@@ -118,6 +137,8 @@ const waiterService = {
         branch_id: table.branch_id,
 
         user_id: createdBy,
+
+        assigned_waiter_id: createdBy,
 
         transaction: t,
 
@@ -272,6 +293,61 @@ const waiterService = {
     return reloaded;
   },
 
+  /**
+   * [PHỤC VỤ] Gán nhân viên theo bàn — tạo phiên nếu chưa có (khi chỉ đổi trạng thái bàn).
+   * Ctrl+F: assignWaiterToTable
+   */
+  async assignWaiterToTable(tableId, waiterUserId, branchId) {
+    const table = await Table.findOne({
+      where: { table_id: tableId, branch_id: branchId },
+    });
+    if (!table) {
+      const err = new Error('Không tìm thấy bàn');
+      err.code = 'NOT_FOUND';
+      throw err;
+    }
+
+    const waiter = await User.findOne({
+      where: {
+        user_id: waiterUserId,
+        branch_id: branchId,
+        role: { [Op.in]: ['waiter', 'admin'] },
+        is_active: true,
+      },
+    });
+    if (!waiter) {
+      const err = new Error('Nhân viên phục vụ không hợp lệ hoặc không thuộc chi nhánh');
+      err.code = 'INVALID_WAITER';
+      throw err;
+    }
+
+    const order = await this.findOrCreateSessionOrder({
+      table_id: tableId,
+      branch_id: branchId,
+      assigned_waiter_id: waiterUserId,
+    });
+
+    if (order.assigned_waiter_id !== waiterUserId) {
+      await order.update({ assigned_waiter_id: waiterUserId });
+    }
+
+    const servingStatus = normalizeTableStatus(table.status);
+    if (servingStatus === TABLE_STATUS.AVAILABLE || servingStatus === TABLE_STATUS.CLEANING) {
+      await table.update({ status: TABLE_STATUS.OCCUPIED });
+    }
+
+    return Order.findByPk(order.order_id, {
+      include: [
+        {
+          model: User,
+          as: 'AssignedWaiter',
+          attributes: ['user_id', 'full_name', 'phone'],
+        },
+        { model: Table, attributes: ['table_id', 'table_number'] },
+      ],
+    });
+  },
+
   /** Danh sách waiter active của chi nhánh (dropdown gán bàn). */
   async listBranchWaiters(branchId) {
     const rows = await Employee.findAll({
@@ -327,7 +403,7 @@ const waiterService = {
    * [QUẢN LÝ BÀN] Đổi trạng thái bàn (trống/chờ dọn/...) — nếu kết thúc phiên thì complete order.
    * Ctrl+F: updateTableStatus, chờ dọn, cleaning
    */
-  async updateTableStatus(table_id, status) {
+  async updateTableStatus(table_id, status, staffUserId = null) {
 
     if (!isValidTableStatus(status)) {
 
@@ -335,12 +411,23 @@ const waiterService = {
 
     }
 
+    const table = await Table.findByPk(table_id);
+    if (!table) throw new Error('Không tìm thấy bàn');
 
-
-    // Cập nhật trạng thái bàn.
     await Table.update({ status }, { where: { table_id } });
 
+    const normalized = normalizeTableStatus(status);
+    const isServing =
+      normalized === TABLE_STATUS.OCCUPIED || normalized === TABLE_STATUS.PRE_ORDERED;
 
+    // Khi chuyển sang đang phục vụ: tạo/tìm phiên order và gán waiter đang thao tác.
+    if (isServing && staffUserId) {
+      await this.findOrCreateSessionOrder({
+        table_id,
+        branch_id: table.branch_id,
+        assigned_waiter_id: staffUserId,
+      });
+    }
 
     // Nếu chuyển về trạng thái kết thúc phiên (available/cleaning) → đóng các order chưa kết thúc của bàn.
     if (shouldEndTableSession(status)) {

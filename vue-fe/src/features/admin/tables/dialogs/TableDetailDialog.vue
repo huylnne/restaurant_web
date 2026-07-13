@@ -43,7 +43,7 @@
       </el-descriptions>
 
       <div
-        v-if="activeSessionOrderId && normalizeTableStatus(selectedTable?.status) !== 'available'"
+        v-if="isTableServing"
         class="orders-section waiter-assign-section"
       >
         <div class="orders-section-header">
@@ -305,5 +305,6 @@ const {
   activeSessionOrderId,
   currentAssignedWaiter,
   assignWaiterToSession,
+  isTableServing,
 } = useTablesContext();
 </script>

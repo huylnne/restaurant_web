@@ -53,6 +53,17 @@ router.patch(
 
 // [QUẢN LÝ BÀN] Đổi trạng thái bàn, ví dụ cleaning/available.
 router.patch(
+  '/tables/:id/assign-waiter',
+  auditLog({
+    action: 'WAITER_TABLE_ASSIGN',
+    module: 'tables',
+    description: (req) => `Gán phục vụ cho bàn #${req.params.id}`,
+    entityType: 'table',
+  }),
+  waiterController.assignWaiterToTable
+);
+
+router.patch(
   '/tables/:id/status',
   auditLog({
     action: 'WAITER_TABLE_STATUS',
