@@ -112,6 +112,7 @@ db.WorkShift.belongsTo(db.Branch, { foreignKey: 'branch_id' });
 
 // [ORDER ↔ WAITER] Phiên phục vụ gắn với nhân viên phụ trách.
 db.User.hasMany(db.Order, { foreignKey: 'assigned_waiter_id', as: 'AssignedOrders' });
+db.Order.belongsTo(db.User, { foreignKey: 'assigned_waiter_id', as: 'AssignedWaiter' });
 
 
 
