@@ -17,8 +17,10 @@
           formatCurrency(selectedTable.totalRevenue)
         }}</el-descriptions-item>
         <el-descriptions-item label="Phục vụ">
-          <span v-if="currentAssignedWaiter?.full_name">{{ currentAssignedWaiter.full_name }}</span>
-          <span v-else class="text-muted">Chưa gán</span>
+          <el-tag v-if="currentAssignedWaiter?.full_name" type="success" size="small">
+            {{ currentAssignedWaiter.full_name }}
+          </el-tag>
+          <el-tag v-else type="info" size="small">Chưa gán</el-tag>
         </el-descriptions-item>
         <el-descriptions-item label="QR">
           <div class="qr-token-row">
@@ -46,32 +48,85 @@
         v-if="isTableServing"
         class="orders-section waiter-assign-section"
       >
-        <div class="orders-section-header">
-          <h4>Nhân viên phục vụ</h4>
-        </div>
-        <div class="waiter-assign-row">
-          <el-select
-            v-model="selectedWaiterUserId"
-            placeholder="Chọn nhân viên phục vụ"
-            filterable
-            :loading="branchWaitersLoading"
-            style="flex: 1"
-          >
-            <el-option
-              v-for="w in branchWaiters"
-              :key="w.user_id"
-              :label="w.full_name"
-              :value="w.user_id"
-            />
-          </el-select>
-          <el-button
-            type="primary"
-            :loading="assignWaiterLoading"
-            :disabled="!selectedWaiterUserId"
-            @click="assignWaiterToSession"
-          >
-            Gán phục vụ
-          </el-button>
+        <div class="waiter-assign-card">
+          <div class="waiter-assign-card__header">
+            <div class="waiter-assign-card__title">
+              <el-icon class="waiter-assign-card__icon"><User /></el-icon>
+              <div>
+                <h4>Nhân viên phục vụ</h4>
+                <p class="waiter-assign-card__subtitle">
+                  Gán người phụ trách để theo dõi hiệu suất &amp; đánh giá
+                </p>
+              </div>
+            </div>
+            <el-tag
+              :type="currentAssignedWaiter?.full_name ? 'success' : 'warning'"
+              size="small"
+              effect="light"
+            >
+              {{ currentAssignedWaiter?.full_name ? "Đã gán" : "Chưa gán" }}
+            </el-tag>
+          </div>
+
+          <div v-if="currentAssignedWaiter?.full_name" class="waiter-assign-current">
+            <span class="waiter-assign-current__label">Đang phục vụ</span>
+            <strong>{{ currentAssignedWaiter.full_name }}</strong>
+            <span v-if="currentAssignedWaiter.phone" class="waiter-assign-current__phone">
+              · {{ currentAssignedWaiter.phone }}
+            </span>
+          </div>
+
+          <el-form label-position="top" class="waiter-assign-form" @submit.prevent>
+            <el-form-item label="Chọn nhân viên">
+              <el-select
+                v-model="selectedWaiterUserId"
+                placeholder="Chọn nhân viên phục vụ"
+                filterable
+                clearable
+                :loading="branchWaitersLoading"
+                class="waiter-assign-select"
+                no-data-text="Không có nhân viên phục vụ"
+              >
+                <el-option
+                  v-for="w in branchWaiters"
+                  :key="w.user_id"
+                  :label="w.full_name"
+                  :value="w.user_id"
+                >
+                  <div class="waiter-option">
+                    <span class="waiter-option__name">{{ w.full_name }}</span>
+                    <span v-if="w.phone" class="waiter-option__phone">{{ w.phone }}</span>
+                  </div>
+                </el-option>
+              </el-select>
+              <p
+                v-if="!branchWaitersLoading && !branchWaiters.length"
+                class="waiter-assign-empty"
+              >
+                Chưa có nhân viên phục vụ ở chi nhánh này. Liên hệ quản lý để thêm tài khoản.
+              </p>
+            </el-form-item>
+
+            <div class="waiter-assign-actions">
+              <el-button
+                type="primary"
+                size="default"
+                :loading="assignWaiterLoading"
+                :disabled="!selectedWaiterUserId"
+                @click="assignWaiterToSession"
+              >
+                Gán phục vụ
+              </el-button>
+              <el-button
+                v-if="canAssignSelf"
+                size="default"
+                :loading="assignWaiterLoading"
+                @click="assignSelfAsWaiter"
+              >
+                Gán cho tôi
+              </el-button>
+            </div>
+          </el-form>
         </div>
       </div>
 
@@ -264,7 +319,7 @@
 <script setup>
 // TableDetailDialog — dialog chi tiết 1 bàn: thông tin bàn, QR, đơn đặt trước sắp tới, đơn hiện tại,
 // hóa đơn tạm tính và khu thanh toán. Đây là nơi phục vụ thao tác nhiều nhất tại quầy.
-import { Plus } from "@element-plus/icons-vue";
+import { Plus, User } from "@element-plus/icons-vue";
 import BillSummary from "@/components/BillSummary.vue";
 import { useTablesContext } from "../composables/tablesContext";
 
@@ -306,5 +361,7 @@ const {
   currentAssignedWaiter,
   assignWaiterToSession,
   isTableServing,
+  canAssignSelf,
+  assignSelfAsWaiter,
 } = useTablesContext();
 </script>

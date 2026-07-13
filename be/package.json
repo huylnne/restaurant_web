@@ -9,6 +9,7 @@
     "dev": "nodemon index.js",
     "migrate": "node scripts/run-migrations-lite.js",
     "seed:menu": "node scripts/reseed-menu.js",
+    "seed:work-shifts": "node scripts/seed-work-shifts.js",
     "cleanup:demo-orders": "node scripts/cleanup-active-demo-orders.js"
   },
   "keywords": [],

@@ -22,6 +22,7 @@ const SEEDERS = [
   '20250105-seed-employees.js',
   '20260423092000-seed-extra-users.js',
   '20260423092500-seed-extra-employees-branch2.js',
+  '20260713100000-seed-work-shifts.js',
   '20260331-seed-demo-data.js',
   '20260331-seed-today.js',
   '20260423093500-seed-branch2-demo-data.js',

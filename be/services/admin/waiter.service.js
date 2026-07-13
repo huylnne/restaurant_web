@@ -350,6 +350,26 @@ const waiterService = {
 
   /** Danh sách waiter active của chi nhánh (dropdown gán bàn). */
   async listBranchWaiters(branchId) {
+    const users = await User.findAll({
+      where: {
+        branch_id: branchId,
+        role: { [Op.in]: ['waiter', 'admin'] },
+        is_active: true,
+      },
+      attributes: ['user_id', 'full_name', 'phone', 'role'],
+      order: [['full_name', 'ASC']],
+    });
+
+    if (users.length) {
+      return users.map((u) => ({
+        user_id: u.user_id,
+        full_name: u.full_name,
+        phone: u.phone,
+        role: u.role,
+      }));
+    }
+
+    // Fallback: lấy qua bảng employees nếu users chưa gắn branch_id đúng.
     const rows = await Employee.findAll({
       where: {
         branch_id: branchId,
@@ -366,15 +386,17 @@ const waiterService = {
       order: [['employee_id', 'ASC']],
     });
 
-    return rows.map((row) => {
-      const data = row.toJSON();
-      return {
-        user_id: data.User?.user_id,
-        full_name: data.User?.full_name,
-        phone: data.User?.phone,
-        employee_id: data.employee_id,
-      };
-    }).filter((w) => w.user_id);
+    return rows
+      .map((row) => {
+        const data = row.toJSON();
+        return {
+          user_id: data.User?.user_id,
+          full_name: data.User?.full_name,
+          phone: data.User?.phone,
+          role: data.User?.role,
+        };
+      })
+      .filter((w) => w.user_id);
   },
 
 

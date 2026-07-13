@@ -447,9 +447,33 @@ export function useAdminTablesPage() {
         headers: authHeaders(),
       });
       branchWaiters.value = res.data?.waiters || [];
+
+      const me = getCurrentUser();
+      if (me?.user_id && ["waiter", "admin"].includes(me?.role)) {
+        const exists = branchWaiters.value.some((w) => w.user_id === me.user_id);
+        if (!exists) {
+          branchWaiters.value.unshift({
+            user_id: me.user_id,
+            full_name: me.full_name || me.username || "Tôi",
+            phone: me.phone || null,
+          });
+        }
+      }
+      syncSelectedWaiterFromOrders();
     } catch (err) {
       console.error("fetchBranchWaiters:", err);
-      branchWaiters.value = [];
+      const me = getCurrentUser();
+      branchWaiters.value =
+        me?.user_id && ["waiter", "admin"].includes(me?.role)
+          ? [
+              {
+                user_id: me.user_id,
+                full_name: me.full_name || me.username || "Tôi",
+                phone: me.phone || null,
+              },
+            ]
+          : [];
+      syncSelectedWaiterFromOrders();
     } finally {
       branchWaitersLoading.value = false;
     }
@@ -470,6 +494,18 @@ export function useAdminTablesPage() {
   });
 
   watch(tableOrders, () => syncSelectedWaiterFromOrders(), { deep: true });
+
+  const canAssignSelf = computed(() => {
+    const user = getCurrentUser();
+    return Boolean(user?.user_id && ["waiter", "admin"].includes(user?.role));
+  });
+
+  const assignSelfAsWaiter = async () => {
+    const user = getCurrentUser();
+    if (!user?.user_id) return;
+    selectedWaiterUserId.value = user.user_id;
+    await assignWaiterToSession();
+  };
 
   const assignWaiterToSession = async () => {
     if (!selectedWaiterUserId.value || !selectedTable.value?.table_id) {
@@ -1267,5 +1303,7 @@ export function useAdminTablesPage() {
     currentAssignedWaiter,
     assignWaiterToSession,
     isTableServing,
+    canAssignSelf,
+    assignSelfAsWaiter,
   };
 }
